@@ -16,32 +16,39 @@ public static partial class Equipment
         var L = c.Plan.Length;
         var before = c.Ship.Modules.Count;
         // Big deck machinery first (housings, generators, hab blocks), then the small landmarks around it.
-        Repeat(r.Int(2, 5), () => MachineryBlock(c));
+        Repeat(c.Count(2, 5), () => MachineryBlock(c));
+        void Sensor(float scale)
+        {
+            // The yard's habit decides what kind of sensor it fits.
+            switch (r.Weighted(c.Lang.Sensors.Select(kv => (kv.Key, kv.Value)).OrderBy(x => x.Key, StringComparer.Ordinal).ToList()))
+            {
+                case "dish": Dish(c, Num.Clamp(L * r.Range(0.02f, 0.03f), 2.5f, 6f) * scale); break;
+                case "mast": LatticeMast(c, Num.Clamp(L * r.Range(0.07f, 0.12f), 6f, 22f) * scale); break;
+                default: Radome(c, Num.Clamp(L * r.Range(0.014f, 0.024f), 1.6f, 5f) * scale); break;
+            }
+        }
         switch (c.Plan.Archetype)
         {
             case "research":
-                Repeat(r.Int(1, 3), () => Radome(c, Num.Clamp(L * r.Range(0.014f, 0.024f), 1.8f, 5f)));
-                if (r.Chance(0.65)) Dish(c, Num.Clamp(L * r.Range(0.02f, 0.03f), 2.5f, 6f));
-                LatticeMast(c, Num.Clamp(L * r.Range(0.08f, 0.13f), 7f, 22f));
-                Repeat(r.Int(2, 4), () => Antenna(c));
-                Repeat(r.Int(1, 2), () => DockingCollar(c));
+                Repeat(c.Count(2, 4), () => Sensor(1f));
+                Repeat(c.Count(2, 4), () => Antenna(c));
+                Repeat(c.Count(1, 2), () => DockingCollar(c));
                 if (r.Chance(0.5)) CargoBay(c);
                 break;
             case "freighter":
-                Repeat(r.Int(1, 2), () => Crane(c));
-                if (c.Plan.Family != "spine") Repeat(r.Int(1, 3), () => ContainerStack(c));
-                Repeat(r.Int(1, 3), () => CargoBay(c));
-                Repeat(r.Int(1, 2), () => DockingCollar(c));
-                if (r.Chance(0.4)) Radome(c, Num.Clamp(L * 0.012f, 1.6f, 3.5f));
-                if (r.Chance(0.5)) LatticeMast(c, Num.Clamp(L * r.Range(0.05f, 0.08f), 6f, 14f));
-                Repeat(r.Int(1, 3), () => Antenna(c));
+                Repeat(c.Count(1, 2), () => Crane(c));
+                if (c.Plan.Family != "spine") Repeat(c.Count(1, 3), () => ContainerStack(c));
+                Repeat(c.Count(1, 3), () => CargoBay(c));
+                Repeat(c.Count(1, 2), () => DockingCollar(c));
+                Repeat(c.Count(0, 2), () => Sensor(0.8f));
+                Repeat(c.Count(1, 3), () => Antenna(c));
                 break;
             default: // patrol
-                Repeat(r.Int(3, 6), () => Hardpoint(c));
-                if (r.Chance(0.6)) Radome(c, Num.Clamp(L * 0.018f, 1.5f, 3.2f));
+                Repeat(c.Count(3, 6), () => Hardpoint(c));
+                Repeat(c.Count(1, 2), () => Sensor(0.75f));
                 if (r.Chance(0.5)) DockingCollar(c);
                 if (r.Chance(0.4)) CargoBay(c);
-                Repeat(r.Int(1, 3), () => Antenna(c));
+                Repeat(c.Count(1, 3), () => Antenna(c));
                 break;
         }
         PlaceVentral(c);

@@ -119,7 +119,7 @@
   <header>
     <div>
       <h1>BadShip <span>Shipyard</span></h1>
-      <p>Build industrial spaceships live. The BadShip generator, the same C# code as the command-line tool, runs right here in your browser as WebAssembly. Pick a seed and options, generate, then reroll parts of the ship while keeping the rest.</p>
+      <p>Build industrial spaceships live. The BadShip generator, the same C# code as the command-line tool, runs right here in your browser as WebAssembly. Pick an operator, a yard and a size, generate, then reroll parts of the ship while keeping the rest. Ships from the same yard share their architecture; the operator decides the paint.</p>
     </div>
     <div class="engine" id="engine">starting the generator…</div>
   </header>
@@ -163,6 +163,15 @@
         </div>
       </div>
       <div class="fields">
+        <label>Faction
+          <select id="faction"><option value="auto">Auto</option><option value="haulers">Free Haulers Guild</option><option value="survey">Oceanic Survey Directorate</option><option value="patrol">Frontier Patrol Command</option><option value="miners">Kessler Belt Mining Union</option><option value="independent">Independent</option></select>
+        </label>
+        <label>Manufacturer
+          <select id="manufacturer"><option value="auto">Faction's suppliers</option><option value="halvorsen">Halvorsen Heavy Works</option><option value="meridian">Meridian Survey Yards</option><option value="korsak">Korsak Arsenal</option><option value="tanaka">Tanaka-Orbit Logistics</option><option value="brightwater">Brightwater Cooperative</option></select>
+        </label>
+        <label>Size
+          <select id="size"><option value="auto">Auto</option><option>small</option><option>medium</option><option>large</option></select>
+        </label>
         <label>Archetype
           <select id="archetype"><option value="auto">Auto</option><option>freighter</option><option>research</option><option>patrol</option></select>
         </label>
@@ -176,7 +185,7 @@
           <select id="ventral"><option value="">Auto</option><option>keel</option><option>gondola</option><option>pods</option><option>none</option></select>
         </label>
         <label>Palette
-          <select id="palette"><option value="auto">Auto</option><option>gunmetal</option><option>naval</option><option>offwhite</option><option>slate</option></select>
+          <select id="palette"><option value="auto">Faction paint</option><option>gunmetal</option><option>naval</option><option>offwhite</option><option>slate</option></select>
         </label>
         <label>Detail
           <select id="detail"><option>high</option><option>medium</option><option>low</option></select>
@@ -398,6 +407,7 @@ function recipe() {
   return {
     seed: Math.max(1, Math.floor(+$('seed').value || 1)),
     archetype: $('archetype').value, family: $('family').value, palette: $('palette').value, detail: $('detail').value,
+    faction: $('faction').value, manufacturer: $('manufacturer').value, size: $('size').value,
     stage_seeds: Object.keys(stageSeeds).length ? { ...stageSeeds } : null,
     overrides: Object.keys(overrides).length ? overrides : null,
   };
@@ -405,6 +415,9 @@ function recipe() {
 
 function cliCommand(r) {
   const parts = [`badship generate --seed ${r.seed}`];
+  if (r.faction !== 'auto') parts.push(`--faction ${r.faction}`);
+  if (r.manufacturer !== 'auto') parts.push(`--manufacturer ${r.manufacturer}`);
+  if (r.size !== 'auto') parts.push(`--size ${r.size}`);
   if (r.archetype !== 'auto') parts.push(`--archetype ${r.archetype}`);
   if (r.family !== 'auto') parts.push(`--family ${r.family}`);
   if (r.palette !== 'auto') parts.push(`--palette ${r.palette}`);
@@ -418,7 +431,7 @@ const cap = s => s ? s[0].toUpperCase() + s.slice(1) : '—';
 function readout(info, r) {
   const p = info.recipe.resolved, meta = info.metadata, v = info.validation;
   $('r-name').textContent = `Seed ${r.seed}`;
-  $('r-sub').textContent = `${p.archetype} · ${p.family}`;
+  $('r-sub').textContent = `${p.size} ${p.archetype} · ${p.family}`;
   const st = $('r-status'); st.hidden = false; st.textContent = v.status; st.className = `pill ${v.status}`;
   const tiers = {};
   for (const m of meta.modules) tiers[m.tier] = (tiers[m.tier] ?? 0) + 1;
@@ -429,6 +442,8 @@ function readout(info, r) {
     ['Main · gear · detail', `${tiers.primary ?? 0} · ${tiers.secondary ?? 0} · ${tiers.tertiary ?? 0}`],
   ].map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
   $('r-plan').innerHTML = [
+    ['Operator', p.faction_name], ['Built by', p.manufacturer_name],
+    ...(p.signature && p.signature !== 'none' ? [['Yard signature', p.signature.replace('_', ' ')]] : []),
     ['Hull form', cap(p.hull_form)], ['Prow', cap(p.prow_style)], ['Bridge', cap(p.bridge_style)], ['Tiers', p.tiers],
     ['Engines', `${p.engine_layout} ${p.engine_style}s`], ...(p.payload ? [['Payload', cap(p.payload)]] : []),
     ['Below the hull', cap(p.ventral)], ['Palette', cap(p.palette)],
@@ -488,7 +503,7 @@ function log(root, r, info) {
   const b = document.createElement('button');
   b.className = 'card'; b.type = 'button';
   const rerolled = r.stage_seeds ? ' · rerolled' : '';
-  b.innerHTML = `<span class="meta"><span class="nm">Seed ${r.seed}</span><span class="ty">${info.recipe.resolved.archetype} · ${info.recipe.resolved.family}${rerolled}</span></span>`;
+  b.innerHTML = `<span class="meta"><span class="nm">Seed ${r.seed}</span><span class="ty">${info.recipe.resolved.manufacturer_name.split(' ')[0]} · ${info.recipe.resolved.size} ${info.recipe.resolved.archetype}${rerolled}</span></span>`;
   b.prepend(thumb);
   b.addEventListener('click', () => restore(entry, b));
   list.prepend(b);
@@ -498,7 +513,7 @@ function log(root, r, info) {
 function markCurrent(card) { document.querySelectorAll('.card').forEach(c => c.setAttribute('aria-current', String(c === card))); }
 function restore(entry, card) {
   const r = entry.r;
-  $('seed').value = r.seed; $('archetype').value = r.archetype; $('family').value = r.family; $('palette').value = r.palette; $('detail').value = r.detail;
+  $('seed').value = r.seed; $('faction').value = r.faction; $('manufacturer').value = r.manufacturer; $('size').value = r.size; $('archetype').value = r.archetype; $('family').value = r.family; $('palette').value = r.palette; $('detail').value = r.detail;
   $('hull_form').value = r.overrides?.hull_form ?? ''; $('ventral').value = r.overrides?.ventral ?? '';
   for (const k of Object.keys(stageSeeds)) delete stageSeeds[k];
   Object.assign(stageSeeds, r.stage_seeds ?? {});
@@ -516,7 +531,7 @@ $('random').addEventListener('click', () => { $('seed').value = rand(); for (con
 $('reset').addEventListener('click', () => { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
 document.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { stageSeeds[b.dataset.stage] = rand(); build(); }));
 $('seed').addEventListener('keydown', e => { if (e.key === 'Enter') { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); } });
-for (const id of ['archetype', 'family', 'hull_form', 'ventral', 'palette', 'detail']) $(id).addEventListener('change', () => build());
+for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'hull_form', 'ventral', 'palette', 'detail']) $(id).addEventListener('change', () => build());
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
   state.mode = b.dataset.mode;
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));

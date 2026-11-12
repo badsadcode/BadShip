@@ -91,6 +91,45 @@ try
                 File.WriteAllText(Path.Combine(dir, "index.json"), JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
                 return 0;
             }
+        case "fleet":
+            {
+                // A faction's fleet: its roles, sizes and suppliers, so ships share paint and (per yard) architecture.
+                var faction = Opt("faction", "haulers");
+                var count = int.Parse(Opt("count", "8"));
+                var fleetSeed = ulong.Parse(Opt("seed", "1"));
+                var dir = Opt("out", "out/fleet");
+                Directory.CreateDirectory(dir);
+                var f = Factions.Get(faction);
+                // Size quotas from the faction's weights, at least one of each, smallest first.
+                var total = f.Sizes.Values.Sum();
+                var sizes = new List<string>();
+                foreach (var sz in new[] { "small", "medium", "large" })
+                    sizes.AddRange(Enumerable.Repeat(sz, Math.Max(1, (int)Math.Round(count * f.Sizes.GetValueOrDefault(sz) / total))));
+                while (sizes.Count > count) sizes.RemoveAt(sizes.LastIndexOf(sizes.GroupBy(x => x).OrderByDescending(g => g.Count()).First().Key));
+                while (sizes.Count < count) sizes.Add("medium");
+                sizes = sizes.OrderBy(x => Array.IndexOf(new[] { "small", "medium", "large" }, x)).ToList();
+                var index = new List<object>();
+                for (var i = 0; i < count; i++)
+                {
+                    var recipe = RecipeFrom(opts, fleetSeed * 1000 + (ulong)i);
+                    recipe.Faction = faction;
+                    recipe.Size = sizes[i];
+                    var name = $"{faction}_{i + 1:D2}";
+                    var ship = ShipGenerator.Generate(recipe);
+                    var report = ShipValidator.Validate(ship);
+                    ShipFiles.Save(ship, report, dir, name);
+                    index.Add(new
+                    {
+                        name, seed = recipe.Seed, archetype = ship.Plan.Archetype, family = $"{ship.Plan.Family} · {ship.Plan.ManufacturerName}",
+                        prow = ship.Plan.Size, length = MathF.Round(ship.Bounds.Size.Z, 1), triangles = ship.Triangles, status = report.Status,
+                        manufacturer = ship.Plan.ManufacturerName, faction = ship.Plan.FactionName, size = ship.Plan.Size,
+                    });
+                    Console.WriteLine($"{name}  {ship.Plan.Size,-6} {ship.Plan.Archetype,-9} {ship.Plan.Family,-6} {ship.Bounds.Size.Z,5:0} m  {ship.Plan.ManufacturerName,-26} {report.Status}");
+                }
+                File.WriteAllText(Path.Combine(dir, "index.json"), JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine($"fleet of the {f.Name}: {dir}");
+                return 0;
+            }
         case "stress":
             {
                 var count = int.Parse(Opt("count", "300"));
@@ -124,7 +163,10 @@ try
                   badship gallery  --count N [--start S] [same options] [--out DIR]
                   badship recipe   FILE.recipe.json [--out DIR]
                   badship stress   --count N [--start S] [same options]
-                  badship variants --seed N --stage plan|silhouette|equipment|details|look [--count N] [--out DIR]
+                  badship variants --seed N --stage plan|silhouette|ventral|equipment|details|look [--count N] [--out DIR]
+                  badship fleet    --faction haulers|survey|patrol|miners|independent|faction-N [--count N] [--seed S] [--out DIR]
+
+                  --size small|medium|large   --faction ...   --manufacturer halvorsen|meridian|korsak|tanaka|brightwater|yard-N
 
                   --set key=value,...      pin plan choices: hull_form=faceted, prow=wedge, bridge=overhang, tiers=3,
                                            engines=2x2, engine_style=pod, payload=tanks, asymmetric=true, ventral=keel,
@@ -159,6 +201,9 @@ ShipRecipe RecipeFrom(Dictionary<string, string> o, ulong seed) => new()
     Family = o.GetValueOrDefault("family", "auto"),
     Length = o.TryGetValue("length", out var l) ? float.Parse(l, System.Globalization.CultureInfo.InvariantCulture) : null,
     Palette = o.GetValueOrDefault("palette", "auto"),
+    Size = o.GetValueOrDefault("size", "auto"),
+    Faction = o.GetValueOrDefault("faction", "auto"),
+    Manufacturer = o.GetValueOrDefault("manufacturer", "auto"),
     Detail = o.GetValueOrDefault("detail", "high"),
     Name = o.GetValueOrDefault("name"),
     StageSeeds = o.TryGetValue("stage-seed", out var ss) ? Pairs(ss).ToDictionary(kv => kv.Key, kv => ulong.Parse(kv.Value)) : null,

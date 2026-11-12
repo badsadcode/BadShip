@@ -107,6 +107,73 @@ window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'be
   return data;
 };
 
+/** All ships of a fleet in one scene at true scale, bow to the right, smallest first, with labels and a scale bar. */
+window.renderLineup = async (items, { w = 2400, h = 900, view = 'side', title = '' } = {}) => {
+  // h is recomputed from the fleet's proportions below.
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#121821');
+  scene.environment = envMap; scene.environmentIntensity = 0.45;
+  scene.add(new THREE.HemisphereLight('#a9bdd6', '#1a1e24', 1.0));
+  const key = new THREE.DirectionalLight('#fff1dc', 3.0); key.position.set(-1, 1.4, 0.9); scene.add(key);
+  const rim = new THREE.DirectionalLight('#7fa8ff', 1.2); rim.position.set(0.8, 0.4, -1); scene.add(rim);
+  // Two rows when there are many ships: small and medium on top, large below.
+  const placed = [];
+  let cursorZ = 0, maxY = 0;
+  const gap = 18;
+  for (const it of items) {
+    const gltf = await loader.loadAsync(it.url);
+    const ship = gltf.scene;
+    const markers = ship.getObjectByName('markers'); if (markers) markers.visible = false;
+    const box = new THREE.Box3().setFromObject(ship);
+    const size = box.getSize(new THREE.Vector3());
+    ship.position.set(-box.getCenter(new THREE.Vector3()).x, -box.min.y, cursorZ - box.min.z);
+    scene.add(ship);
+    placed.push({ it, z0: cursorZ, z1: cursorZ + size.z, top: size.y });
+    cursorZ += size.z + gap;
+    maxY = Math.max(maxY, size.y);
+  }
+  const totalZ = cursorZ - gap;
+  // Fit the height to the tallest ship rather than wasting the frame.
+  const halfW = totalZ * 0.52;
+  const halfH = maxY * 0.62;
+  h = Math.max(260, Math.round(w * halfH / halfW));
+  const cam = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 0.1, 10000);
+  const cy = maxY * 0.45;
+  const dir = view === 'low' ? new THREE.Vector3(-1, 0.12, 0).normalize() : new THREE.Vector3(-1, 0, 0);
+  cam.position.set(dir.x * 3000, cy + dir.y * 3000, totalZ / 2);
+  cam.lookAt(0, cy, totalZ / 2);
+  renderer.setPixelRatio(1);
+  renderer.setSize(w, h, false);
+  renderer.render(scene, cam);
+  // Labels and a scale bar on a 2D canvas over the render.
+  const out = document.createElement('canvas'); out.width = w; out.height = h + 200;
+  const g = out.getContext('2d');
+  g.fillStyle = '#121821'; g.fillRect(0, 0, out.width, out.height);
+  g.drawImage(renderer.domElement, 0, 0);
+  const toX = z => (z - (totalZ / 2 - halfW)) / (2 * halfW) * w;
+  const groundY = h / 2 - (0 - cy) / halfH * (h / 2);
+  g.textAlign = 'center';
+  // Labels in up to three staggered rows so neighbours never overlap.
+  const rowRight = [-1e9, -1e9, -1e9];
+  for (const p of placed) {
+    const x = toX((p.z0 + p.z1) / 2);
+    g.font = '600 20px system-ui, sans-serif';
+    const half = Math.max(g.measureText(p.it.label).width, g.measureText(p.it.sub).width) / 2 + 10;
+    let row = rowRight.findIndex(rr => x - half > rr);
+    if (row < 0) row = 0;
+    rowRight[row] = x + half;
+    const y = Math.min(groundY + 34, h - 4) + row * 52;
+    g.fillStyle = '#e6edf3'; g.fillText(p.it.label, x, y);
+    g.fillStyle = '#d9a43a'; g.font = '500 16px system-ui, sans-serif'; g.fillText(p.it.sub, x, y + 22);
+  }
+  const pxPerM = w / (2 * halfW);
+  const bar = [10, 25, 50, 100].reduce((best, m) => (m * pxPerM < w * 0.12 ? m : best), 10);
+  g.fillStyle = '#e6edf3'; g.fillRect(40, h + 176, bar * pxPerM, 6);
+  g.font = '500 18px system-ui, sans-serif'; g.textAlign = 'left'; g.fillText(`${bar} m`, 40 + bar * pxPerM + 12, h + 184);
+  g.textAlign = 'right'; g.fillStyle = '#8b98a8'; g.fillText(title, w - 40, h + 184);
+  return out.toDataURL('image/png');
+};
+
 window.buildSheet = (title, cells, cols, cellW) => {
   const sheet = document.getElementById('sheet');
   sheet.style.gridTemplateColumns = `repeat(${cols}, ${cellW}px)`;

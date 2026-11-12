@@ -18,6 +18,15 @@ public sealed class ShipRecipe
     /// <summary>barge | spine | twin | block | auto (the macro hull family)</summary>
     public string Family { get; set; } = "auto";
 
+    /// <summary>small | medium | large | auto: size classes have their own rules, not just a scale.</summary>
+    public string Size { get; set; } = "auto";
+
+    /// <summary>The operating faction (paint, roles, sizes, suppliers): haulers | survey | patrol | miners | independent | faction-N | auto.</summary>
+    public string Faction { get; set; } = "auto";
+
+    /// <summary>The yard whose design language shapes the ship: halvorsen | meridian | korsak | tanaka | brightwater | yard-N | auto (from the faction's suppliers).</summary>
+    public string Manufacturer { get; set; } = "auto";
+
     /// <summary>Overall length in metres, or null for the archetype's usual range.</summary>
     public float? Length { get; set; }
 
@@ -62,6 +71,12 @@ public sealed class PlanOverrides
 /// <summary>Every choice the generator made from the recipe and seed (the "semantic plan" of the ship).</summary>
 public sealed class ShipPlan
 {
+    public string Size { get; set; } = "";
+    public string Faction { get; set; } = "";
+    public string FactionName { get; set; } = "";
+    public string Manufacturer { get; set; } = "";
+    public string ManufacturerName { get; set; } = "";
+    public string Signature { get; set; } = "";
     public string Archetype { get; set; } = "";
     public string Family { get; set; } = "";
     public float Length { get; set; }

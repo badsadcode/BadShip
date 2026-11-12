@@ -41,10 +41,17 @@ public static class Palettes
 
     private static readonly string[] Accents = ["#c7902a", "#d9b21c", "#b85a22", "#a8291f"];
 
-    public static Dictionary<string, MaterialDef> Build(string name, Rng look)
+    public static Dictionary<string, MaterialDef> Build(string name, Rng look, string? accentHex = null)
     {
         var (main, secondary) = Hulls[name];
-        var accent = look.Pick(Accents);
+        return Build(main, secondary, accentHex, look);
+    }
+
+    /// <summary>Materials from explicit hull colours (a faction's paint); a missing accent is picked from the seed.</summary>
+    public static Dictionary<string, MaterialDef> Build(string main, string secondary, string? accentHex, Rng look)
+    {
+        var picked = look.Pick(Accents);
+        var accent = string.IsNullOrEmpty(accentHex) ? picked : accentHex;
         var cargo = new List<string> { "#9c4a2a", "#c08a2a", "#5e6e7a", "#7a3326", "#46604a", "#b8a27a" };
         // Shuffle the container colours deterministically and take three.
         for (var i = cargo.Count - 1; i > 0; i--)

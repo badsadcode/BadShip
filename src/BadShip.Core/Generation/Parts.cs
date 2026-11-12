@@ -18,9 +18,11 @@ public static class Parts
     public static Profile HullBody(BuildContext c, float cx, float cy, float w, float h, float slabTop = 0.05f)
     {
         var r = c.Shape;
+        var k = c.Lang.Chamfer;
+        float Taper(float ratio) => Math.Clamp(1 - (1 - ratio) * c.Lang.Taper, 0.4f, 1f);
         if (c.Plan.HullForm == "faceted")
-            return new Profile(cx, cy, w * r.Range(0.5f, 0.66f), w, h, h * r.Range(0.16f, 0.24f), h * r.Range(0.38f, 0.5f)) { TopRun = r.Range(1.8f, 2.8f) };
-        return new Profile(cx, cy, w * r.Range(0.66f, 0.86f), w, h, w * r.Range(slabTop * 0.6f, slabTop * 1.4f), h * r.Range(0.25f, 0.42f));
+            return new Profile(cx, cy, w * Taper(r.Range(0.5f, 0.66f)), w, h, h * r.Range(0.16f, 0.24f) * k, h * r.Range(0.38f, 0.5f) * MathF.Sqrt(k)) { TopRun = r.Range(1.8f, 2.8f) };
+        return new Profile(cx, cy, w * Taper(r.Range(0.66f, 0.86f)), w, h, w * r.Range(slabTop * 0.6f, slabTop * 1.4f) * k, h * r.Range(0.25f, 0.42f) * k);
     }
 
     // ------------------------------------------------------------------ prows
@@ -97,17 +99,27 @@ public static class Parts
     /// An engineering bay behind <paramref name="zFace"/> (the parent's rear face) with a grid of engine pods or nacelles
     /// on its back, each with a nozzle, a glowing core and an exhaust marker. Returns the bay.
     /// </summary>
-    public static Module Engines(BuildContext c, string parentId, string prefix, float zFace, float cx, float cy, float bayW, float bayH)
+    public static Module Engines(BuildContext c, string parentId, string prefix, float zFace, float cx, float cy, float bayW, float bayH, float? nacelleLength = null, float? bayLength = null)
     {
         var r = c.Shape;
         var p = c.Plan;
-        var bayLen = bayH * r.Range(0.4f, 0.7f);
+        bayW *= c.Lang.EngineScale;
+        bayH *= c.Lang.EngineScale;
+        var bayLen = bayLength ?? MathF.Min(bayH * r.Range(0.4f, 0.7f), p.Length * 0.1f);
+        c.LastBayLength = bayLen;
         var cham = MathF.Min(bayW, bayH);
         var bp = new Profile(cx, cy, bayW * 0.9f, bayW, bayH, cham * r.Range(0.08f, 0.18f), cham * r.Range(0.08f, 0.18f));
         var zBack = zFace - bayLen;
         var (bay, bayLoft) = c.AddLoft(prefix + "engineering", "engineering_bay", ModuleTier.Primary, parentId,
             [(zBack, bp.Scaled(0.94f, 0.94f)), (zBack + bayLen * 0.15f, bp), (zFace + 1f, bp)], Roles.HullMain);
 
+        if (c.Lang.Signature == "engine_collar")
+        {
+            // The yard's mark: a heavy accent collar round the engineering bay.
+            var collar = bp.Scaled(1.08f, 1.1f);
+            var cz = zBack + bayLen * r.Range(0.35f, 0.55f);
+            new Loft([(cz - bayLen * 0.12f, collar), (cz + bayLen * 0.12f, collar)]).Build(bay.Mesh, Roles.Accent);
+        }
         var cols = p.EngineLayout[0] - '0';
         var rows = p.EngineLayout[2] - '0';
         // Fit the layout to the bay's shape: a narrow bay can't take four engines abreast.
@@ -117,7 +129,8 @@ public static class Parts
         var cellH = bayH / rows;
         var rad = MathF.Min(cellW, cellH) * 0.5f * r.Range(1.0f, 1.15f);
         if (cols == 1 && rows == 2) rad = MathF.Min(bayW * 0.42f, cellH * 0.5f * 0.95f);
-        var nl = MathF.Min(rad * r.Range(1.8f, 2.6f) + bayLen * 0.2f, p.Length * 0.09f);
+        var nl = nacelleLength ?? MathF.Min(rad * r.Range(1.8f, 2.6f) + bayLen * 0.2f, p.Length * (p.Size == "small" ? 0.07f : 0.09f));
+        c.LastNacelleLength = nl;
         var k = 0;
         for (var j = 0; j < rows; j++)
             for (var i = 0; i < cols; i++)
@@ -243,14 +256,18 @@ public static class Parts
     /// Stacked superstructure tiers on a deck, each smaller than the one below; the top one is the bridge.
     /// </summary>
     public static TierInfo? Superstructure(BuildContext c, Deck deck, int tiers, float widthMin = 0.55f, float widthMax = 0.85f,
-        float heightScale = 1f, string prefix = "superstructure", float lengthMin = 0.35f, float lengthMax = 0.62f)
+        float heightScale = 1f, string prefix = "superstructure", float lengthMin = 0.35f, float lengthMax = 0.62f,
+        string? anchorAt = null, bool bridge = true)
     {
         var r = c.Shape;
         var p = c.Plan;
+        lengthMin = MathF.Min(lengthMin * c.Lang.TierLength, 0.9f);
+        lengthMax = MathF.Min(lengthMax * c.Lang.TierLength, 0.95f);
         var len = MathF.Min(MathF.Max(deck.Length * r.Range(lengthMin, lengthMax), 7f), deck.Length);
         var w = MathF.Min(MathF.Max(deck.Width * r.Range(widthMin, widthMax), 5f), deck.Width);
         var h = p.Height * r.Range(0.4f, 0.6f) * heightScale;
         var anchor = r.Pick(["aft", "mid", "fore"]);
+        if (anchorAt != null) anchor = anchorAt;
         var zc = anchor switch
         {
             "aft" => deck.Z0 + len / 2 + deck.Length * 0.04f,
@@ -287,14 +304,14 @@ public static class Parts
                 cx = (current.X0 + current.X1) / 2 + (p.Asymmetric ? (current.Width - w) / 2 * r.Range(-1f, 1f) : 0);
             }
             var t = TierBlock(c, $"{prefix}_{k}", current.ModuleId, cx, current.Y, zc - len / 2, zc + len / 2, w, h,
-                last ? p.BridgeStyle : r.Pick(["slope", "blunt"]), bridge: last);
+                last && bridge ? p.BridgeStyle : r.Pick(["slope", "blunt"]), bridge: last && bridge);
             current.Take(cx - w / 2, cx + w / 2, zc - len / 2, zc + len / 2);
             top = t;
             if (last) break;
             if (t.Deck is null || t.Deck.Length < 3 || t.Deck.Width < 3)
             {
                 // No room above: this tier becomes the bridge after all.
-                c.AddMarker("bridge", t.Module, new Vector3(cx, t.TopY - h * 0.3f, zc + len / 2), Vector3.UnitZ, w * 0.4f);
+                if (bridge) c.AddMarker("bridge", t.Module, new Vector3(cx, t.TopY - h * 0.3f, zc + len / 2), Vector3.UnitZ, w * 0.4f);
                 break;
             }
             current = t.Deck;
@@ -314,15 +331,21 @@ public static class Parts
         {
             var (along, across) = loft.FaceSize(s, f);
             if (along < 4 || across < 1.6f) continue;
-            var band = MathF.Min(0.22f, 1.2f / across);
+            var style = c.Lang.Windows;
+            var band = style == "slits" ? MathF.Min(0.1f, 0.5f / across) : MathF.Min(0.22f, 1.2f / across);
             var v0 = UpV(f, up);
             var v1 = UpV(f, up + band);
             if (v0 > v1) (v0, v1) = (v1, v0);
             var key = BuildContext.FaceKey(m, s, f);
             // Restrained: one to three short clusters of panes rather than a ribbon down the whole side.
             var r = c.Shape;
+            if (style == "bands" && c.TryUseSurface(key, 0.06f, 0.94f, v0 - 0.02f, v1 + 0.02f))
+            {
+                PaneRow(m.Mesh, loft, s, f, 0.06f, 0.94f, v0, v1, Math.Max(2, (int)(along / 2.6f)), alongU: true);
+                continue;
+            }
             var clusters = along > 30 ? r.Int(1, 3) : 1;
-            var paneLen = 2.4f;
+            var paneLen = style == "slits" ? 3.2f : 2.4f;
             for (var k = 0; k < clusters; k++)
             {
                 var panes = r.Int(2, Math.Max(2, Math.Min(8, (int)(along * 0.3f / paneLen))));

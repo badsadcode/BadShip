@@ -40,9 +40,16 @@ public static class HullFamilies
         c.AddEnvelope("cargo", hull, new Aabb(new Vector3(-B * 0.35f, body.Bottom + H * 0.2f, zBody0 + 2), new Vector3(B * 0.35f, body.Top - 1, zProw)));
 
         Parts.Engines(c, hull.Id, "", zRear, 0, body.Cy + H * r.Range(-0.05f, 0.15f), B * r.Range(0.6f, 0.88f), H * r.Range(0.85f, 1.2f));
-        Parts.Superstructure(c, deck, p.Tiers, 0.7f, 0.95f, 1f, lengthMin: 0.55f, lengthMax: 0.88f);
+        if (p.Size == "large")
+        {
+            // Big hulls get two islands: the bridge island aft and a working block forward (or the other way round).
+            var aft = r.Chance(0.6);
+            Parts.Superstructure(c, deck, p.Tiers, 0.65f, 0.9f, 1f, lengthMin: 0.3f, lengthMax: 0.42f, anchorAt: aft ? "aft" : "fore");
+            Parts.Superstructure(c, deck, Math.Max(1, p.Tiers - 2), 0.5f, 0.75f, 0.8f, "forward_block", 0.2f, 0.32f, anchorAt: aft ? "fore" : "aft", bridge: false);
+        }
+        else Parts.Superstructure(c, deck, p.Tiers, 0.7f, 0.95f, 1f, lengthMin: 0.55f, lengthMax: 0.88f);
         ProwDressing(c, hull, loft, zProw);
-        SideBlocks(c, hull, body, zBody0, zProw);
+        SideBlocks(c, hull, body, zBody0, zProw, c.Lang.SideBlocks);
     }
 
     // ------------------------------------------------------------------ spine: command block, payload on a keel, engine block
@@ -75,7 +82,7 @@ public static class HullFamilies
         c.AddSides(eng, engLoft, 1, Profile.FacePosX, Profile.FaceNegX);
         c.AddBelly(eng, engP, zEngFace + 1.5f, zEngFront - 1.5f, main: false);
         Parts.Engines(c, eng.Id, "", zEngFace, engP.Cx, engP.Cy, ew * r.Range(0.85f, 1.0f), eh * r.Range(0.85f, 1.0f));
-        SideBlocks(c, eng, engP, zEngFace + 1.2f, zEngFront - 1.2f, chance: 0.5);
+        SideBlocks(c, eng, engP, zEngFace + 1.2f, zEngFront - 1.2f, chance: c.Lang.SideBlocks * 0.6);
 
         // Front mass: command section with its own prow and superstructure.
         var cw = B * r.Range(0.85f, 1f);
@@ -100,7 +107,7 @@ public static class HullFamilies
         ProwDressing(c, cmd, cmdLoft, zProw);
 
         // Middle: payload segments hung on the spine, with gaps that show the keel (negative space).
-        var n = r.Int(2, 4);
+        var n = p.Size == "large" ? r.Int(4, 6) : r.Int(2, 4);
         var gap = r.Range(2.5f, 6f);
         var z0All = zEngFront + gap * 0.6f;
         var z1All = zCmdRear - gap * 0.6f;
@@ -180,9 +187,13 @@ public static class HullFamilies
 
         var starboard = Hull(-1, "hull_starboard", center.Id);
 
+        float? nacelle = null, bayDepth = null;
         foreach (var (h, side, prefix) in new[] { (port, 1f, "port_"), (starboard, -1f, "starboard_") })
         {
-            Parts.Engines(c, h.m.Id, prefix, h.zRear, side * hx, h.prof.Cy - H * 0.05f, engW, engH);
+            // Both hulls carry identical engines (same length, so neither exhaust can clip the other hull's engines).
+            Parts.Engines(c, h.m.Id, prefix, h.zRear, side * hx, h.prof.Cy - H * 0.05f, engW, engH, nacelle, bayDepth);
+            nacelle = c.LastNacelleLength;
+            bayDepth = c.LastBayLength;
             ProwDressing(c, h.m, h.loft, h.zFront - prowLen);
         }
 

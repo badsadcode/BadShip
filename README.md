@@ -8,7 +8,13 @@ written in C# (.NET 10) with no dependencies beyond the base library, following 
 Y up, metres, recipe + seed, hand-written GLB, and checks with the Khronos validator. It does **not** reference NoorMD.
 The original brief from Bad Ideas Works is in [`docs/brief/`](docs/brief/) (and the zip at the root).
 
-![Gallery](docs/images/gallery_v0.3_low.png)
+![Gallery](docs/images/gallery_v0.4_low.png)
+
+**Fleets.** Three factions, eight ships each, at true scale. Paint comes from the operator; architecture from the yard
+that built each ship (Halvorsen's orange engine collars and square prows, Meridian's faceted glass noses and gondolas,
+Korsak's armoured wedges and keels):
+
+![Fleet lineups](docs/images/fleets_lineup.png)
 
 The faceted hull form with the Thalassa-style wraparound prow glass, and an open hangar bay:
 
@@ -19,7 +25,7 @@ Below the hull: an inverted two-step keel, and slung pods with a hanging sensor 
 
 ![Ventral structures](docs/images/closeup_ventral.png)
 
-![Silhouettes](docs/images/silhouettes_v0.3.png)
+![Silhouettes](docs/images/silhouettes_v0.4.png)
 
 ## Quick start
 
@@ -38,6 +44,9 @@ the seed for one stage only, so a hull you like stays put while its equipment, d
 dotnet run --project src/BadShip.Cli -- generate --seed 7 --archetype research --set hull_form=faceted,prow=wedge,tiers=4,engines=2x2
 dotnet run --project src/BadShip.Cli -- generate --seed 7 --stage-seed equipment=3,look=8
 dotnet run --project src/BadShip.Cli -- variants --seed 7 --stage equipment --count 8 --out out/variants
+dotnet run --project src/BadShip.Cli -- generate --seed 3 --faction survey --manufacturer meridian --size large
+dotnet run --project src/BadShip.Cli -- fleet --faction haulers --count 8 --seed 3 --out out/fleet_haulers
+node tools/render/lineup.mjs out/fleet_haulers   # true-scale lineup.png
 ```
 
 ![Equipment rerolls of one hull](docs/images/variants_equipment_reroll.png)
@@ -112,6 +121,15 @@ recipe + seed
   space above it; research ships get an observation gondola) or `pods` (tanks or cargo pods slung on short pylons),
   plus hanging equipment on underside decks: sensor domes, a utility claw, belly doors, downward docking ports with
   their corridors, ventral hardpoints and floodlights. Ventral structures have their own `ventral` stage seed.
+- **Manufacturers, factions and size classes** (`Design.cs`): a *manufacturer* is a design language (hull family
+  and form preferences, chamfers and taper, prow and bridge styles, engine style, layout and bay size,
+  superstructure steps, sensors, window style, side modules, plating, underside preference and a signature element:
+  `dorsal_ridge`, `accent_bands` or `engine_collar`). Presets: Halvorsen Heavy Works, Meridian Survey Yards, Korsak
+  Arsenal, Tanaka-Orbit Logistics, Brightwater Cooperative; `yard-N` makes a procedural yard. A *faction* is an
+  operator: paint, the roles and sizes it fields and the yards it buys from (Free Haulers Guild, Oceanic Survey
+  Directorate, Frontier Patrol Command, Kessler Belt Mining Union, independent, `faction-N`). *Size classes* have
+  their own rules: small craft are stubbier with one big engine or a pair, one or two tiers and fewer, relatively
+  larger parts; large ships get extra tiers, a second superstructure island, longer spines and more equipment.
 - **Hull families** (`HullFamilies.cs`): `barge` (one broad stepped hull, like the Thalassa reference), `spine`
   (command block + payload segments on a keel + engine block, with visible gaps), `twin` (two hulls under a bridge
   deck, cross girders and an optional slung cargo pod), `block` (compact armoured brick with sponsons and shrouded engines).
@@ -125,13 +143,15 @@ recipe + seed
   `engine_glow`, `hazard`, `accent`, `radome`, `cargo_a/b/c`. Each is one replaceable glTF material. UVs are
   box-projected in world space at 4 m per tile (they are exported but no textures are attached yet).
 
-## Status (v0.3.0: phase A, the Thalassa pass, and below the hull)
+## Status (v0.4.0: manufacturers, factions and size classes)
 
 - 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.
 - Open hangar bays (lit alcove with depth, gantry, hazard sill, vehicle or crates, railed platform) built from
   closed boxes, plus flat cargo doors where a hangar doesn't fit.
 - Ventral structures (keel, gondola, slung pods) and underside equipment.
-- 2000 consecutive seeds: 0 validation errors, 0 warnings; about 6 ms and roughly 5k triangles per ship.
+- Manufacturer design languages, factions, size classes, `fleet` command and true-scale lineups.
+- 1000 seeds per size class: 0 validation errors (a handful of small craft warn that they ended up a little longer
+  than planned); about 3 / 7 / 13 ms and 2k / 5.4k / 9.8k triangles for small / medium / large ships.
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
 - 19 unit tests: determinism, stage independence, validation over hundreds of seeds, recipe round trip, GLB structure.
 

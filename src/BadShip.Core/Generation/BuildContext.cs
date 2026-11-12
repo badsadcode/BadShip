@@ -84,6 +84,21 @@ public sealed class BuildContext
 
     public List<Deck> Decks { get; } = [];
     public List<BellySpan> Bellies { get; } = [];
+
+    /// <summary>The nacelle length the last engine assembly used (twin hulls match their engines).</summary>
+    public float? LastNacelleLength { get; set; }
+    public float? LastBayLength { get; set; }
+
+    /// <summary>The manufacturer's design language (set by the planner).</summary>
+    public DesignLanguage Lang { get; set; } = new();
+
+    /// <summary>An equipment count for this ship's size class: small craft carry fewer items, large ships more.</summary>
+    public int Count(int min, int max) => Plan.Size switch
+    {
+        "small" => Equip.Int((min + 1) / 2, Math.Max(1, (max + 1) / 2)),
+        "large" => Equip.Int(min + max / 2, max + max / 2 + 1),
+        _ => Equip.Int(min, max),
+    };
     public List<SideSurface> Sides { get; } = [];
     public List<LoftPart> Lofts { get; } = [];
 

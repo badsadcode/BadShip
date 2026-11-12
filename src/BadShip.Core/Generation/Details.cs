@@ -32,13 +32,13 @@ public static class Details
                     var isTop = f == Profile.FaceTop;
                     var isBottomChamfer = f is Profile.FaceBottomPosX or Profile.FaceBottomNegX;
                     if (isSide || isTop || (full && f is Profile.FaceTopPosX or Profile.FaceTopNegX))
-                        Plates(c, r, d.Mesh, loft, s, f, key, along, across, plateDepth, isTop ? 0.25 : 0.4);
+                        Plates(c, r, d.Mesh, loft, s, f, key, along, across, plateDepth, (isTop ? 0.25 : 0.4) * c.Lang.PlateDensity);
                     if (full && isSide && part.Kind is "hull" or "tier") Vents(c, r, d.Mesh, loft, s, f, key, along, across);
                     if (isBottomChamfer && part.Kind is "hull" or "pod") RunningLights(c, r, d.Mesh, loft, s, f, key, along);
                 }
             }
         }
-        if (full) AccentStripes(c, r);
+        if (full || c.Lang.Signature == "accent_bands") AccentStripes(c, r);
         Thrusters(c, r);
     }
 
@@ -105,7 +105,8 @@ public static class Details
     /// <summary>A bold diagonal-free colour band across the prow or the side (orange / yellow blocks in the references).</summary>
     private static void AccentStripes(BuildContext c, Rng r)
     {
-        if (!r.Chance(0.55)) return;
+        var signature = c.Lang.Signature == "accent_bands";
+        if (!signature && !r.Chance(0.4)) return;
         var hull = c.Lofts.FirstOrDefault(l => l.Kind == "hull");
         if (hull is null) return;
         var loft = hull.Loft;
@@ -113,11 +114,16 @@ public static class Details
         var u = r.Range(0.6f, 0.85f);
         var w = r.Range(0.03f, 0.06f);
         var d = c.DetailsOf(hull.Module);
-        foreach (var f in new[] { Profile.FacePosX, Profile.FaceNegX, Profile.FaceTopPosX, Profile.FaceTopNegX })
+        // The accent_bands signature: always a matched pair; otherwise a single band.
+        for (var band = 0; band < (signature ? 2 : 1); band++)
         {
-            var key = BuildContext.FaceKey(hull.Module, s, f);
-            if (!c.TryUseSurface(key, u, u + w, 0.02f, 0.98f)) continue;
-            Shapes.Patch(d.Mesh, Roles.Accent, loft, s, f, u, u + w, 0.02f, 0.98f, 0.1f);
+            var ub = u - band * w * 2.4f;
+            foreach (var f in new[] { Profile.FacePosX, Profile.FaceNegX, Profile.FaceTopPosX, Profile.FaceTopNegX })
+            {
+                var key = BuildContext.FaceKey(hull.Module, s, f);
+                if (!c.TryUseSurface(key, ub, ub + w, 0.02f, 0.98f)) continue;
+                Shapes.Patch(d.Mesh, Roles.Accent, loft, s, f, ub, ub + w, 0.02f, 0.98f, 0.1f);
+            }
         }
     }
 

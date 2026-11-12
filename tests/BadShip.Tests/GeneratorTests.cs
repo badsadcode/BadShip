@@ -228,6 +228,70 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void A_manufacturer_gives_its_ships_a_shared_architecture()
+    {
+        // Halvorsen builds square: almost never faceted, pods for engines, blunt or stepped prows, its engine collar.
+        var ships = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "halvorsen" })).ToList();
+        Assert.All(ships, s => Assert.Equal("Halvorsen Heavy Works", s.Plan.ManufacturerName));
+        Assert.All(ships, s => Assert.Equal("pod", s.Plan.EngineStyle));
+        Assert.True(ships.Count(s => s.Plan.HullForm == "slab") >= 24);
+        Assert.True(ships.Count(s => s.Plan.ProwStyle is "blunt" or "stepped") >= 18);
+        // Meridian builds faceted survey hulls with nacelles.
+        var meridian = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "meridian" })).ToList();
+        Assert.True(meridian.Count(s => s.Plan.HullForm == "faceted") >= 25);
+        Assert.True(meridian.Count(s => s.Plan.EngineStyle == "nacelle") >= 20);
+    }
+
+    [Fact]
+    public void A_faction_paints_its_ships_and_picks_its_roles()
+    {
+        var fleet = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Faction = "patrol" })).ToList();
+        var paint = Palettes.Linear(Factions.Presets["patrol"].HullMain);
+        Assert.All(fleet, s => Assert.Equal(paint, s.Materials[Roles.HullMain].Color));
+        Assert.True(fleet.Count(s => s.Plan.Archetype == "patrol") >= 15);
+        Assert.All(fleet, s => Assert.Contains(s.Plan.Manufacturer, Factions.Presets["patrol"].Suppliers.Keys));
+    }
+
+    [Fact]
+    public void Size_classes_have_their_own_scale_and_complexity()
+    {
+        double Avg(string size, Func<Ship, double> f) => Enumerable.Range(1, 25).Select(i => f(ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Size = size }))).Average();
+        Assert.True(Avg("small", s => s.Plan.Length) < 65);
+        Assert.True(Avg("large", s => s.Plan.Length) > 180);
+        Assert.True(Avg("small", s => s.Triangles) < Avg("medium", s => s.Triangles));
+        Assert.True(Avg("medium", s => s.Triangles) < Avg("large", s => s.Triangles));
+        // Small craft are stubbier, not scaled-down large ships.
+        Assert.True(Avg("small", s => s.Plan.Height / s.Plan.Length) > Avg("large", s => s.Plan.Height / s.Plan.Length) * 1.3);
+        Assert.All(Enumerable.Range(1, 25).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Size = "small" })), s => Assert.True(s.Plan.Tiers <= 2));
+    }
+
+    [Theory]
+    [InlineData("small")]
+    [InlineData("medium")]
+    [InlineData("large")]
+    public void Every_size_class_validates(string size)
+    {
+        for (ulong seed = 1; seed <= 60; seed++)
+        {
+            var report = ShipValidator.Validate(ShipGenerator.Generate(new ShipRecipe { Seed = seed, Size = size }));
+            Assert.False(report.HasErrors, $"{size} seed {seed}: " + string.Join("; ", report.Issues.Select(i => i.Message)));
+        }
+    }
+
+    [Fact]
+    public void Procedural_yards_and_factions_are_stable_and_valid()
+    {
+        Assert.Equal(Manufacturers.Procedural(42).Name, Manufacturers.Procedural(42).Name);
+        Assert.NotEqual(Manufacturers.Procedural(42).Name, Manufacturers.Procedural(43).Name);
+        for (ulong seed = 1; seed <= 20; seed++)
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Faction = $"faction-{seed}", Manufacturer = $"yard-{seed * 7}" });
+            Assert.False(ShipValidator.Validate(ship).HasErrors);
+        }
+        Assert.Throws<ArgumentException>(() => ShipGenerator.Generate(new ShipRecipe { Seed = 1, Manufacturer = "acme" }));
+    }
+
+    [Fact]
     public void Rng_streams_are_stable()
     {
         // Pinned values: if these change, every seed changes; bump ShipGenerator.Version.
