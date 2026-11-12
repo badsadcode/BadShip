@@ -132,6 +132,7 @@ public static class Parts
                     var pod = Profile.Box(x, y, rad * 2.05f, rad * 2f, rad * 0.5f);
                     var loft = new Loft([(ze, pod.Scaled(0.86f, 0.86f)), (ze + rad * 0.35f, pod), (zs, pod)]);
                     loft.Build(eng.Mesh, Roles.HullMain);
+                    eng.Lofts.Add(loft);
                     c.Lofts.Add(new LoftPart(eng, loft, "pod"));
                     // Two cooling bands around the pod.
                     foreach (var t in new[] { 0.35f, 0.7f })

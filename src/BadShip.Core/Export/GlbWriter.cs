@@ -17,7 +17,9 @@ public static class GlbWriter
     private const int ArrayBuffer = 34962, ElementArrayBuffer = 34963;
     private const int Float = 5126, UnsignedInt = 5125, UnsignedShort = 5123;
 
-    public static byte[] Write(Ship ship, bool includeDetails = true)
+    /// <param name="include">Which modules to write (all when null): how LODs are made.</param>
+    /// <param name="markers">Whether to write the functional marker nodes.</param>
+    public static byte[] Write(Ship ship, Func<Module, bool>? include = null, bool markers = true)
     {
         var bin = new MemoryStream();
         var bufferViews = new List<object>();
@@ -163,7 +165,7 @@ public static class GlbWriter
         var originOf = new Dictionary<string, Vector3>();
         foreach (var m in ParentsFirst(ship.Modules))
         {
-            if (!includeDetails && m.Tier == ModuleTier.Tertiary) continue;
+            if (include != null && !include(m)) continue;
             var parentNode = m.ParentId != null && nodeOf.TryGetValue(m.ParentId, out var pn) ? pn : root;
             var parentOrigin = m.ParentId != null && originOf.TryGetValue(m.ParentId, out var po) ? po : Vector3.Zero;
             var origin = m.Mesh.IsEmpty ? parentOrigin : Snap(m.Bounds.Center);
@@ -188,9 +190,9 @@ public static class GlbWriter
             originOf[m.Id] = origin;
         }
 
-        var markersNode = AddNode(new Dictionary<string, object> { ["name"] = "markers" });
-        children[root].Add(markersNode);
-        foreach (var mk in ship.Markers)
+        var markersNode = markers ? AddNode(new Dictionary<string, object> { ["name"] = "markers" }) : -1;
+        if (markers) children[root].Add(markersNode);
+        foreach (var mk in markers ? ship.Markers : [])
         {
             var q = RotationFromZ(mk.Direction);
             var node = new Dictionary<string, object>

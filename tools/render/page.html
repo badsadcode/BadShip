@@ -52,7 +52,13 @@ window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'be
 
   const scene = new THREE.Scene();
   scene.add(ship);
-  if (mode === 'silhouette') {
+  if (mode === 'clay') {
+    scene.background = new THREE.Color('#121821');
+    scene.add(new THREE.HemisphereLight('#c9d6e6', '#20252c', 1.6));
+    const k = new THREE.DirectionalLight('#ffffff', 2.4); k.position.set(-1, 1.4, 0.9); scene.add(k);
+    const clay = new THREE.MeshStandardMaterial({ color: '#7fa0c4', roughness: 0.8, transparent: true, opacity: 0.85 });
+    ship.traverse(o => { if (o.isMesh) o.material = clay; });
+  } else if (mode === 'silhouette') {
     scene.background = new THREE.Color('#f2f2ee');
     const black = new THREE.MeshBasicMaterial({ color: '#111' });
     ship.traverse(o => { if (o.isMesh) o.material = black; });

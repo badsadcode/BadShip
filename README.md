@@ -27,6 +27,17 @@ dotnet run --project src/BadShip.Cli -- stress --count 1000
 dotnet test
 ```
 
+**Pin choices, reroll stages.** `--set` fixes any plan choice and lets the seed pick the rest; `--stage-seed` replaces
+the seed for one stage only, so a hull you like stays put while its equipment, detail or colours change:
+
+```bash
+dotnet run --project src/BadShip.Cli -- generate --seed 7 --archetype research --set hull_form=faceted,prow=wedge,tiers=4,engines=2x2
+dotnet run --project src/BadShip.Cli -- generate --seed 7 --stage-seed equipment=3,look=8
+dotnet run --project src/BadShip.Cli -- variants --seed 7 --stage equipment --count 8 --out out/variants
+```
+
+![Equipment rerolls of one hull](docs/images/variants_equipment_reroll.png)
+
 Options: `--archetype freighter|research|patrol`, `--family barge|spine|twin|block`, `--length <m>`,
 `--palette gunmetal|naval|offwhite|slate`, `--detail low|medium|high`, `--name`. Anything left out is chosen from the seed.
 
@@ -38,6 +49,10 @@ Each ship produces four files:
 | `ship.recipe.json` | the recipe (seed, archetype, ...) plus every resolved choice; regenerates the identical ship with the same generator version |
 | `ship.metadata.json` | axes, bounds, module tree with bounds, markers (engines with exhaust vectors, docking ports, bridge, sensors, hardpoints, cargo doors, lights), interior envelopes, materials |
 | `ship.validation.json` | pass / warn / error with explained issues and metrics |
+| `ship.lod1.glb`, `ship.lod2.glb` | levels of detail: LOD1 drops surface detail and small equipment, LOD2 keeps only the primary masses |
+| `ship.collision.glb` | collision as convex pieces, one node each: every straight loft segment of the hull masses, a box for anything else |
+
+![LODs and collision](docs/images/lods_and_collision.png)
 
 ### Looking at the ships
 
@@ -101,11 +116,14 @@ recipe + seed
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
 - 19 unit tests: determinism, stage independence, validation over hundreds of seeds, recipe round trip, GLB structure.
 
-**Known limitations:** collision and clearance tests use bounding boxes (conservative); no LODs or collision proxies
-yet; no textures (greybox with material roles); not yet tested in Blender or Godot; no interactive editor (CLI +
-renders only); no locking or rerolling of individual modules yet.
+- Stage rerolls (`--stage-seed`, `variants`), plan overrides (`--set`), LOD1/LOD2 and convex collision exports.
 
-**Next (phase B/C ideas):** a viewer with parameter controls, module locking and rerolls; LODs and collision hulls;
+**Known limitations:** clearance tests use bounding boxes (conservative); non-lofted parts (cranes, masts) get one
+box each in the collision file; LODs remove whole modules rather than simplifying meshes; no textures (greybox with material roles); not yet tested in Blender or Godot; no interactive editor (CLI +
+renders only); locking works per stage, not per individual module yet.
+
+**Next (phase B/C ideas):** ventral structures (keels, hanging modules, underside equipment); a viewer with parameter
+controls; per-module locking;
 hull livery (name, logo, mission text decals); more archetypes (mining, tender) and macro families (offset hauler, multi-deck brick); radiators, booms and gantries;
 a damage pass; and then the self-contained NoorShip design doc for NoorMD.
 

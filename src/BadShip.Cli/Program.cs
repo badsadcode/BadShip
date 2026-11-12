@@ -10,6 +10,10 @@ using BadShip.Validation;
 //   badship gallery  --count 12 [--start 1] [--archetype ...] [--family ...] [--out out/gallery]
 //   badship recipe   path/to/ship.recipe.json [--out out/ship]
 //   badship stress   --count 300 [--start 1]
+//   badship variants --seed 42 --stage equipment [--count 8] [--out out/variants]
+//
+// Any command also takes --set key=value,... (hull_form, prow, bridge, tiers, engines, engine_style, payload,
+// asymmetric, beam, height) and --stage-seed stage=N,... (plan, silhouette, equipment, details, look).
 
 var cmd = args.Length > 0 ? args[0] : "help";
 var opts = ParseOptions(args.Skip(1).ToArray());
@@ -60,6 +64,33 @@ try
                 File.WriteAllText(Path.Combine(dir, "index.json"), JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
                 return failures == 0 ? 0 : 2;
             }
+        case "variants":
+            {
+                // One hull, several rerolls of a single stage: the "lock the shape, reroll the rest" workflow.
+                var seed = ulong.Parse(Opt("seed", "1"));
+                var stage = Opt("stage", "equipment");
+                var count = int.Parse(Opt("count", "8"));
+                var dir = Opt("out", "out/variants");
+                Directory.CreateDirectory(dir);
+                var index = new List<object>();
+                for (var i = 0; i < count; i++)
+                {
+                    var recipe = RecipeFrom(opts, seed);
+                    if (i > 0) (recipe.StageSeeds ??= [])[stage] = 1000 + (ulong)i;
+                    var name = i == 0 ? $"ship_{seed}_original" : $"ship_{seed}_{stage}_{i}";
+                    var ship = ShipGenerator.Generate(recipe);
+                    var report = ShipValidator.Validate(ship);
+                    ShipFiles.Save(ship, report, dir, name);
+                    index.Add(new
+                    {
+                        name, seed, archetype = ship.Plan.Archetype, family = ship.Plan.Family, prow = i == 0 ? "original" : $"{stage} reroll {i}",
+                        length = MathF.Round(ship.Bounds.Size.Z, 1), triangles = ship.Triangles, status = report.Status,
+                    });
+                    Console.WriteLine($"{name}  {ship.Triangles,7} tris  {report.Status}");
+                }
+                File.WriteAllText(Path.Combine(dir, "index.json"), JsonSerializer.Serialize(index, new JsonSerializerOptions { WriteIndented = true }));
+                return 0;
+            }
         case "stress":
             {
                 var count = int.Parse(Opt("count", "300"));
@@ -93,6 +124,12 @@ try
                   badship gallery  --count N [--start S] [same options] [--out DIR]
                   badship recipe   FILE.recipe.json [--out DIR]
                   badship stress   --count N [--start S] [same options]
+                  badship variants --seed N --stage plan|silhouette|equipment|details|look [--count N] [--out DIR]
+
+                  --set key=value,...      pin plan choices: hull_form=faceted, prow=wedge, bridge=overhang, tiers=3,
+                                           engines=2x2, engine_style=pod, payload=tanks, asymmetric=true,
+                                           beam=0.25, height=0.12 (fractions of the length)
+                  --stage-seed stage=N,... replace the seed for single stages (lock the rest)
                 """);
             return cmd == "help" ? 0 : 1;
     }
@@ -124,7 +161,39 @@ ShipRecipe RecipeFrom(Dictionary<string, string> o, ulong seed) => new()
     Palette = o.GetValueOrDefault("palette", "auto"),
     Detail = o.GetValueOrDefault("detail", "high"),
     Name = o.GetValueOrDefault("name"),
+    StageSeeds = o.TryGetValue("stage-seed", out var ss) ? Pairs(ss).ToDictionary(kv => kv.Key, kv => ulong.Parse(kv.Value)) : null,
+    Overrides = o.TryGetValue("set", out var set) ? OverridesFrom(Pairs(set)) : null,
 };
+
+static IEnumerable<KeyValuePair<string, string>> Pairs(string text) =>
+    text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(kv =>
+    {
+        var i = kv.IndexOf('=');
+        if (i <= 0) throw new ArgumentException($"Expected key=value, got '{kv}'.");
+        return new KeyValuePair<string, string>(kv[..i].Trim(), kv[(i + 1)..].Trim());
+    });
+
+static PlanOverrides OverridesFrom(IEnumerable<KeyValuePair<string, string>> pairs)
+{
+    var o = new PlanOverrides();
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    foreach (var (k, v) in pairs)
+        switch (k)
+        {
+            case "hull_form": o.HullForm = v; break;
+            case "prow": o.ProwStyle = v; break;
+            case "bridge": o.BridgeStyle = v; break;
+            case "tiers": o.Tiers = int.Parse(v); break;
+            case "engines": o.EngineLayout = v; break;
+            case "engine_style": o.EngineStyle = v; break;
+            case "payload": o.Payload = v; break;
+            case "asymmetric": o.Asymmetric = bool.Parse(v); break;
+            case "beam": o.BeamRatio = float.Parse(v, inv); break;
+            case "height": o.HeightRatio = float.Parse(v, inv); break;
+            default: throw new ArgumentException($"Unknown setting '{k}'.");
+        }
+    return o;
+}
 
 string Opt(string key, string fallback) => opts.GetValueOrDefault(key, fallback);
 

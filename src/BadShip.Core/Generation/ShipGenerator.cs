@@ -91,8 +91,31 @@ public static class Planner
             _ => "pods",
         };
         p.Asymmetric = r.Chance(p.Archetype == "freighter" ? 0.35 : 0.2);
+        ApplyOverrides(rec.Overrides, p);
         p.Palette = Choose(rec.Palette, Palettes.Names, () => c.Look.Pick(Palettes.Names), "palette");
         c.Ship.Materials = Palettes.Build(p.Palette, c.Look);
+    }
+
+    /// <summary>
+    /// Pins hand-set choices over the seeded ones. The seeded choices are still drawn first, so pinning one choice
+    /// never reshuffles the others.
+    /// </summary>
+    private static void ApplyOverrides(PlanOverrides? o, ShipPlan p)
+    {
+        if (o is null) return;
+        static string Pick(string? v, string current, string[] allowed, string what) =>
+            v is null ? current : allowed.Contains(v) ? v : throw new ArgumentException($"Unknown {what} '{v}'. Use one of: {string.Join(", ", allowed)}.");
+        p.HullForm = Pick(o.HullForm, p.HullForm, ["slab", "faceted"], "hull form");
+        p.ProwStyle = Pick(o.ProwStyle, p.ProwStyle, ["blunt", "stepped", "faceted", "shovel", "wedge"], "prow style");
+        if (p.Family == "twin" && p.ProwStyle == "stepped") p.ProwStyle = "faceted";
+        p.BridgeStyle = Pick(o.BridgeStyle, p.BridgeStyle, ["slope", "overhang", "blunt"], "bridge style");
+        p.EngineLayout = Pick(o.EngineLayout, p.EngineLayout, ["2x1", "3x1", "2x2", "1x2", "4x1"], "engine layout");
+        p.EngineStyle = Pick(o.EngineStyle, p.EngineStyle, ["pod", "nacelle"], "engine style");
+        if (p.Family == "spine") p.Payload = Pick(o.Payload, p.Payload, ["containers", "tanks", "pods"], "payload");
+        if (o.Tiers is { } t) p.Tiers = t is >= 1 and <= 5 ? t : throw new ArgumentException("Tiers must be 1–5.");
+        if (o.Asymmetric is { } a) p.Asymmetric = a;
+        if (o.BeamRatio is { } br) p.Beam = p.Length * (br is >= 0.1f and <= 0.6f ? br : throw new ArgumentException("Beam ratio must be 0.1–0.6."));
+        if (o.HeightRatio is { } hr) p.Height = p.Length * (hr is >= 0.05f and <= 0.35f ? hr : throw new ArgumentException("Height ratio must be 0.05–0.35."));
     }
 
     private static string Choose(string requested, string[] allowed, Func<string> auto, string what)

@@ -202,6 +202,7 @@ public static class HullFamilies
                 var pp = new Profile(0, podTop - podH / 2, podW * 0.9f, podW, podH, podH * 0.15f, podH * 0.25f);
                 var podLoft = new Loft([(zb - podLen / 2, pp.Scaled(0.95f, 0.95f)), (zb - podLen / 2 + 0.8f, pp), (zb + podLen / 2 - 0.8f, pp), (zb + podLen / 2, pp.Scaled(0.95f, 0.95f))]);
                 podLoft.Build(pod.Mesh, Roles.Accent);
+                pod.Lofts.Add(podLoft);
                 c.Lofts.Add(new LoftPart(pod, podLoft, "pod"));
                 c.AddEnvelope("cargo", pod, Aabb.FromCenterSize(new Vector3(0, pp.Cy, zb), new Vector3(podW * 0.8f, podH * 0.7f, podLen * 0.8f)));
             }

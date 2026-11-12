@@ -29,6 +29,33 @@ public sealed class ShipRecipe
 
     /// <summary>Metadata only.</summary>
     public string? Name { get; set; }
+
+    /// <summary>
+    /// Seeds that replace the main seed for single stages (plan, silhouette, equipment, details, look). Keeping the
+    /// main seed and changing one of these locks everything else: reroll the equipment, the surface detail or the
+    /// colours of a hull you like without moving the hull.
+    /// </summary>
+    public Dictionary<string, ulong>? StageSeeds { get; set; }
+
+    /// <summary>Choices fixed by hand. Anything left out is still chosen from the seed.</summary>
+    public PlanOverrides? Overrides { get; set; }
+}
+
+/// <summary>Plan choices a user can pin. Null means "let the seed decide".</summary>
+public sealed class PlanOverrides
+{
+    public string? HullForm { get; set; }
+    public string? ProwStyle { get; set; }
+    public string? BridgeStyle { get; set; }
+    public int? Tiers { get; set; }
+    public string? EngineLayout { get; set; }
+    public string? EngineStyle { get; set; }
+    public string? Payload { get; set; }
+    public bool? Asymmetric { get; set; }
+
+    /// <summary>Beam and height as fractions of the length.</summary>
+    public float? BeamRatio { get; set; }
+    public float? HeightRatio { get; set; }
 }
 
 /// <summary>Every choice the generator made from the recipe and seed (the "semantic plan" of the ship).</summary>

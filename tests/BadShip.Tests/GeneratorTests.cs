@@ -139,6 +139,59 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Rerolling_a_stage_keeps_the_hull_and_changes_that_stage()
+    {
+        foreach (var seed in new ulong[] { 2, 7, 31 })
+        {
+            var baseRecipe = new ShipRecipe { Seed = seed, Archetype = "freighter", Family = "barge" };
+            var reroll = new ShipRecipe { Seed = seed, Archetype = "freighter", Family = "barge", StageSeeds = new() { ["equipment"] = 999 } };
+            var a = ShipGenerator.Generate(baseRecipe);
+            var b = ShipGenerator.Generate(reroll);
+            string Primaries(Ship s) => string.Join("|", s.Modules.Where(m => m.Tier == ModuleTier.Primary).Select(m => $"{m.Id}:{m.Bounds.Min}:{m.Bounds.Max}"));
+            string Equipment(Ship s) => string.Join("|", s.Modules.Where(m => m.Tier == ModuleTier.Secondary).Select(m => $"{m.Id}:{m.Bounds.Min}"));
+            Assert.Equal(Primaries(a), Primaries(b));
+            Assert.NotEqual(Equipment(a), Equipment(b));
+            Assert.False(ShipValidator.Validate(b).HasErrors);
+        }
+    }
+
+    [Fact]
+    public void Overrides_pin_choices_without_reshuffling_the_rest()
+    {
+        var plain = Make(12, archetype: "research", family: "barge");
+        var pinned = ShipGenerator.Generate(new ShipRecipe
+        {
+            Seed = 12, Archetype = "research", Family = "barge",
+            Overrides = new PlanOverrides { HullForm = "faceted", Tiers = 4, EngineLayout = "2x2", ProwStyle = "wedge" },
+        });
+        Assert.Equal("faceted", pinned.Plan.HullForm);
+        Assert.Equal(4, pinned.Plan.Tiers);
+        Assert.Equal("2x2", pinned.Plan.EngineLayout);
+        Assert.Equal("wedge", pinned.Plan.ProwStyle);
+        Assert.Equal(plain.Plan.BridgeStyle, pinned.Plan.BridgeStyle);
+        Assert.Equal(plain.Plan.Length, pinned.Plan.Length);
+        Assert.Throws<ArgumentException>(() => ShipGenerator.Generate(new ShipRecipe { Seed = 1, Overrides = new PlanOverrides { ProwStyle = "pointy" } }));
+        Assert.Throws<ArgumentException>(() => ShipGenerator.Generate(new ShipRecipe { Seed = 1, StageSeeds = new() { ["hull"] = 3 } }));
+    }
+
+    [Fact]
+    public void Lods_get_smaller_and_collision_covers_the_hull()
+    {
+        foreach (var seed in new ulong[] { 1, 5, 9 })
+        {
+            var ship = Make(seed);
+            var lod1 = GameAssets.Triangles(ship, m => GameAssets.Lod1(m, ship));
+            var lod2 = GameAssets.Triangles(ship, GameAssets.Lod2);
+            Assert.True(ship.Triangles > lod1 && lod1 > lod2 && lod2 > 0, $"{ship.Triangles} > {lod1} > {lod2}");
+            var col = GameAssets.Collision(ship);
+            Assert.NotEmpty(col.Modules);
+            var hull = ship.Modules.Single(m => m.ParentId is null).Bounds;
+            Assert.True(col.Bounds.Penetration(hull) > 1f);
+            Assert.All(col.Modules, m => Assert.EndsWith(".col" + m.Id.Split(".col")[^1], m.Id));
+        }
+    }
+
+    [Fact]
     public void Rng_streams_are_stable()
     {
         // Pinned values: if these change, every seed changes; bump ShipGenerator.Version.

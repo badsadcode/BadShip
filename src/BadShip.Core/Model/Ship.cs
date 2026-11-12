@@ -21,6 +21,9 @@ public sealed class Module
     public Mesh Mesh { get; } = new();
     public Aabb Bounds { get; private set; } = Aabb.Empty;
 
+    /// <summary>The lofted base forms of this module (before windows and plates): used for collision shapes.</summary>
+    public List<Loft> Lofts { get; } = [];
+
     public void UpdateBounds() => Bounds = Mesh.Bounds();
 }
 

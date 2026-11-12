@@ -86,12 +86,25 @@ public sealed class BuildContext
     {
         Recipe = recipe;
         Ship = new Ship { Recipe = recipe, Plan = Plan };
-        PlanRng = Rng.Stream(recipe.Seed, "plan");
-        Shape = Rng.Stream(recipe.Seed, "silhouette");
-        Equip = Rng.Stream(recipe.Seed, "equipment");
-        Detail = Rng.Stream(recipe.Seed, "details");
-        Look = Rng.Stream(recipe.Seed, "look");
+        PlanRng = StageRng(recipe, "plan");
+        Shape = StageRng(recipe, "silhouette");
+        Equip = StageRng(recipe, "equipment");
+        Detail = StageRng(recipe, "details");
+        Look = StageRng(recipe, "look");
         DetailLevel = recipe.Detail switch { "low" => 0, "medium" => 1, _ => 2 };
+    }
+
+    public static readonly string[] Stages = ["plan", "silhouette", "equipment", "details", "look"];
+
+    private static Rng StageRng(ShipRecipe recipe, string stage)
+    {
+        if (recipe.StageSeeds is { } seeds)
+        {
+            foreach (var key in seeds.Keys)
+                if (!Stages.Contains(key)) throw new ArgumentException($"Unknown stage '{key}'. Use one of: {string.Join(", ", Stages)}.");
+            if (seeds.TryGetValue(stage, out var s)) return Rng.Stream(s, stage);
+        }
+        return Rng.Stream(recipe.Seed, stage);
     }
 
     public Module Add(string id, string type, ModuleTier tier, string? parentId)
@@ -116,6 +129,7 @@ public sealed class BuildContext
         var m = Add(id, type, tier, parentId);
         var loft = new Loft(rings);
         loft.Build(m.Mesh, material);
+        m.Lofts.Add(loft);
         if (partKind != null) Lofts.Add(new LoftPart(m, loft, partKind));
         m.UpdateBounds();
         return (m, loft);

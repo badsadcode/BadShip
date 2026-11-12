@@ -27,8 +27,14 @@ public static class ShipFiles
             Path.Combine(dir, name + ".recipe.json"),
             Path.Combine(dir, name + ".metadata.json"),
             Path.Combine(dir, name + ".validation.json"),
+            Path.Combine(dir, name + ".lod1.glb"),
+            Path.Combine(dir, name + ".lod2.glb"),
+            Path.Combine(dir, name + ".collision.glb"),
         };
         File.WriteAllBytes(paths[0], GlbWriter.Write(ship));
+        File.WriteAllBytes(paths[4], GlbWriter.Write(ship, m => GameAssets.Lod1(m, ship)));
+        File.WriteAllBytes(paths[5], GlbWriter.Write(ship, GameAssets.Lod2));
+        File.WriteAllBytes(paths[6], GlbWriter.Write(GameAssets.Collision(ship), markers: false));
         File.WriteAllText(paths[1], RecipeJson(ship));
         File.WriteAllText(paths[2], MetadataJson(ship));
         File.WriteAllText(paths[3], JsonSerializer.Serialize(report, Json));
@@ -58,6 +64,13 @@ public static class ShipFiles
             axes = new { units = "meters", up = "+Y", forward = "+Z", port = "+X", handedness = "right" },
             bounds = new { min = V(ship.Bounds.Min), max = V(ship.Bounds.Max), size = V(ship.Bounds.Size) },
             triangles = ship.Triangles,
+            lods = new[]
+            {
+                new { level = 0, file = "", triangles = ship.Triangles },
+                new { level = 1, file = ".lod1.glb", triangles = GameAssets.Triangles(ship, m => GameAssets.Lod1(m, ship)) },
+                new { level = 2, file = ".lod2.glb", triangles = GameAssets.Triangles(ship, GameAssets.Lod2) },
+            },
+            collision = new { file = ".collision.glb", pieces = GameAssets.Collision(ship).Modules.Count, shape = "convex pieces, one node each" },
             modules = ship.Modules.Select(m => new
             {
                 id = m.Id,
