@@ -73,6 +73,15 @@ To make the interactive 3D gallery page (all ships embedded, orbit, shading mode
 node tools/hangar/build.mjs out/gallery out/hangar.html
 ```
 
+**The Shipyard** (live generator in the browser): `src/BadShip.Web` compiles the same generator to WebAssembly
+(about 5 MB, trimmed), and `tools/shipyard/shipyard.html` drives it with seeds, options, per-stage rerolls and a 3D
+viewer. A ship takes roughly 100–300 ms in the browser after a one-second warm-up.
+
+```bash
+tools/shipyard/build.sh            # out/shipyard: index.html + framework/
+cd out/shipyard && python3 -m http.server
+```
+
 The renderer uses three.js in the headless Chromium that comes with Playwright. Any glTF viewer works too
 (Blender, Godot, <https://gltf-viewer.donmccurdy.com>).
 
@@ -144,8 +153,11 @@ src/BadShip.Core/     Geometry (Mesh, Profile/Loft, Shapes), Model (Ship, Module
                       Generation (Planner, HullFamilies, Parts, Payload, Equipment, Details, Palette, Rng),
                       Validation (ShipValidator), Export (GlbWriter, ShipFiles)
 src/BadShip.Cli/      the badship command
+src/BadShip.Web/      the generator compiled to WebAssembly (JSExport API: Generate, LastInfo, Version)
 tests/BadShip.Tests/  xUnit tests
 tools/render/         three.js + Playwright contact sheets and close-ups
 tools/glb-validate/   Khronos glTF validator runner
+tools/hangar/         interactive 3D gallery page builder
+tools/shipyard/       the live generator page and its build script
 docs/brief/           the original handoff package
 ```
