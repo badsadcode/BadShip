@@ -14,7 +14,8 @@ namespace BadShip.Generation;
 /// </summary>
 public static class Fighters
 {
-    public static readonly string[] Forms = ["dart", "wedge", "brick", "fork"];
+    public static readonly string[] Forms = ["dart", "wedge", "brick", "fork", "hammer", "twinboom", "brawler"];
+    public static readonly string[] Noses = ["point", "chisel", "blunt"];
     public static readonly string[] Cockpits = ["canopy", "slit"];
     public static readonly string[] Layouts = ["1x1", "2x1", "3x1"];
     public static readonly string[] EngineStyles = ["slit", "pod"];
@@ -28,11 +29,14 @@ public static class Fighters
         p.Family = "fighter";
         (string, double)[] forms = p.Size switch
         {
-            "small" => [("dart", 0.45), ("wedge", 0.4), ("brick", 0.15)],
-            "large" => [("wedge", 0.15), ("brick", 0.4), ("fork", 0.45)],
-            _ => [("dart", 0.3), ("wedge", 0.25), ("brick", 0.25), ("fork", 0.2)],
+            "small" => [("dart", 0.3), ("wedge", 0.25), ("brick", 0.1), ("hammer", 0.15), ("brawler", 0.2)],
+            "large" => [("wedge", 0.1), ("brick", 0.25), ("fork", 0.22), ("hammer", 0.15), ("twinboom", 0.28)],
+            _ => [("dart", 0.18), ("wedge", 0.14), ("brick", 0.14), ("fork", 0.12), ("hammer", 0.14), ("twinboom", 0.14), ("brawler", 0.14)],
         };
         p.HullForm = r.Weighted(forms);
+        // A pinned form must also get that form's proportions and nose (the draw above still happens, so pinning
+        // the form never reshuffles the other choices).
+        if (c.Recipe.Overrides?.HullForm is { } pinned && Forms.Contains(pinned)) p.HullForm = pinned;
         var (lmin, lmax) = p.Size switch { "small" => (8f, 15f), "large" => (26f, 45f), _ => (15f, 26f) };
         p.Length = c.Recipe.Length ?? r.Range(lmin, lmax);
         var L = p.Length;
@@ -41,14 +45,26 @@ public static class Fighters
             "dart" => (L * r.Range(0.2f, 0.26f), L * r.Range(0.1f, 0.13f)),
             "wedge" => (L * r.Range(0.5f, 0.68f), L * r.Range(0.08f, 0.11f)),
             "brick" => (L * r.Range(0.28f, 0.36f), L * r.Range(0.17f, 0.23f)),
+            "hammer" => (L * r.Range(0.26f, 0.32f), L * r.Range(0.13f, 0.17f)),
+            "twinboom" => (L * r.Range(0.42f, 0.55f), L * r.Range(0.1f, 0.13f)),
+            "brawler" => (L * r.Range(0.34f, 0.42f), L * r.Range(0.18f, 0.24f)),
             _ => (L * r.Range(0.36f, 0.46f), L * r.Range(0.1f, 0.13f)),
         };
-        p.ProwStyle = "faceted";
-        p.BridgeStyle = r.Chance(p.HullForm == "brick" ? 0.7 : 0.35) ? "slit" : "canopy";
+        // The nose: a needle point, a flat chisel tip or a blunt armoured face. Every form can have any of them.
+        (string, double)[] noses = p.HullForm switch
+        {
+            "dart" or "fork" => [("point", 0.5), ("chisel", 0.38), ("blunt", 0.12)],
+            "wedge" => [("point", 0.6), ("chisel", 0.4)],
+            "brick" => [("point", 0.15), ("chisel", 0.4), ("blunt", 0.45)],
+            "twinboom" => [("point", 0.3), ("chisel", 0.45), ("blunt", 0.25)],
+            _ => [("point", 0.1), ("chisel", 0.4), ("blunt", 0.5)],
+        };
+        p.ProwStyle = r.Weighted(noses);
+        p.BridgeStyle = r.Chance(p.HullForm is "brick" or "hammer" or "brawler" ? 0.65 : 0.35) ? "slit" : "canopy";
         p.Tiers = 0;
         p.EngineLayout = r.Weighted<string>([("1x1", 0.3), ("2x1", 0.55), ("3x1", 0.15)]);
         if (p.Size == "small" && p.EngineLayout == "3x1") p.EngineLayout = "2x1";
-        p.EngineStyle = p.HullForm == "brick" && r.Chance(0.6) ? "pod" : "slit";
+        p.EngineStyle = p.HullForm switch { "brawler" => "pod", "brick" => r.Chance(0.6) ? "pod" : "slit", _ => "slit" };
         p.Payload = "";
         p.Asymmetric = false;
         p.Ventral = "none";
@@ -58,12 +74,24 @@ public static class Fighters
 
     public static void Build(BuildContext c)
     {
+        // Bulk: how far the cross-section moves from the knife-edged stealth shape towards an armoured chamfered
+        // block. Never all the way to a plain box: the sides keep a little lean and the top keeps its facets.
+        var r = c.Shape;
+        var (b0, b1) = c.Plan.HullForm switch
+        {
+            "dart" => (0f, 0.45f), "wedge" => (0f, 0.35f), "fork" => (0f, 0.55f),
+            "brick" => (0.3f, 0.9f), "hammer" => (0.4f, 0.9f), "twinboom" => (0.2f, 0.8f), _ => (0.5f, 1f),
+        };
+        c.Bulk = r.Chance(0.3) ? b0 : r.Range(b0, b1);
         switch (c.Plan.HullForm)
         {
             case "dart": Dart(c); break;
             case "wedge": Wedge(c); break;
             case "brick": Brick(c); break;
             case "fork": Fork(c); break;
+            case "hammer": Hammer(c); break;
+            case "twinboom": Twinboom(c); break;
+            case "brawler": Brawler(c); break;
             default: throw new ArgumentException($"Unknown fighter form '{c.Plan.HullForm}'. Use one of: {string.Join(", ", Forms)}.");
         }
     }
@@ -76,6 +104,26 @@ public static class Fighters
     /// </summary>
     public static Profile Stealth(float cx, float cy, float w, float h, float bevel, float ridge = 0.34f, float topFacet = 0.42f) =>
         new Profile(cx, cy, w, w * ridge, h, h * topFacet, h * 0.1f * bevel) { TopRun = 1.15f };
+
+    /// <summary>The stealth section, blocked up by the ship's bulk: a wider top, smaller top facets, a bigger chine bevel.</summary>
+    public static Profile Section(BuildContext c, float cx, float cy, float w, float h, float bevel, float ridge = 0.34f, float topFacet = 0.42f)
+    {
+        var b = c.Bulk;
+        return new Profile(cx, cy, w, w * float.Lerp(ridge, MathF.Max(ridge, 0.82f), b), h, h * float.Lerp(topFacet, 0.2f, b),
+            h * float.Lerp(0.1f, 0.2f, b) * bevel) { TopRun = float.Lerp(1.15f, 1.4f, b) };
+    }
+
+    /// <summary>The tip ring for the plan's nose style: the pointed tip as given, a flat chisel, or a blunt armoured face.</summary>
+    public static Profile Nose(BuildContext c, Profile pointed, Profile before) => c.Plan.ProwStyle switch
+    {
+        "chisel" => pointed with
+        {
+            WBottom = before.WBottom * 0.55f, WTop = before.WTop * 0.5f, H = MathF.Max(pointed.H, before.H * 0.2f),
+            ChamferTop = MathF.Max(pointed.H, before.H * 0.2f) * 0.3f, ChamferBottom = 0,
+        },
+        "blunt" => before.Scaled(0.62f, 0.55f) with { Cy = (pointed.Cy + before.Cy) / 2 },
+        _ => pointed,
+    };
 
     /// <summary>The cross-section of a ring list at <paramref name="z"/> (all fields interpolated).</summary>
     public static Profile ProfileAt(IReadOnlyList<(float z, Profile p)> rings, float z)
@@ -153,7 +201,7 @@ public static class Fighters
         return m;
     }
 
-    // ------------------------------------------------------------------ the four forms
+    // ------------------------------------------------------------------ the forms
 
     /// <summary>A sleek arrowhead body with cranked delta wings, canted tails and a blended canopy.</summary>
     private static void Dart(BuildContext c)
@@ -166,12 +214,12 @@ public static class Fighters
         var hump = r.Range(1f, 1.3f);
         List<(float, Profile)> rings =
         [
-            (zR, Stealth(0, 0, w * 0.8f, h * 0.78f, bev)),
-            (zR + L * 0.14f, Stealth(0, 0, w, h, bev)),
-            (zR + L * r.Range(0.5f, 0.58f), Stealth(0, h * 0.04f, w * 0.86f, h * hump, bev)),
-            (zR + L * r.Range(0.78f, 0.84f), Stealth(0, -h * noseDrop * 0.5f, w * 0.4f, h * 0.6f, bev)),
-            (zN, Stealth(0, -h * noseDrop, w * 0.06f, h * 0.1f, bev)),
+            (zR, Section(c, 0, 0, w * 0.8f, h * 0.78f, bev)),
+            (zR + L * 0.14f, Section(c, 0, 0, w, h, bev)),
+            (zR + L * r.Range(0.5f, 0.58f), Section(c, 0, h * 0.04f, w * 0.86f, h * hump, bev)),
+            (zR + L * r.Range(0.78f, 0.84f), Section(c, 0, -h * noseDrop * 0.5f, w * 0.4f, h * 0.6f, bev)),
         ];
+        rings.Add((zN, Nose(c, Section(c, 0, -h * noseDrop, w * 0.06f, h * 0.1f, bev), rings[^1].Item2)));
         var hull = Body(c, rings);
         var bottom = -h / 2;
 
@@ -219,12 +267,12 @@ public static class Fighters
         var ridge = r.Range(0.14f, 0.24f);
         List<(float, Profile)> rings =
         [
-            (zR, Stealth(0, 0, w * 0.9f, h * 0.55f, bev, ridge * 1.3f)),
-            (zR + L * 0.12f, Stealth(0, 0, w, h * 0.8f, bev, ridge)),
-            (zR + L * 0.45f, Stealth(0, h * 0.04f, w * 0.62f, h, bev, ridge * 1.2f)),
-            (zR + L * 0.75f, Stealth(0, -h * 0.06f, w * 0.28f, h * 0.68f, bev, ridge * 1.4f)),
-            (zN, Stealth(0, -h * 0.16f, w * 0.03f, h * 0.1f, bev)),
+            (zR, Section(c, 0, 0, w * 0.9f, h * 0.55f, bev, ridge * 1.3f)),
+            (zR + L * 0.12f, Section(c, 0, 0, w, h * 0.8f, bev, ridge)),
+            (zR + L * 0.45f, Section(c, 0, h * 0.04f, w * 0.62f, h, bev, ridge * 1.2f)),
+            (zR + L * 0.75f, Section(c, 0, -h * 0.06f, w * 0.28f, h * 0.68f, bev, ridge * 1.4f)),
         ];
+        rings.Add((zN, Nose(c, Section(c, 0, -h * 0.16f, w * 0.03f, h * 0.1f, bev), rings[^1].Item2)));
         var hull = Body(c, rings);
         SlitEngines(c, hull, rings[0].Item2 with { WBottom = w * 0.5f, WTop = w * 0.5f * ridge * 1.3f }, zR, L);
         var wy = -h * 0.5f + 0.05f;
@@ -269,8 +317,8 @@ public static class Fighters
             (zR + L * 0.08f, b.Scaled(1f, 0.85f) with { Cy = -h * 0.06f }),
             (zR + L * r.Range(0.5f, 0.58f), b with { Cy = h * (brow - 1) / 2, H = h * brow }),
             (zR + L * r.Range(0.76f, 0.82f), b.Scaled(0.72f, 0.68f) with { Cy = -h * 0.1f }),
-            (zN, b.Scaled(0.36f, 0.3f) with { Cy = -h * 0.24f }),
         ];
+        rings.Add((zN, Nose(c, b.Scaled(0.3f, 0.26f) with { Cy = -h * 0.24f }, rings[^1].Item2)));
         var hull = Body(c, rings);
 
         var pods = p.EngineStyle == "pod";
@@ -290,7 +338,7 @@ public static class Fighters
             BevelPlate(wings.Mesh, Roles.HullSecondary, s > 0 ? outline : outline.Reverse().ToArray(), t, t);
             var podC = new Vector3(s * span, wy, zR + L * 0.26f);
             var pw = MathF.Max(0.35f, h * 0.22f);
-            var ring = Stealth(podC.X, podC.Y, pw * 1.3f, pw, bev);
+            var ring = Section(c, podC.X, podC.Y, pw * 1.3f, pw, bev);
             var (gp, _) = c.AddLoft("gun_pod", "gun_pod", ModuleTier.Secondary, wings.Id,
                 [(zR + L * 0.12f, ring.Scaled(0.8f, 0.8f)), (zR + L * 0.16f, ring), (zR + L * 0.38f, ring), (zR + L * 0.44f, ring.Scaled(0.6f, 0.6f))], Roles.HullSecondary, null);
             Guns(c, gp, [new(podC.X, podC.Y, zR + L * 0.42f)], L * 0.14f, L);
@@ -316,11 +364,11 @@ public static class Fighters
         var bodyNose = zR + L * r.Range(0.78f, 0.86f);
         List<(float, Profile)> rings =
         [
-            (zR, Stealth(0, 0, wb * 0.85f, h * 0.8f, bev)),
-            (zR + L * 0.12f, Stealth(0, 0, wb, h, bev)),
-            (zR + L * 0.5f, Stealth(0, h * 0.05f, wb * 0.9f, h * 1.08f, bev)),
-            (bodyNose, Stealth(0, -h * 0.12f, wb * 0.12f, h * 0.2f, bev)),
+            (zR, Section(c, 0, 0, wb * 0.85f, h * 0.8f, bev)),
+            (zR + L * 0.12f, Section(c, 0, 0, wb, h, bev)),
+            (zR + L * 0.5f, Section(c, 0, h * 0.05f, wb * 0.9f, h * 1.08f, bev)),
         ];
+        rings.Add((bodyNose, Nose(c, Section(c, 0, -h * 0.12f, wb * 0.12f, h * 0.2f, bev), rings[^1].Item2)));
         var hull = Body(c, rings);
 
         var pw = w * r.Range(0.18f, 0.24f);
@@ -339,12 +387,12 @@ public static class Fighters
         if (r.Chance(0.6)) VentralFins(c, hull, rings, wb * 0.3f, h * r.Range(0.4f, 0.7f), zR + L * 0.05f, L * 0.14f);
         foreach (var s in new[] { 1f, -1f })
         {
-            var pr = Stealth(s * px, py, pw, ph, bev, 0.3f);
+            var pr = Section(c, s * px, py, pw, ph, bev, 0.3f);
             var tipDrop = -ph * r.Range(0.1f, 0.3f);
             var prong = Body(c,
             [
                 (pz0, pr.Scaled(0.8f, 0.75f)), (pz0 + L * 0.08f, pr), (zN - L * 0.28f, pr),
-                (zN, pr.Scaled(0.25f, 0.35f) with { Cy = py + tipDrop }),
+                (zN, Nose(c, pr.Scaled(0.25f, 0.35f) with { Cy = py + tipDrop }, pr)),
             ], s > 0 ? "prong_port" : "prong_starboard", "prong", wing.Id, ModuleTier.Secondary);
             Guns(c, prong, [new(s * (px - pw * 0.42f), py - ph * 0.2f, zN - L * 0.2f)], L * 0.24f, L);
             WingTip(c, wing, new Vector3(s * (px + pw * 0.4f), py, pz0 + L * 0.2f), t, s);
@@ -353,6 +401,170 @@ public static class Fighters
         Fins(c, hull, rings, wb * 0.3f, r.Range(20f, 36f), h * r.Range(0.9f, 1.3f), zR + L * 0.03f, L * 0.16f, L);
         Cockpit(c, hull, rings, zR + L * 0.45f, bodyNose - L * 0.06f, wb * 0.42f, h * 0.45f);
         SlitEngines(c, hull, rings[0].Item2, zR, L);
+        GlowLines(c, hull);
+    }
+
+
+    /// <summary>A narrow armoured neck carrying a wide head block: cockpit slits and guns in the head, swept stubs at the tail.</summary>
+    private static void Hammer(BuildContext c)
+    {
+        var p = c.Plan;
+        var r = c.Shape;
+        float L = p.Length, w = p.Beam, h = p.Height, zR = -L / 2, zN = L / 2;
+        var bev = Bevel(c);
+        var b = Section(c, 0, 0, w * 0.85f, h, bev, 0.5f, 0.32f);
+        var head = r.Range(1.08f, 1.28f);
+        var headFront = zR + L * r.Range(0.82f, 0.88f);
+        List<(float, Profile)> rings =
+        [
+            (zR, b.Scaled(0.85f, 0.8f)),
+            (zR + L * 0.1f, b),
+            (zR + L * r.Range(0.4f, 0.46f), b.Scaled(r.Range(0.62f, 0.75f), 0.82f) with { Cy = -h * 0.06f }),
+            (zR + L * r.Range(0.56f, 0.6f), b.Scaled(head, 1.08f) with { Cy = h * 0.04f }),
+            (headFront, b.Scaled(head, 1.05f) with { Cy = h * 0.03f }),
+        ];
+        rings.Add((zN, Nose(c, b.Scaled(0.2f, 0.25f) with { Cy = -h * 0.12f }, rings[^1].Item2)));
+        var hull = Body(c, rings);
+
+        var wings = c.Add("wings", "wing", ModuleTier.Secondary, hull.Id);
+        var span = L * r.Range(0.1f, 0.2f);
+        var wy = -h * 0.22f;
+        var droop = span * r.Range(-0.1f, 0.25f);
+        var t = MathF.Max(0.12f, h * 0.1f);
+        foreach (var s in new[] { 1f, -1f })
+        {
+            var xt = s * (w * 0.42f + span);
+            Vector3[] o = [new(s * w * 0.3f, wy, zR + L * 0.07f), new(s * w * 0.3f, wy, zR + L * 0.38f), new(xt, wy - droop, zR + L * 0.2f), new(xt, wy - droop, zR + L * 0.06f)];
+            BevelPlate(wings.Mesh, Roles.HullMain, o, t, t);
+            WingTip(c, wings, new Vector3(xt, wy - droop, zR + L * 0.13f), t, s);
+        }
+        var hx = w * 0.85f * head * 0.36f;
+        Guns(c, hull, [new(hx, -h * 0.38f, headFront - L * 0.08f), new(-hx, -h * 0.38f, headFront - L * 0.08f)], L * 0.2f, L);
+        Fins(c, hull, rings, w * r.Range(0.18f, 0.28f), r.Range(8f, 26f), h * r.Range(0.7f, 1.05f), zR + L * 0.03f, L * r.Range(0.16f, 0.2f), L);
+        if (r.Chance(0.4)) VentralFins(c, hull, rings, w * 0.25f, h * r.Range(0.3f, 0.5f), zR + L * 0.05f, L * 0.13f);
+        Cockpit(c, hull, rings, zR + L * 0.6f, headFront + L * 0.03f, w * 0.5f, h * 0.3f);
+        SlitEngines(c, hull, rings[0].Item2, zR, L);
+        GlowLines(c, hull);
+    }
+
+    /// <summary>Two blocky booms carrying the engines and tails, joined by a crossbar wing to a cockpit pod between them.</summary>
+    private static void Twinboom(BuildContext c)
+    {
+        var p = c.Plan;
+        var r = c.Shape;
+        float L = p.Length, w = p.Beam, h = p.Height, zR = -L / 2, zN = L / 2;
+        var bev = Bevel(c);
+        var wb = w * r.Range(0.26f, 0.34f);
+        var pod0 = zR + L * r.Range(0.24f, 0.32f);
+        List<(float, Profile)> rings =
+        [
+            (pod0, Section(c, 0, 0, wb * 0.8f, h * 0.8f, bev)),
+            (pod0 + L * 0.1f, Section(c, 0, 0, wb, h, bev)),
+            (zR + L * 0.74f, Section(c, 0, h * 0.05f, wb * 0.92f, h * 1.06f, bev)),
+        ];
+        rings.Add((zN, Nose(c, Section(c, 0, -h * 0.14f, wb * 0.1f, h * 0.15f, bev), rings[^1].Item2)));
+        var hull = Body(c, rings);
+
+        var bw = w * r.Range(0.18f, 0.24f);
+        var bh = h * r.Range(0.8f, 1f);
+        var bx = w / 2 - bw / 2;
+        var by = -h * 0.06f;
+        var boomFront = zN - L * r.Range(0.06f, 0.16f);
+        var wing = c.Add("wing", "wing", ModuleTier.Secondary, hull.Id);
+        var wy = by - bh * 0.1f;
+        var t = MathF.Max(0.15f, h * 0.12f);
+        var outer = r.Chance(0.5) ? L * r.Range(0.06f, 0.12f) : 0;
+        foreach (var s in new[] { 1f, -1f })
+        {
+            BevelPlate(wing.Mesh, Roles.HullSecondary, [new(0, wy, pod0 + L * 0.04f), new(s * bx, wy, pod0 + L * 0.06f), new(s * bx, wy, pod0 + L * 0.3f), new(0, wy, pod0 + L * 0.36f)], t, t);
+            if (outer > 0)
+            {
+                BevelPlate(wing.Mesh, Roles.HullMain, [new(s * bx, wy, zR + L * 0.1f), new(s * bx, wy, zR + L * 0.34f), new(s * (bx + bw / 2 + outer), wy, zR + L * 0.16f), new(s * (bx + bw / 2 + outer), wy, zR + L * 0.09f)], t * 0.8f, t * 0.8f);
+                WingTip(c, wing, new Vector3(s * (bx + bw / 2 + outer), wy, zR + L * 0.12f), t, s);
+            }
+        }
+        var boomRings = new List<(float, Profile)>();
+        foreach (var s in new[] { 1f, -1f })
+        {
+            var pr = Section(c, s * bx, by, bw, bh, bev, 0.5f, 0.3f);
+            List<(float, Profile)> br =
+            [
+                (zR, pr.Scaled(0.9f, 0.85f)), (zR + L * 0.06f, pr), (boomFront - L * 0.14f, pr),
+            ];
+            br.Add((boomFront, Nose(c, pr.Scaled(0.3f, 0.4f) with { Cy = by - bh * 0.1f }, pr)));
+            var boom = Body(c, br, s > 0 ? "boom_port" : "boom_starboard", "boom", wing.Id, ModuleTier.Secondary, "pod");
+            SlitEngines(c, boom, br[0].Item2, zR, L, p.EngineLayout == "1x1" ? "1x1" : "2x1", s > 0 ? "engine_port" : "engine_starboard");
+            Guns(c, boom, [new(s * (bx - bw * 0.3f), by - bh * 0.25f, boomFront - L * 0.12f)], L * 0.16f, L);
+            if (s > 0)
+            {
+                boomRings = br;
+                Fins(c, boom, br, bx, r.Range(4f, 20f), h * r.Range(0.8f, 1.2f), zR + L * 0.03f, L * r.Range(0.14f, 0.2f), L);
+            }
+        }
+        Guns(c, hull, [new(wb * 0.22f, -h * 0.36f, zR + L * 0.84f), new(-wb * 0.22f, -h * 0.36f, zR + L * 0.84f)], L * 0.12f, L, chin: true);
+        Cockpit(c, hull, rings, zR + L * 0.55f, zR + L * 0.86f, wb * 0.5f, h * 0.45f);
+        GlowLines(c, hull);
+    }
+
+    /// <summary>Short and stout: an armoured body with big engine blocks on its shoulders, layered flank armour and drooped gun stubs.</summary>
+    private static void Brawler(BuildContext c)
+    {
+        var p = c.Plan;
+        var r = c.Shape;
+        float L = p.Length, w = p.Beam, h = p.Height, zR = -L / 2, zN = L / 2;
+        var bev = Bevel(c);
+        var b = Section(c, 0, 0, w * 0.62f, h, bev, 0.6f, 0.3f);
+        List<(float, Profile)> rings =
+        [
+            (zR, b.Scaled(0.9f, 0.8f)),
+            (zR + L * 0.1f, b),
+            (zR + L * r.Range(0.56f, 0.64f), b with { H = h * 1.1f, Cy = h * 0.05f }),
+            (zR + L * r.Range(0.8f, 0.86f), b.Scaled(0.75f, 0.75f) with { Cy = -h * 0.05f }),
+        ];
+        rings.Add((zN, Nose(c, b.Scaled(0.28f, 0.3f) with { Cy = -h * 0.15f }, rings[^1].Item2)));
+        var hull = Body(c, rings);
+
+        var nw = w * r.Range(0.26f, 0.32f);
+        Nacelles(c, hull, w * 0.31f + nw * 0.25f, h * r.Range(0.05f, 0.2f), nw, h * r.Range(0.5f, 0.62f), zR, L * r.Range(0.55f, 0.68f), L, bev);
+        if (r.Chance(0.5)) SlitEngines(c, hull, rings[0].Item2, zR, L, "1x1");
+
+        // Layered flank armour: overlapping plates like scales, each standing a little prouder than the one behind.
+        var loft = hull.Lofts[0];
+        var armour = c.Add("armour", "armour", ModuleTier.Secondary, hull.Id);
+        var at = MathF.Max(0.08f, h * 0.06f);
+        foreach (var f in new[] { Profile.FaceBottomPosX, Profile.FaceBottomNegX })
+        {
+            var n = loft.FaceNormal(1, f);
+            if (n == Vector3.Zero) continue;
+            var count = r.Int(2, 4);
+            for (var i = 0; i < count; i++)
+            {
+                var u0 = i / (float)(count + 0.4f);
+                var u1 = MathF.Min(1, u0 + 1.4f / count);
+                var lift = n * (at * (0.6f + i * 0.5f));
+                Vector3[] o = [loft.FacePoint(1, f, u0, 0.05f) + lift, loft.FacePoint(1, f, u1, 0.05f) + lift, loft.FacePoint(1, f, u1, 0.95f) + lift, loft.FacePoint(1, f, u0, 0.95f) + lift];
+                BevelPlate(armour.Mesh, Roles.HullSecondary, o, at, at * 0.9f);
+                c.UseSurface(BuildContext.FaceKey(hull, 1, f), 0, 1, 0, 1);
+            }
+        }
+
+        // Drooped gun stubs.
+        var wings = c.Add("wings", "wing", ModuleTier.Secondary, hull.Id);
+        var span = L * r.Range(0.12f, 0.18f);
+        var wy = -h * 0.25f;
+        var t = MathF.Max(0.14f, h * 0.1f);
+        foreach (var s in new[] { 1f, -1f })
+        {
+            var xt = s * (w * 0.5f + span);
+            var drop = span * r.Range(0.2f, 0.45f);
+            Vector3[] o = [new(s * w * 0.2f, wy, zR + L * 0.3f), new(s * w * 0.2f, wy, zR + L * 0.56f), new(xt, wy - drop, zR + L * 0.48f), new(xt, wy - drop, zR + L * 0.34f)];
+            BevelPlate(wings.Mesh, Roles.HullMain, o, t, t);
+            Guns(c, wings, [new(xt, wy - drop - t, zR + L * 0.46f)], L * 0.16f, L);
+            WingTip(c, wings, new Vector3(xt, wy - drop + t, zR + L * 0.38f), t, s);
+        }
+        if (r.Chance(0.4)) Fins(c, hull, rings, w * 0.18f, r.Range(5f, 20f), h * r.Range(0.4f, 0.7f), zR + L * 0.04f, L * 0.16f, L);
+        Guns(c, hull, [new(w * 0.1f, -h * 0.4f, zR + L * 0.8f), new(-w * 0.1f, -h * 0.4f, zR + L * 0.8f)], L * 0.14f, L, chin: true);
+        Cockpit(c, hull, rings, zR + L * 0.6f, zR + L * 0.88f, w * 0.38f, h * 0.3f);
         GlowLines(c, hull);
     }
 
@@ -408,14 +620,16 @@ public static class Fighters
     private static void Fins(BuildContext c, Module hull, List<(float z, Profile p)> body, float x, float cantDeg, float height, float z0, float rootChord, float L)
     {
         var r = c.Shape;
-        var m = c.Add("fins", "fin", ModuleTier.Secondary, hull.Id);
+        var m = c.Add(hull.Id == "hull_main" ? "fins" : hull.Id + "_fins", "fin", ModuleTier.Secondary, hull.Id);
         var cant = cantDeg * MathF.PI / 180;
         var sweep = rootChord * r.Range(0.45f, 0.8f);
         var tip = rootChord * r.Range(0.3f, 0.5f);
         var thick = MathF.Max(0.08f, height * 0.07f);
         foreach (var s in new[] { 1f, -1f })
         {
-            var y = MathF.Min(SurfaceY(ProfileAt(body, z0), s * x), SurfaceY(ProfileAt(body, z0 + rootChord), s * x)) - thick;
+            // Off-centre bodies (booms) are mirrored to the side being built.
+            Profile At(float z) { var bp = ProfileAt(body, z); return bp with { Cx = s * MathF.Abs(bp.Cx) }; }
+            var y = MathF.Min(SurfaceY(At(z0), s * x), SurfaceY(At(z0 + rootChord), s * x)) - thick;
             var up = new Vector3(s * MathF.Sin(cant), MathF.Cos(cant), 0);
             var r0 = new Vector3(s * x, y, z0);
             var r1 = r0 + new Vector3(0, 0, rootChord);
@@ -538,7 +752,7 @@ public static class Fighters
     {
         foreach (var s in new[] { 1f, -1f })
         {
-            var pr = Stealth(s * x, cy, w, h, bev, 0.5f, 0.32f);
+            var pr = Section(c, s * x, cy, w, h, bev, 0.5f, 0.32f);
             var id = s > 0 ? "nacelle_port" : "nacelle_starboard";
             var (m, loft) = c.AddLoft(id, "engine", ModuleTier.Secondary, hull.Id,
                 [(zR, pr.Scaled(0.9f, 0.88f)), (zR + L * 0.05f, pr), (zR + len * 0.82f, pr), (zR + len, pr.ScaledOnBase(0.8f, 0.62f))], Roles.HullSecondary, "pod");

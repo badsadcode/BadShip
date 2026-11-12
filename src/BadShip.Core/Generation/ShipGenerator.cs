@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.7.0";
+    public const string Version = "0.8.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter"];
@@ -210,6 +210,7 @@ public static class Planner
         {
             p.HullForm = Pick(o.HullForm, p.HullForm, Fighters.Forms, "fighter form");
             p.BridgeStyle = Pick(o.BridgeStyle, p.BridgeStyle, Fighters.Cockpits, "cockpit style");
+            p.ProwStyle = Pick(o.ProwStyle, p.ProwStyle, Fighters.Noses, "nose style");
             p.EngineLayout = Pick(o.EngineLayout, p.EngineLayout, Fighters.Layouts, "engine layout");
             p.EngineStyle = Pick(o.EngineStyle, p.EngineStyle, Fighters.EngineStyles, "engine style");
             if (o.BeamRatio is { } fb) p.Beam = p.Length * (fb is >= 0.1f and <= 0.8f ? fb : throw new ArgumentException("Beam ratio must be 0.1–0.8."));

@@ -420,13 +420,13 @@ canvas.addEventListener('pointerup', e => {
 function syncHullForms() {
   const sel = document.getElementById('hull_form');
   const fighter = document.getElementById('archetype').value === 'fighter' || document.getElementById('family').value === 'fighter';
-  const forms = fighter ? ['dart', 'wedge', 'brick', 'fork'] : ['slab', 'faceted'];
+  const forms = fighter ? ['dart', 'wedge', 'brick', 'fork', 'hammer', 'twinboom', 'brawler'] : ['slab', 'faceted'];
   if (sel.dataset.kind === String(fighter)) return;
   const keep = forms.includes(sel.value) ? sel.value : '';
   sel.innerHTML = '<option value="">Auto</option>' + forms.map(f => `<option>${f}</option>`).join('');
   sel.value = keep; sel.dataset.kind = String(fighter);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();

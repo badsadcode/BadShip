@@ -409,6 +409,9 @@ public class GeneratorTests
     [InlineData("wedge")]
     [InlineData("brick")]
     [InlineData("fork")]
+    [InlineData("hammer")]
+    [InlineData("twinboom")]
+    [InlineData("brawler")]
     public void Every_fighter_form_is_valid_in_every_size_and_condition(string form)
     {
         foreach (var size in Planner.Sizes)
@@ -437,8 +440,29 @@ public class GeneratorTests
         Assert.All(small, s => Assert.InRange(s.Plan.Length, 8, 15));
         Assert.All(large, s => Assert.InRange(s.Plan.Length, 26, 45));
         // Big fighters are mostly gunship forms; small ones never fork.
-        Assert.DoesNotContain(small, s => s.Plan.HullForm == "fork");
-        Assert.True(large.Count(s => s.Plan.HullForm is "brick" or "fork") > large.Count / 2);
+        Assert.DoesNotContain(small, s => s.Plan.HullForm is "fork" or "twinboom");
+        Assert.True(large.Count(s => s.Plan.HullForm is "brick" or "fork" or "twinboom" or "hammer") > large.Count / 2);
+    }
+
+    [Fact]
+    public void A_pinned_fighter_form_gets_its_own_proportions_and_any_nose()
+    {
+        // A wedge is wide whatever form the seed would have rolled.
+        for (ulong seed = 1; seed <= 15; seed++)
+        {
+            var wedge = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "wedge" } });
+            Assert.True(wedge.Plan.Beam >= wedge.Plan.Length * 0.5f);
+        }
+        foreach (var nose in Fighters.Noses)
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 3, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "dart", ProwStyle = nose } });
+            Assert.Equal(nose, ship.Plan.ProwStyle);
+            Assert.False(ShipValidator.Validate(ship).HasErrors);
+        }
+        // Blunt noses are wider at the tip than pointed ones.
+        float Tip(string nose) => ShipGenerator.Generate(new ShipRecipe { Seed = 3, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "dart", ProwStyle = nose } })
+            .Find("hull_main")!.Lofts[0].Profiles[^1].WBottom;
+        Assert.True(Tip("blunt") > Tip("chisel") && Tip("chisel") > Tip("point"));
     }
 
     [Fact]

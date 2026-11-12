@@ -190,7 +190,7 @@ recipe + seed
   `engine_glow`, `hazard`, `accent`, `radome`, `cargo_a/b/c`. Each is one replaceable glTF material. UVs are
   box-projected in world space at 4 m per tile (they are exported but no textures are attached yet).
 
-### Fighters (v0.7.0)
+### Fighters (v0.7.0, more forms in v0.8.0)
 
 `--archetype fighter` builds small craft in a stealth, hard-surface language (the "badlook"): flat facets with sharp
 creases, chines, sides that lean inwards as they rise (tumblehome, the opposite of a boat hull), arrowhead and
@@ -204,6 +204,16 @@ lines along the chines. The operator's paint is pushed dark and matte.
 | `wedge` | one flat faceted delta: the craft is its own wing; V-tails and sawtooth points at the rear | all |
 | `brick` | bulky armoured gunship with a hunched brow and beak, chin guns, stub wings with gun pods, optional side nacelles | mostly large |
 | `fork` | a cockpit body between two long forward prongs with guns at their tips | medium/large |
+| `hammer` | a narrow armoured neck carrying a wide head block (cockpit slits and guns in the head), swept tail stubs | all |
+| `twinboom` | two blocky booms with the engines and tails, a crossbar wing and a cockpit pod between them | medium/large |
+| `brawler` | short and stout: shoulder-mounted engine blocks, layered flank armour, drooped gun stubs, chin guns | small/medium |
+
+Two dials run across every form, so fighters are not all needles or all bricks: **bulk** moves the cross-section
+from the knife-edged stealth shape towards an armoured chamfered block (never a plain box: the sides keep a little
+lean and the top keeps its facets), and the **nose** is a needle `point`, a flat `chisel` tip or a `blunt` armoured
+face (`--set prow=chisel`).
+
+![Fighter forms, two of each](docs/images/fighter_forms_v0.8.png)
 
 Sizes: small 8–15 m, medium 15–26 m, large 26–45 m (gunships). Pin a form with `--set hull_form=wedge`; cockpit with
 `bridge=canopy|slit`, engines with `engines=1x1|2x1|3x1` and `engine_style=slit|pod`. Guns and missile
@@ -214,9 +224,9 @@ fighter scale. The Frontier Patrol fields fighters often; other factions only es
 
 ![A dart from four sides](docs/images/fighter_dart_closeup.png)
 
-## Status (v0.7.0: fighters)
+## Status (v0.8.0: more fighter forms)
 
-- Fighters and gunships (4 forms × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
+- Fighters and gunships (7 forms × 3 noses × a bulk dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
   (intact, damaged and derelict), about 1–1.5k triangles each.
 
 - 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.

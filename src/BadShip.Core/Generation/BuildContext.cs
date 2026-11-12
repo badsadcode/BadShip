@@ -95,6 +95,9 @@ public sealed class BuildContext
     /// </summary>
     public float DetailScale => Plan.Family == "fighter" ? Num.Clamp(Plan.Length / 55f, 0.16f, 0.8f) : 1f;
 
+    /// <summary>Fighters: how blocky the cross-section is (0 knife-edged stealth … 1 armoured chamfered block).</summary>
+    public float Bulk { get; set; }
+
     /// <summary>The manufacturer's design language (set by the planner).</summary>
     public DesignLanguage Lang { get; set; } = new();
 
