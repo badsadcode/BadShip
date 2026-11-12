@@ -206,7 +206,7 @@ lines along the chines. The operator's paint is pushed dark and matte.
 | `fork` | a cockpit body between two long forward prongs with guns at their tips | medium/large |
 
 Sizes: small 8–15 m, medium 15–26 m, large 26–45 m (gunships). Pin a form with `--set hull_form=wedge`; cockpit with
-`bridge_style=canopy|slit`, engines with `engine_layout=1x1|2x1|3x1` and `engine_style=slit|pod`. Guns and missile
+`bridge=canopy|slit`, engines with `engines=1x1|2x1|3x1` and `engine_style=slit|pod`. Guns and missile
 racks carry `hardpoint` markers; the cockpit carries the `bridge` marker. Surface detail, damage and livery work at
 fighter scale. The Frontier Patrol fields fighters often; other factions only escort.
 
