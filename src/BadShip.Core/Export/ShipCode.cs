@@ -55,6 +55,8 @@ public static class ShipCode
             if (o.Asymmetric is { } asym) t.Add("k" + (asym ? "1" : "0"));
             if (o.BeamRatio is { } br) t.Add("x" + (int)MathF.Round(br * 1000));
             if (o.HeightRatio is { } hr) t.Add("o" + (int)MathF.Round(hr * 1000));
+            Add('r', o.WingStyle);
+            if (o.WingSpan is { } wsp) t.Add("j" + (int)MathF.Round(wsp * 100));
         }
         if (r.StageSeeds is { } seeds)
             foreach (var (stage, seed) in seeds.OrderBy(kv => kv.Key, StringComparer.Ordinal))
@@ -108,6 +110,8 @@ public static class ShipCode
                     case 'k': O().Asymmetric = v == "1"; break;
                     case 'x': O().BeamRatio = int.Parse(v, inv) / 1000f; break;
                     case 'o': O().HeightRatio = int.Parse(v, inv) / 1000f; break;
+                    case 'r': O().WingStyle = v; break;
+                    case 'j': O().WingSpan = int.Parse(v, inv) / 100f; break;
                     case 'q':
                         var stage = StageLetters.FirstOrDefault(kv => kv.Value == v[0]).Key ?? throw new ArgumentException($"Unknown stage letter '{v[0]}'.");
                         (r.StageSeeds ??= [])[stage] = ulong.Parse(v[1..], inv);

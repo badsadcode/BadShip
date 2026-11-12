@@ -72,11 +72,19 @@ public sealed class PlanOverrides
     /// <summary>Beam and height as fractions of the length.</summary>
     public float? BeamRatio { get; set; }
     public float? HeightRatio { get; set; }
+
+    /// <summary>Fighters: wing style (see <see cref="Fighters.WingStyles"/>) and wing span relative to the usual (0.5–1.8).</summary>
+    public string? WingStyle { get; set; }
+    public float? WingSpan { get; set; }
 }
 
 /// <summary>Every choice the generator made from the recipe and seed (the "semantic plan" of the ship).</summary>
 public sealed class ShipPlan
 {
+    /// <summary>Fighters only: the wing style and span factor ("" and 0 for ships).</summary>
+    public string WingStyle { get; set; } = "";
+    public float WingSpan { get; set; }
+
     public string Size { get; set; } = "";
     public string Faction { get; set; } = "";
     public string FactionName { get; set; } = "";

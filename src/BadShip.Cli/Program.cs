@@ -251,6 +251,8 @@ static PlanOverrides OverridesFrom(IEnumerable<KeyValuePair<string, string>> pai
             case "ventral": o.Ventral = v; break;
             case "beam": o.BeamRatio = float.Parse(v, inv); break;
             case "height": o.HeightRatio = float.Parse(v, inv); break;
+            case "wings": o.WingStyle = v; break;
+            case "wing_span": o.WingSpan = float.Parse(v, inv); break;
             default: throw new ArgumentException($"Unknown setting '{k}'.");
         }
     return o;

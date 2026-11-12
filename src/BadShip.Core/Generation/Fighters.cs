@@ -16,6 +16,13 @@ public static class Fighters
 {
     public static readonly string[] Forms = ["dart", "wedge", "brick", "fork", "hammer", "twinboom", "brawler"];
     public static readonly string[] Noses = ["point", "chisel", "blunt"];
+
+    /// <summary>
+    /// Wing styles: "form" (the body form's own wings), swept blades, forward-swept blades, an X (two up, two down),
+    /// gull (out, then bent down and forward at a knee), layered (stacked overlapping plates), pods (stubs with
+    /// engine pods on the tips) and asym (one long blade, one short stub with a lance cannon).
+    /// </summary>
+    public static readonly string[] WingStyles = ["form", "swept", "forward", "x", "gull", "layered", "pods", "asym"];
     public static readonly string[] Cockpits = ["canopy", "slit"];
     public static readonly string[] Layouts = ["1x1", "2x1", "3x1"];
     public static readonly string[] EngineStyles = ["slit", "pod"];
@@ -68,6 +75,17 @@ public static class Fighters
         p.Payload = "";
         p.Asymmetric = false;
         p.Ventral = "none";
+        // Wings: the wedge is its own wing and the fork's prongs do that job; the others can take any style.
+        (string, double)[] wings = p.HullForm switch
+        {
+            "wedge" or "fork" => [("form", 1)],
+            "dart" => [("form", 0.3), ("swept", 0.15), ("forward", 0.12), ("x", 0.1), ("gull", 0.1), ("layered", 0.08), ("pods", 0.1), ("asym", 0.05)],
+            "twinboom" => [("form", 0.4), ("swept", 0.15), ("forward", 0.1), ("x", 0.12), ("layered", 0.1), ("pods", 0.13)],
+            "brawler" => [("form", 0.35), ("layered", 0.25), ("pods", 0.2), ("gull", 0.1), ("x", 0.1)],
+            _ => [("form", 0.3), ("swept", 0.12), ("forward", 0.1), ("x", 0.1), ("gull", 0.08), ("layered", 0.15), ("pods", 0.12), ("asym", 0.03)],
+        };
+        p.WingStyle = r.Weighted(wings);
+        p.WingSpan = MathF.Round(r.Range(0.65f, 1.7f), 2);
     }
 
     // ------------------------------------------------------------------ build
@@ -232,7 +250,8 @@ public static class Fighters
         var tipRear = zR + L * r.Range(0.02f, 0.05f);
         var wings = c.Add("wings", "wing", ModuleTier.Secondary, hull.Id);
         var t = MathF.Max(0.12f, h * 0.12f);
-        foreach (var s in new[] { 1f, -1f })
+        if (p.WingStyle != "form") Wings(c, wings, w * 0.3f, wy, zR + L * 0.05f, rootFront, w * 0.2f + span, t, L);
+        else foreach (var s in new[] { 1f, -1f })
         {
             var xt = s * (w / 2 + span);
             Vector3[] outline =
@@ -332,7 +351,8 @@ public static class Fighters
         var span = (pods ? podX + podW / 2 : w / 2) + L * r.Range(0.1f, 0.16f);
         var wy = -h * 0.2f;
         var t = MathF.Max(0.15f, h * 0.1f);
-        foreach (var s in new[] { 1f, -1f })
+        if (p.WingStyle != "form") Wings(c, wings, w * 0.3f, wy, zR + L * 0.14f, zR + L * 0.44f, span - w * 0.3f, t, L);
+        else foreach (var s in new[] { 1f, -1f })
         {
             Vector3[] outline = [new(s * w * 0.3f, wy, zR + L * 0.14f), new(s * w * 0.3f, wy, zR + L * 0.44f), new(s * span, wy, zR + L * 0.3f), new(s * span, wy, zR + L * 0.16f)];
             BevelPlate(wings.Mesh, Roles.HullSecondary, s > 0 ? outline : outline.Reverse().ToArray(), t, t);
@@ -431,7 +451,8 @@ public static class Fighters
         var wy = -h * 0.22f;
         var droop = span * r.Range(-0.1f, 0.25f);
         var t = MathF.Max(0.12f, h * 0.1f);
-        foreach (var s in new[] { 1f, -1f })
+        if (p.WingStyle != "form") Wings(c, wings, w * 0.3f, wy, zR + L * 0.07f, zR + L * 0.38f, w * 0.12f + span, t, L);
+        else foreach (var s in new[] { 1f, -1f })
         {
             var xt = s * (w * 0.42f + span);
             Vector3[] o = [new(s * w * 0.3f, wy, zR + L * 0.07f), new(s * w * 0.3f, wy, zR + L * 0.38f), new(xt, wy - droop, zR + L * 0.2f), new(xt, wy - droop, zR + L * 0.06f)];
@@ -473,7 +494,8 @@ public static class Fighters
         var wing = c.Add("wing", "wing", ModuleTier.Secondary, hull.Id);
         var wy = by - bh * 0.1f;
         var t = MathF.Max(0.15f, h * 0.12f);
-        var outer = r.Chance(0.5) ? L * r.Range(0.06f, 0.12f) : 0;
+        var outer = p.WingStyle == "form" && r.Chance(0.5) ? L * r.Range(0.06f, 0.12f) : 0;
+        Module? boomPort = null;
         foreach (var s in new[] { 1f, -1f })
         {
             BevelPlate(wing.Mesh, Roles.HullSecondary, [new(0, wy, pod0 + L * 0.04f), new(s * bx, wy, pod0 + L * 0.06f), new(s * bx, wy, pod0 + L * 0.3f), new(0, wy, pod0 + L * 0.36f)], t, t);
@@ -497,10 +519,13 @@ public static class Fighters
             Guns(c, boom, [new(s * (bx - bw * 0.3f), by - bh * 0.25f, boomFront - L * 0.12f)], L * 0.16f, L);
             if (s > 0)
             {
+                boomPort = boom;
                 boomRings = br;
                 Fins(c, boom, br, bx, r.Range(4f, 20f), h * r.Range(0.8f, 1.2f), zR + L * 0.03f, L * r.Range(0.14f, 0.2f), L);
             }
         }
+        if (p.WingStyle != "form" && boomPort != null)
+            Wings(c, c.Add("wings", "wing", ModuleTier.Secondary, boomPort.Id), bx, wy, zR + L * 0.1f, zR + L * 0.36f, bw / 2 + L * r.Range(0.1f, 0.16f), t * 0.8f, L);
         Guns(c, hull, [new(wb * 0.22f, -h * 0.36f, zR + L * 0.84f), new(-wb * 0.22f, -h * 0.36f, zR + L * 0.84f)], L * 0.12f, L, chin: true);
         Cockpit(c, hull, rings, zR + L * 0.55f, zR + L * 0.86f, wb * 0.5f, h * 0.45f);
         GlowLines(c, hull);
@@ -553,7 +578,8 @@ public static class Fighters
         var span = L * r.Range(0.12f, 0.18f);
         var wy = -h * 0.25f;
         var t = MathF.Max(0.14f, h * 0.1f);
-        foreach (var s in new[] { 1f, -1f })
+        if (p.WingStyle != "form") Wings(c, wings, w * 0.2f, wy, zR + L * 0.3f, zR + L * 0.56f, w * 0.3f + span, t, L);
+        else foreach (var s in new[] { 1f, -1f })
         {
             var xt = s * (w * 0.5f + span);
             var drop = span * r.Range(0.2f, 0.45f);
@@ -566,6 +592,174 @@ public static class Fighters
         Guns(c, hull, [new(w * 0.1f, -h * 0.4f, zR + L * 0.8f), new(-w * 0.1f, -h * 0.4f, zR + L * 0.8f)], L * 0.14f, L, chin: true);
         Cockpit(c, hull, rings, zR + L * 0.6f, zR + L * 0.88f, w * 0.38f, h * 0.3f);
         GlowLines(c, hull);
+    }
+
+
+    // ------------------------------------------------------------------ wings
+
+    /// <summary>
+    /// The plan's wing style on a root chord from z0 to z1 at (±rootX, y). <paramref name="span"/> is the usual
+    /// reach out from the root; the plan's wing span scales it (stubs to long blades). Tips never reach behind the
+    /// engines' exhaust plane or past the nose. Wings draw from their own random stream, so the body never moves.
+    /// </summary>
+    private static void Wings(BuildContext c, Module m, float rootX, float y, float z0, float z1, float span, float t, float L)
+    {
+        var p = c.Plan;
+        var r = Rng.Stream(c.Recipe.StageSeeds?.GetValueOrDefault("silhouette") is { } ss and > 0 ? ss : c.Recipe.Seed, "wings");
+        span *= p.WingSpan;
+        float zR = -L / 2, zN = L / 2, minZ = zR + L * 0.02f, maxZ = zN - L * 0.08f;
+        var chord = MathF.Max(z1 - z0, L * 0.12f);
+        z1 = MathF.Min(z0 + chord, maxZ);
+        chord = z1 - z0;
+
+        // A trapezoid from the root chord out along dir (unit, in the XY plane): tip rear at tipRearZ, tip chord tc.
+        Vector3[] Panel(Vector3 root, float rc, Vector3 dir, float len, float tipRearZ, float tc)
+        {
+            var tip = root + dir * len;
+            var tr = Math.Clamp(tipRearZ, minZ, maxZ - tc);
+            return [root, root + new Vector3(0, 0, rc), new(tip.X, tip.Y, tr + tc), new(tip.X, tip.Y, tr)];
+        }
+        Vector3 Dir(float s, float angle) => new(s * MathF.Cos(angle), MathF.Sin(angle), 0);
+        void Under(float s, Vector3[] panel, float at)
+        {
+            // A gun slung under the panel at a fraction of the span.
+            var a = Vector3.Lerp(panel[0], panel[3], at);
+            var b = Vector3.Lerp(panel[1], panel[2], at);
+            var mid = Vector3.Lerp(a, b, 0.65f) - new Vector3(0, t * 1.2f, 0);
+            Guns(c, m, [mid], L * 0.14f, L);
+        }
+
+        var dihedral = r.Range(-0.18f, 0.22f);
+        var sweep = r.Range(0.45f, 1.05f);
+        // Blades have a narrow root (they read as blades, not deltas): swept ones sit forward on the root chord,
+        // forward-swept ones aft, so their tips have room.
+        var bc = MathF.Min(chord, L * r.Range(0.13f, 0.2f));
+        var bladeFwd = z0 + (chord - bc) * 0.75f;
+        var bladeAft = z0;
+        foreach (var s in new[] { 1f, -1f })
+        {
+            var root = new Vector3(s * rootX, y, z0);
+            switch (p.WingStyle)
+            {
+                case "swept":
+                {
+                    var tc = bc * r.Range(0.35f, 0.6f);
+                    var len = span * 1.35f;
+                    var rt = root with { Z = bladeFwd };
+                    var o = Panel(rt, bc, Dir(s, dihedral), len, bladeFwd + bc - len * sweep - tc, tc);
+                    BevelPlate(m.Mesh, Roles.HullMain, o, t, t * 0.9f);
+                    WingTip(c, m, (o[2] + o[3]) / 2, t, s);
+                    Under(s, o, 0.45f);
+                    break;
+                }
+                case "forward":
+                {
+                    var tc = bc * r.Range(0.45f, 0.7f);
+                    var len = span * 1.25f;
+                    var rt = root with { Z = bladeAft };
+                    var o = Panel(rt, bc, Dir(s, dihedral * 0.5f - 0.05f), len, bladeAft + len * r.Range(0.4f, 0.8f), tc);
+                    BevelPlate(m.Mesh, Roles.HullMain, o, t, t * 0.9f);
+                    WingTip(c, m, (o[2] + o[3]) / 2, t, s);
+                    Under(s, o, 0.4f);
+                    break;
+                }
+                case "x":
+                {
+                    var ang = r.Range(0.3f, 0.55f);
+                    foreach (var up in new[] { 1f, -1f })
+                    {
+                        var tc = bc * 0.55f;
+                        var len = span * 1.1f;
+                        var rt = root with { Z = (bladeFwd + bladeAft) / 2, Y = root.Y + up * t * 0.6f };
+                        var o = Panel(rt, bc, Dir(s, up * ang), len, rt.Z + bc - len * sweep * 0.5f - tc, tc);
+                        BevelPlate(m.Mesh, Roles.HullMain, o, t * 0.9f, t * 0.8f);
+                        // A gun at each tip.
+                        Guns(c, m, [(o[2] + o[3]) / 2 + new Vector3(0, 0, -tc * 0.3f)], L * 0.12f, L);
+                        if (up > 0) WingTip(c, m, (o[2] + o[3]) / 2, t, s);
+                    }
+                    break;
+                }
+                case "gull":
+                {
+                    var inner = span * 0.42f;
+                    var kneeChord = chord * 0.8f;
+                    var a = Panel(root, chord, Dir(s, 0.15f), inner, z0 + chord * 0.05f, kneeChord);
+                    BevelPlate(m.Mesh, Roles.HullMain, a, t, t * 0.9f);
+                    var knee = a[3];
+                    var len = span * 0.75f;
+                    var tc = chord * 0.3f;
+                    var b = Panel(knee, a[2].Z - a[3].Z, Dir(s, -r.Range(0.7f, 1.05f)), len, knee.Z + len * r.Range(0.15f, 0.55f), tc);
+                    BevelPlate(m.Mesh, Roles.HullMain, b, t, t * 0.9f);
+                    Shapes.Box(m.Mesh, Roles.DarkMechanics, (a[2] + a[3]) / 2, new Vector3(t * 2.2f, t * 2.2f, (a[2].Z - a[3].Z) * 0.6f));
+                    WingTip(c, m, (b[2] + b[3]) / 2, t, s);
+                    break;
+                }
+                case "layered":
+                {
+                    var n = r.Int(2, 3);
+                    var low = r.Range(0.3f, 0.6f);
+                    Vector3[] baseP = [];
+                    for (var k = 0; k < n; k++)
+                    {
+                        var rc = chord * (1 - 0.2f * k);
+                        var len = span * (1 - 0.24f * k);
+                        var rr = root + new Vector3(0, t * 1.15f * k, chord * 0.1f * k);
+                        var o = Panel(rr, rc, Dir(s, dihedral * 0.4f), len, rr.Z + rc - len * low - rc * 0.45f, rc * 0.45f);
+                        BevelPlate(m.Mesh, k % 2 == 0 ? Roles.HullMain : Roles.HullSecondary, o, t, t * 0.9f);
+                        if (k == 0) baseP = o;
+                    }
+                    WingTip(c, m, (baseP[2] + baseP[3]) / 2, t, s);
+                    Under(s, baseP, 0.35f);
+                    Under(s, baseP, 0.7f);
+                    break;
+                }
+                case "pods":
+                {
+                    // Stubs with an engine pod on each tip; the pods end at the hull's rear, like the main engines.
+                    var podLen = L * r.Range(0.3f, 0.42f);
+                    var len = span * 0.6f;
+                    var pz0 = MathF.Max(z0, zR + L * 0.06f);
+                    var pz1 = MathF.Min(MathF.Max(z1, pz0 + L * 0.1f), zR + podLen * 0.9f);
+                    var o = Panel(new Vector3(s * rootX, y, pz0), pz1 - pz0, Dir(s, dihedral * 0.5f), len, pz0 + (pz1 - pz0) * 0.15f, (pz1 - pz0) * 0.7f);
+                    BevelPlate(m.Mesh, Roles.HullMain, o, t, t * 0.9f);
+                    var pw = MathF.Max(0.35f, L * r.Range(0.05f, 0.07f));
+                    var tip = (o[2] + o[3]) / 2;
+                    var pr = Section(c, tip.X + s * pw * 0.25f, tip.Y, pw, pw * 0.85f, Bevel(c), 0.5f, 0.32f);
+                    var (pod, podLoft) = c.AddLoft(s > 0 ? "wing_pod_port" : "wing_pod_starboard", "engine", ModuleTier.Secondary, m.Id,
+                        [(zR, pr.Scaled(0.9f, 0.88f)), (zR + L * 0.04f, pr), (zR + podLen * 0.8f, pr), (zR + podLen, pr.ScaledOnBase(0.7f, 0.6f))], Roles.HullSecondary, "pod");
+                    var front = podLoft.Rings[^1];
+                    var ctr = front.Aggregate(Vector3.Zero, (acc, q) => acc + q) / front.Length;
+                    pod.Mesh.AddPolygon(Roles.DarkMechanics, front.Select(q => ctr + (q - ctr) * 0.75f + new Vector3(0, 0, 0.02f)).ToArray(), Vector3.UnitZ);
+                    SlitEngines(c, pod, pr.Scaled(0.9f, 0.88f), zR, L, "1x1", pod.Id + "_exhaust");
+                    break;
+                }
+                case "asym":
+                {
+                    if (s > 0)
+                    {
+                        // One long swept blade.
+                        var len = span * 1.7f;
+                        var tc = bc * 0.5f;
+                        var rt = root with { Z = bladeFwd };
+                        var o = Panel(rt, bc, Dir(s, dihedral * 0.5f), len, bladeFwd + bc - len * sweep * 0.6f - tc, tc);
+                        BevelPlate(m.Mesh, Roles.HullMain, o, t, t * 0.9f);
+                        WingTip(c, m, (o[2] + o[3]) / 2, t, s);
+                    }
+                    else
+                    {
+                        // A short stub carrying a long lance cannon.
+                        var len = span * 0.45f;
+                        var o = Panel(root, chord, Dir(s, -0.1f), len, z0 + chord * 0.2f, chord * 0.6f);
+                        BevelPlate(m.Mesh, Roles.HullMain, o, t * 1.3f, t);
+                        var mount = (o[2] + o[3]) / 2 - new Vector3(0, t, 0);
+                        var lance = MathF.Max(L * 0.2f, zN + L * 0.08f - mount.Z);
+                        Guns(c, m, [mount], lance, L);
+                        WingTip(c, m, mount + new Vector3(0, t * 2, 0), t, s);
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     // ------------------------------------------------------------------ components
@@ -671,7 +865,7 @@ public static class Fighters
                 // A chin turret: an armoured faceted block with the barrels.
                 Shapes.Prism(m.Mesh, Roles.DarkMechanics, a - new Vector3(0, 0, length * 0.15f), a + new Vector3(0, 0, length * 0.25f), rad * 3.2f, rad * 2.4f, 6, MathF.PI / 6);
             }
-            else Shapes.Prism(m.Mesh, Roles.HullSecondary, a - new Vector3(0, 0, length * 0.3f), a + new Vector3(0, 0, length * 0.15f), rad * 2.2f, rad * 1.8f, 6, MathF.PI / 6);
+            else Shapes.Prism(m.Mesh, Roles.HullSecondary, a - new Vector3(0, 0, MathF.Min(length * 0.3f, L * 0.06f)), a + new Vector3(0, 0, MathF.Min(length * 0.15f, L * 0.05f)), rad * 2.2f, rad * 1.8f, 6, MathF.PI / 6);
             Shapes.Prism(m.Mesh, Roles.DarkMechanics, a, muzzle, rad, rad * 0.85f, 6, MathF.PI / 6);
             Shapes.Prism(m.Mesh, Roles.DarkMechanics, muzzle - new Vector3(0, 0, length * 0.12f), muzzle, rad * 1.4f, rad * 1.4f, 6, MathF.PI / 6);
             c.AddMarker("hardpoint", m, muzzle, Vector3.UnitZ, rad * 1.4f);

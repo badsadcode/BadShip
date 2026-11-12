@@ -325,7 +325,7 @@ public class GeneratorTests
     {
         Assert.Throws<ArgumentException>(() => ShipCode.Decode(""));
         Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-fsurvey"));
-        Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-s12-j9"));
+        Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-s12-9x"));
         Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-sabc"));
     }
 
@@ -463,6 +463,30 @@ public class GeneratorTests
         float Tip(string nose) => ShipGenerator.Generate(new ShipRecipe { Seed = 3, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "dart", ProwStyle = nose } })
             .Find("hull_main")!.Lofts[0].Profiles[^1].WBottom;
         Assert.True(Tip("blunt") > Tip("chisel") && Tip("chisel") > Tip("point"));
+    }
+
+    [Fact]
+    public void Every_wing_style_and_span_validates_and_round_trips_through_a_code()
+    {
+        foreach (var style in Fighters.WingStyles.Where(w => w != "form"))
+            foreach (var form in new[] { "dart", "brick", "hammer", "twinboom", "brawler" })
+                foreach (var span in new[] { 0.6f, 1.75f })
+                    for (ulong seed = 1; seed <= 3; seed++)
+                    {
+                        var recipe = new ShipRecipe { Seed = seed, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = form, WingStyle = style, WingSpan = span } };
+                        var ship = ShipGenerator.Generate(recipe);
+                        var report = ShipValidator.Validate(ship);
+                        Assert.False(report.HasErrors, $"{style} {form} {span} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                        Assert.Equal(style, ship.Plan.WingStyle);
+                        Assert.Equal(Signature(ship), Signature(ShipGenerator.Generate(ShipCode.Decode(ShipCode.Encode(recipe)))));
+                    }
+        // Longer wings reach further out; wing pods add engines.
+        float Span(float k) => ShipGenerator.Generate(new ShipRecipe { Seed = 4, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "dart", WingStyle = "swept", WingSpan = k } }).Bounds.Size.X;
+        Assert.True(Span(1.7f) > Span(0.7f) * 1.3f);
+        var pods = ShipGenerator.Generate(new ShipRecipe { Seed = 4, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "dart", WingStyle = "pods" } });
+        Assert.True(pods.Markers.Count(m => m.Kind == "engine_exhaust") >= 3);
+        // The wedge and the fork keep their own wings.
+        Assert.Equal("form", ShipGenerator.Generate(new ShipRecipe { Seed = 4, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "wedge", WingStyle = "x" } }).Plan.WingStyle);
     }
 
     [Fact]

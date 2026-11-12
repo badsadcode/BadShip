@@ -215,6 +215,15 @@ face (`--set prow=chisel`).
 
 ![Fighter forms, two of each](docs/images/fighter_forms_v0.8.png)
 
+**Wings (v0.9.0).** Any form except the wedge (its body is the wing) and the fork (its prongs do that job) can take
+a wing style instead of its own: `swept` blades, `forward`-swept blades, an `x` (two up, two down, guns on every tip),
+`gull` (out, then bent down and forward at a knee), `layered` (stacked overlapping plates with guns underneath),
+`pods` (stubs with engine pods on the tips: more exhausts), or `asym` (one long blade, one stub carrying a lance
+cannon). A span factor from stubby (0.5) to huge (1.8) scales them. `--set wings=gull,wing_span=1.6`; the Shipyard
+has both as menus. Wings use their own random stream, so changing them never moves the body.
+
+![Wing styles from above and the side](docs/images/fighter_wings_v0.9.png)
+
 Sizes: small 8–15 m, medium 15–26 m, large 26–45 m (gunships). Pin a form with `--set hull_form=wedge`; cockpit with
 `bridge=canopy|slit`, engines with `engines=1x1|2x1|3x1` and `engine_style=slit|pod`. Guns and missile
 racks carry `hardpoint` markers; the cockpit carries the `bridge` marker. Surface detail, damage and livery work at
@@ -224,9 +233,9 @@ fighter scale. The Frontier Patrol fields fighters often; other factions only es
 
 ![A dart from four sides](docs/images/fighter_dart_closeup.png)
 
-## Status (v0.8.0: more fighter forms)
+## Status (v0.9.0: fighter wings)
 
-- Fighters and gunships (7 forms × 3 noses × a bulk dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
+- Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
   (intact, damaged and derelict), about 1–1.5k triangles each.
 
 - 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.

@@ -181,6 +181,12 @@
         <label>Hull form
           <select id="hull_form"><option value="">Auto</option><option>slab</option><option>faceted</option></select>
         </label>
+        <label>Wings (fighters)
+          <select id="wing_style"><option value="">Auto</option><option value="form">Body's own</option><option>swept</option><option>forward</option><option>x</option><option>gull</option><option>layered</option><option>pods</option><option>asym</option></select>
+        </label>
+        <label>Wing span (fighters)
+          <select id="wing_span"><option value="">Auto</option><option value="0.65">Stubby</option><option value="1">Normal</option><option value="1.4">Long</option><option value="1.75">Huge</option></select>
+        </label>
         <label>Below the hull
           <select id="ventral"><option value="">Auto</option><option>keel</option><option>gondola</option><option>pods</option><option>none</option></select>
         </label>
@@ -426,7 +432,7 @@ function syncHullForms() {
   sel.innerHTML = '<option value="">Auto</option>' + forms.map(f => `<option>${f}</option>`).join('');
   sel.value = keep; sel.dataset.kind = String(fighter);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
@@ -441,7 +447,9 @@ let historyIndex = -1;
 function recipe() {
   const overrides = { ...(extras.overrides ?? {}) };
   syncHullForms();
-  delete overrides.hull_form; delete overrides.ventral;
+  delete overrides.hull_form; delete overrides.ventral; delete overrides.wing_style; delete overrides.wing_span;
+  if ($('wing_style').value) overrides.wing_style = $('wing_style').value;
+  if ($('wing_span').value) overrides.wing_span = +$('wing_span').value;
   if ($('hull_form').value) overrides.hull_form = $('hull_form').value;
   if ($('ventral').value) overrides.ventral = $('ventral').value;
   return {
@@ -491,6 +499,7 @@ function readout(info, r) {
     ['Operator', p.faction_name], ['Built by', p.manufacturer_name],
     ...(p.signature && p.signature !== 'none' ? [['Yard signature', p.signature.replace('_', ' ')]] : []),
     ['Hull form', cap(p.hull_form)], ['Prow', cap(p.prow_style)], ['Bridge', cap(p.bridge_style)], ['Tiers', p.tiers],
+    ...(p.wing_style ? [['Wings', `${p.wing_style === 'form' ? 'body\u2019s own' : p.wing_style} · span ×${p.wing_span}`]] : []),
     ['Engines', `${p.engine_layout} ${p.engine_style}s`], ...(p.payload ? [['Payload', cap(p.payload)]] : []),
     ['Below the hull', cap(p.ventral)],
     ...(p.condition && p.condition !== 'intact' ? [['Condition', cap(p.condition)]] : []), ['Palette', cap(p.palette)],
@@ -545,6 +554,9 @@ function applyRecipe(rec) {
   $('livery').value = rec.livery === 'none' ? 'none' : 'standard';
   $('condition').value = ['damaged', 'derelict'].includes(rec.condition) ? rec.condition : 'intact';
   syncHullForms(); $('hull_form').value = rec.overrides?.hull_form ?? '';
+  $('wing_style').value = rec.overrides?.wing_style ?? '';
+  $('wing_span').value = rec.overrides?.wing_span != null ? String(rec.overrides.wing_span) : '';
+  if (!$('wing_span').value && rec.overrides?.wing_span != null) { const o = document.createElement('option'); o.value = o.textContent = String(rec.overrides.wing_span); $('wing_span').append(o); $('wing_span').value = o.value; }
   $('ventral').value = rec.overrides?.ventral ?? '';
   for (const k of Object.keys(stageSeeds)) delete stageSeeds[k];
   Object.assign(stageSeeds, rec.stage_seeds ?? {});
@@ -604,7 +616,8 @@ function markCurrent(card) { document.querySelectorAll('.card').forEach(c => c.s
 function restore(entry, card) {
   const r = entry.r;
   $('seed').value = r.seed; $('faction').value = r.faction; $('manufacturer').value = r.manufacturer; $('size').value = r.size; $('archetype').value = r.archetype; $('family').value = r.family; $('palette').value = r.palette; $('detail').value = r.detail;
-  syncHullForms(); $('hull_form').value = r.overrides?.hull_form ?? ''; $('ventral').value = r.overrides?.ventral ?? '';
+  syncHullForms(); $('hull_form').value = r.overrides?.hull_form ?? '';
+  $('wing_style').value = r.overrides?.wing_style ?? ''; $('wing_span').value = r.overrides?.wing_span != null ? String(r.overrides.wing_span) : ''; $('ventral').value = r.overrides?.ventral ?? '';
   for (const k of Object.keys(stageSeeds)) delete stageSeeds[k];
   Object.assign(stageSeeds, r.stage_seeds ?? {});
   for (const b of document.querySelectorAll('[data-stage]')) b.dataset.locked = String(!(b.dataset.stage in stageSeeds));
@@ -623,7 +636,7 @@ $('random').addEventListener('click', () => { extras = {}; $('seed').value = ran
 $('reset').addEventListener('click', () => { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
 document.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { stageSeeds[b.dataset.stage] = rand(); build(); }));
 $('seed').addEventListener('keydown', e => { if (e.key === 'Enter') { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); } });
-for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'hull_form', 'ventral', 'palette', 'detail', 'livery', 'condition']) $(id).addEventListener('change', () => build());
+for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'hull_form', 'wing_style', 'wing_span', 'ventral', 'palette', 'detail', 'livery', 'condition']) $(id).addEventListener('change', () => build());
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
   state.mode = b.dataset.mode;
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
