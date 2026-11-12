@@ -47,6 +47,12 @@ node closeup.mjs ../../out/gallery ship_0001 # four views of one ship
 cd ../glb-validate && npm install && node validate.mjs ../../out/gallery   # Khronos glTF validator
 ```
 
+To make the interactive 3D gallery page (all ships embedded, orbit, shading modes, markers, part inspection):
+
+```bash
+node tools/hangar/build.mjs out/gallery out/hangar.html
+```
+
 The renderer uses three.js in the headless Chromium that comes with Playwright. Any glTF viewer works too
 (Blender, Godot, <https://gltf-viewer.donmccurdy.com>).
 
