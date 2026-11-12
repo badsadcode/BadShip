@@ -1,0 +1,10 @@
+; BadShip import test: a minimal Godot 4 project that imports exported ships and checks them.
+config_version=5
+
+[application]
+config/name="BadShip Import Test"
+config/features=PackedStringArray("4.4")
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.07, 0.094, 0.129, 1)

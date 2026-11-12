@@ -1,0 +1,5 @@
+ships/
+.godot/
+report.json
+*.import
+godot_render.png

@@ -102,6 +102,23 @@ always opens with the version that made it, so shared ships never change under p
 3. Run `tools/shipyard/build.sh` and publish only the new `framework/<version>/` folder with the page; keep the old
    folders where they are.
 
+**Godot import test** (`tools/godot-test/`): a minimal Godot 4 project that imports exported ships with Godot's own
+glTF importer and checks every ship two ways, as an imported scene (editor) and loaded at runtime with
+`GLTFDocument` (a game loading generated ships while it runs): bounds against our metadata, exact triangle counts,
+one node per module (names as Godot sanitises them), materials (with emissive engine glow), node extras arriving as
+Godot metadata, LOD files getting lighter, and every collision piece turning into a `ConvexPolygonShape3D`.
+
+```bash
+GODOT=/path/to/godot tools/godot-test/run.sh out/gallery      # writes tools/godot-test/report.json
+xvfb-run godot --path tools/godot-test --rendering-driver opengl3 --script res://showcase.gd -- ship_0005 ship_0008
+```
+
+Result with Godot 4.4.1: all 12 gallery ships (48 files) pass both paths with 0 failures. The headless editor
+import prints `Parameter "t" is null` once per file; that comes from the dummy renderer's asset-preview thumbnail
+(a hand-made one-triangle GLB triggers it too), not from our files. Rendered by Godot itself:
+
+![Ships imported and rendered in Godot 4.4](docs/images/godot_import.png)
+
 The renderer uses three.js in the headless Chromium that comes with Playwright. Any glTF viewer works too
 (Blender, Godot, <https://gltf-viewer.donmccurdy.com>).
 
@@ -162,6 +179,7 @@ recipe + seed
 - Ventral structures (keel, gondola, slung pods) and underside equipment.
 - Manufacturer design languages, factions, size classes, `fleet` command and true-scale lineups.
 - Ship codes (shareable links) with versioned generator snapshots in the Shipyard.
+- Godot 4.4.1 import verification (editor import and runtime GLTFDocument), with an in-engine render.
 - 1000 seeds per size class: 0 validation errors (a handful of small craft warn that they ended up a little longer
   than planned); about 3 / 7 / 13 ms and 2k / 5.4k / 9.8k triangles for small / medium / large ships.
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
@@ -169,8 +187,11 @@ recipe + seed
 
 - Stage rerolls (`--stage-seed`, `variants`), plan overrides (`--set`), LOD1/LOD2 and convex collision exports.
 
+**Verified in an engine:** Godot 4.4.1 imports and loads the ships, LODs and collision cleanly (see above); Blender,
+Unity and Unreal have not been tested yet.
+
 **Known limitations:** clearance tests use bounding boxes (conservative); non-lofted parts (cranes, masts) get one
-box each in the collision file; LODs remove whole modules rather than simplifying meshes; no textures (greybox with material roles); not yet tested in Blender or Godot; no interactive editor (CLI +
+box each in the collision file; LODs remove whole modules rather than simplifying meshes; no textures (greybox with material roles); no interactive editor (CLI +
 renders only); locking works per stage, not per individual module yet.
 
 **Next (phase B/C ideas):** a viewer with parameter
@@ -191,5 +212,6 @@ tools/render/         three.js + Playwright contact sheets and close-ups
 tools/glb-validate/   Khronos glTF validator runner
 tools/hangar/         interactive 3D gallery page builder
 tools/shipyard/       the live generator page and its build script
+tools/godot-test/     Godot 4 project that imports and verifies exports (run.sh, verify.gd, showcase.gd)
 docs/brief/           the original handoff package
 ```
