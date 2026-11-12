@@ -12,7 +12,7 @@ namespace BadShip.Export;
 /// </summary>
 /// <remarks>
 /// Keys: v version · s seed · f faction · m manufacturer · z size · a archetype · b family (hull body) · h hull form ·
-/// u underside · p palette · d detail · i livery (none) · l length (decimetres) · w prow · g bridge · t tiers · e engine layout ·
+/// u underside · p palette · d detail · i livery (none) · c condition (damaged, derelict) · l length (decimetres) · w prow · g bridge · t tiers · e engine layout ·
 /// n engine style · y payload · k asymmetric (1/0) · x beam ratio (‰) · o height ratio (‰) ·
 /// q stage seed: q + stage letter (p plan, s silhouette, u ventral, e equipment, d details, l look) + number.
 /// Procedural names lose their hyphen: faction-12 → ffaction12, yard-7 → myard7.
@@ -21,7 +21,7 @@ public static class ShipCode
 {
     private static readonly Dictionary<string, char> StageLetters = new()
     {
-        ["plan"] = 'p', ["silhouette"] = 's', ["ventral"] = 'u', ["equipment"] = 'e', ["details"] = 'd', ["look"] = 'l', ["livery"] = 'i',
+        ["plan"] = 'p', ["silhouette"] = 's', ["ventral"] = 'u', ["equipment"] = 'e', ["details"] = 'd', ["look"] = 'l', ["livery"] = 'i', ["condition"] = 'c',
     };
 
     public static string Encode(ShipRecipe r, string? version = null)
@@ -40,6 +40,7 @@ public static class ShipCode
         if (r.Palette is { Length: > 0 } pal && pal != "auto") Add('p', pal);
         if (r.Detail is { Length: > 0 } det && det != "high") Add('d', det);
         if (r.Livery is { Length: > 0 } liv && liv != "standard") Add('i', liv);
+        if (r.Condition is { Length: > 0 } cond && cond != "intact") Add('c', cond);
         if (r.Length is { } len) t.Add("l" + ((int)MathF.Round(len * 10)).ToString(CultureInfo.InvariantCulture));
         if (r.Overrides is { } o)
         {
@@ -96,6 +97,7 @@ public static class ShipCode
                     case 'p': r.Palette = v; break;
                     case 'd': r.Detail = v; break;
                     case 'i': r.Livery = v; break;
+                    case 'c': r.Condition = v; break;
                     case 'l': r.Length = int.Parse(v, inv) / 10f; break;
                     case 'w': O().ProwStyle = v; break;
                     case 'g': O().BridgeStyle = v; break;

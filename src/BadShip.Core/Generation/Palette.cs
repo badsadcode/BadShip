@@ -22,7 +22,8 @@ public static class Roles
     public const string Livery = "livery";
 
     public static readonly string[] All =
-        [HullMain, HullSecondary, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery];
+        [HullMain, HullSecondary, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery,
+         Damage.Heat, Damage.Scorch, Damage.Breach, Damage.Embers, Damage.GlassDark, Damage.LightOff, Damage.EngineCold];
 
     public static readonly string[] Cargo = [CargoA, CargoB, CargoC];
 }

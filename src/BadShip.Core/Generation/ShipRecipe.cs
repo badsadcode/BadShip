@@ -42,6 +42,9 @@ public sealed class ShipRecipe
     /// <summary>standard (name, registration, emblems, chevrons) | none (clean, unmarked).</summary>
     public string Livery { get; set; } = "standard";
 
+    /// <summary>intact | damaged | derelict: the same ship, with damage on top.</summary>
+    public string Condition { get; set; } = "intact";
+
     /// <summary>
     /// Seeds that replace the main seed for single stages (plan, silhouette, equipment, details, look). Keeping the
     /// main seed and changing one of these locks everything else: reroll the equipment, the surface detail or the
@@ -83,6 +86,7 @@ public sealed class ShipPlan
     public string ShipName { get; set; } = "";
     public string Registration { get; set; } = "";
     public string Livery { get; set; } = "";
+    public string Condition { get; set; } = "";
     public string Archetype { get; set; } = "";
     public string Family { get; set; } = "";
     public float Length { get; set; }

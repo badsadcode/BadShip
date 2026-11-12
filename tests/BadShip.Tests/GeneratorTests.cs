@@ -359,6 +359,34 @@ public class GeneratorTests
         Assert.Contains(doc.RootElement.GetProperty("materials").EnumerateArray(), m => m.TryGetProperty("alphaMode", out var a) && a.GetString() == "MASK");
     }
 
+    [Theory]
+    [InlineData("damaged")]
+    [InlineData("derelict")]
+    public void Condition_keeps_the_ships_identity(string condition)
+    {
+        for (ulong seed = 1; seed <= 30; seed++)
+        {
+            var intact = ShipGenerator.Generate(new ShipRecipe { Seed = seed });
+            var worn = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Condition = condition });
+            Assert.False(ShipValidator.Validate(worn).HasErrors, $"{condition} seed {seed}: " + string.Join("; ", ShipValidator.Validate(worn).Issues.Select(i => i.Message)));
+            // Same hull, same plan: the primary masses are untouched (detachable cargo may be gone on a derelict).
+            string Primaries(Ship s, Ship reference) => string.Join("|", s.Modules
+                .Where(m => m.Tier == ModuleTier.Primary && !m.Detachable && reference.Find(m.Id) is { Detachable: false })
+                .Select(m => $"{m.Id}:{m.Bounds.Min}:{m.Bounds.Max}"));
+            Assert.Equal(Primaries(intact, worn), Primaries(worn, intact));
+            Assert.True(worn.Modules.Count(m => m.Tier == ModuleTier.Primary && !m.Detachable) == intact.Modules.Count(m => m.Tier == ModuleTier.Primary && !m.Detachable));
+            Assert.Equal(intact.Plan.ShipName, worn.Plan.ShipName);
+            Assert.Contains(worn.Modules, m => m.Type == "damage");
+            if (condition == "derelict")
+            {
+                // Every light out.
+                Assert.DoesNotContain(worn.Modules, m => m.Mesh.Groups.ContainsKey(Roles.Glass) || m.Mesh.Groups.ContainsKey(Roles.EngineGlow) || m.Mesh.Groups.ContainsKey(Roles.Light));
+                Assert.All(worn.Modules.Where(m => m.Type == "debris"), m => Assert.True(m.Detachable));
+            }
+        }
+        Assert.Throws<ArgumentException>(() => ShipGenerator.Generate(new ShipRecipe { Seed = 1, Condition = "exploded" }));
+    }
+
     [Fact]
     public void Rng_streams_are_stable()
     {

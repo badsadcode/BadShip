@@ -169,6 +169,14 @@ recipe + seed
   paints a name of your own. The image tools (PNG writer, rasteriser, stencil font) are plain C#.
 
   ![Decal sheets](docs/images/livery_sheets.png)
+- **Condition** (`Damage.cs`): `--condition damaged|derelict` keeps the ship's identity (same seed, hull, layout, name)
+  and adds wear on its own random stream. *Damaged*: jagged hull breaches (heat-discoloured ring, scorch, black hole,
+  exposed ribs, plates peeled outwards, sometimes embers), stripped frame sections, one engine cold, some masts and
+  antennas snapped to stumps or leaning, some sections dark. *Derelict*: more and bigger breaches, every light out,
+  engines cold, faded paint and livery, detachable cargo and container stacks gone, and drifting debris plates
+  (flagged detachable, kept out of the ship's bounds). Intact ships are unchanged.
+
+  ![Intact, damaged, derelict](docs/images/conditions.png)
 - **Hull families** (`HullFamilies.cs`): `barge` (one broad stepped hull, like the Thalassa reference), `spine`
   (command block + payload segments on a keel + engine block, with visible gaps), `twin` (two hulls under a bridge
   deck, cross girders and an optional slung cargo pod), `block` (compact armoured brick with sponsons and shrouded engines).
@@ -182,7 +190,7 @@ recipe + seed
   `engine_glow`, `hazard`, `accent`, `radome`, `cargo_a/b/c`. Each is one replaceable glTF material. UVs are
   box-projected in world space at 4 m per tile (they are exported but no textures are attached yet).
 
-## Status (v0.5.0: livery)
+## Status (v0.6.0: damaged and derelict conditions)
 
 - 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.
 - Open hangar bays (lit alcove with depth, gantry, hazard sill, vehicle or crates, railed platform) built from
@@ -191,6 +199,7 @@ recipe + seed
 - Manufacturer design languages, factions, size classes, `fleet` command and true-scale lineups.
 - Ship codes (shareable links) with versioned generator snapshots in the Shipyard.
 - Godot 4.4.1 import verification (editor import and runtime GLTFDocument), with an in-engine render.
+- Damaged and derelict conditions that keep the ship's identity; Godot imports them cleanly (12/12).
 - Livery: names, registrations, emblems, yard marks and chevrons as an embedded decal texture (optional); textures
   pass the Khronos validator and arrive in Godot as alpha-scissor albedo textures.
 - 1000 seeds per size class: 0 validation errors (a handful of small craft warn that they ended up a little longer

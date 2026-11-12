@@ -170,7 +170,7 @@ try
                   badship variants --seed N --stage plan|silhouette|ventral|equipment|details|look [--count N] [--out DIR]
                   badship fleet    --faction haulers|survey|patrol|miners|independent|faction-N [--count N] [--seed S] [--out DIR]
 
-                  --livery standard|none      --size small|medium|large   --faction ...   --manufacturer halvorsen|meridian|korsak|tanaka|brightwater|yard-N
+                  --condition intact|damaged|derelict   --livery standard|none      --size small|medium|large   --faction ...   --manufacturer halvorsen|meridian|korsak|tanaka|brightwater|yard-N
 
                   --set key=value,...      pin plan choices: hull_form=faceted, prow=wedge, bridge=overhang, tiers=3,
                                            engines=2x2, engine_style=pod, payload=tanks, asymmetric=true, ventral=keel,
@@ -211,6 +211,7 @@ ShipRecipe RecipeFrom(Dictionary<string, string> o, ulong seed) => new()
     Manufacturer = o.GetValueOrDefault("manufacturer", "auto"),
     Detail = o.GetValueOrDefault("detail", "high"),
     Livery = o.GetValueOrDefault("livery", "standard"),
+    Condition = o.GetValueOrDefault("condition", "intact"),
     Name = o.GetValueOrDefault("name"),
     StageSeeds = o.TryGetValue("stage-seed", out var ss) ? Pairs(ss).ToDictionary(kv => kv.Key, kv => ulong.Parse(kv.Value)) : null,
     Overrides = o.TryGetValue("set", out var set) ? OverridesFrom(Pairs(set)) : null,

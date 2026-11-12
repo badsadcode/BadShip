@@ -65,7 +65,8 @@ public sealed class Ship
         foreach (var m in Modules)
         {
             m.UpdateBounds();
-            Bounds = Bounds.Union(m.Bounds);
+            // Drifting debris is near the ship, not part of it.
+            if (m.Type != "debris") Bounds = Bounds.Union(m.Bounds);
         }
     }
 }
