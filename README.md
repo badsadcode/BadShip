@@ -8,7 +8,7 @@ written in C# (.NET 10) with no dependencies beyond the base library, following 
 Y up, metres, recipe + seed, hand-written GLB, and checks with the Khronos validator. It does **not** reference NoorMD.
 The original brief from Bad Ideas Works is in [`docs/brief/`](docs/brief/) (and the zip at the root).
 
-![Gallery](docs/images/gallery_v0.4_low.png)
+![Gallery](docs/images/gallery_v0.5_low.png)
 
 **Fleets.** Three factions, eight ships each, at true scale. Paint comes from the operator; architecture from the yard
 that built each ship (Halvorsen's orange engine collars and square prows, Meridian's faceted glass noses and gondolas,
@@ -113,11 +113,13 @@ GODOT=/path/to/godot tools/godot-test/run.sh out/gallery      # writes tools/god
 xvfb-run godot --path tools/godot-test --rendering-driver opengl3 --script res://showcase.gd -- ship_0005 ship_0008
 ```
 
-Result with Godot 4.4.1: all 12 gallery ships (48 files) pass both paths with 0 failures. The headless editor
+Result with Godot 4.4.1: all 12 gallery ships (48 files) pass both paths with 0 failures, including the livery
+decal texture. The headless editor
 import prints `Parameter "t" is null` once per file; that comes from the dummy renderer's asset-preview thumbnail
 (a hand-made one-triangle GLB triggers it too), not from our files. Rendered by Godot itself:
 
 ![Ships imported and rendered in Godot 4.4](docs/images/godot_import.png)
+![Livery in Godot](docs/images/godot_livery.png)
 
 The renderer uses three.js in the headless Chromium that comes with Playwright. Any glTF viewer works too
 (Blender, Godot, <https://gltf-viewer.donmccurdy.com>).
@@ -158,6 +160,15 @@ recipe + seed
   Directorate, Frontier Patrol Command, Kessler Belt Mining Union, independent, `faction-N`). *Size classes* have
   their own rules: small craft are stubbier with one big engine or a pair, one or two tiers and fewer, relatively
   larger parts; large ships get extra tiers, a second superstructure island, longer spines and more equipment.
+- **Livery** (`Livery/`): optional markings drawn into one decal sheet per ship (a PNG embedded in the GLB): the
+  ship's name in a blocky stencil font, a registration with the operator's prefix (FHG, OSD, FPC, KBM, IND),
+  the faction emblem in its accent colour, the manufacturer's mark, and hazard chevrons on the engine pods. Decals are
+  alpha-cutout quads placed on flat hull and superstructure faces, upright and reading left to right from either
+  side, kept clear of windows, bays and anything bolted on, shrunk to fit but never below a readable size. Letters
+  are dark on light hulls and light on dark ones. `--livery none` (or `livery: "none"`) gives clean ships; `--name`
+  paints a name of your own. The image tools (PNG writer, rasteriser, stencil font) are plain C#.
+
+  ![Decal sheets](docs/images/livery_sheets.png)
 - **Hull families** (`HullFamilies.cs`): `barge` (one broad stepped hull, like the Thalassa reference), `spine`
   (command block + payload segments on a keel + engine block, with visible gaps), `twin` (two hulls under a bridge
   deck, cross girders and an optional slung cargo pod), `block` (compact armoured brick with sponsons and shrouded engines).
@@ -171,7 +182,7 @@ recipe + seed
   `engine_glow`, `hazard`, `accent`, `radome`, `cargo_a/b/c`. Each is one replaceable glTF material. UVs are
   box-projected in world space at 4 m per tile (they are exported but no textures are attached yet).
 
-## Status (v0.4.0: manufacturers, factions and size classes)
+## Status (v0.5.0: livery)
 
 - 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.
 - Open hangar bays (lit alcove with depth, gantry, hazard sill, vehicle or crates, railed platform) built from
@@ -180,6 +191,8 @@ recipe + seed
 - Manufacturer design languages, factions, size classes, `fleet` command and true-scale lineups.
 - Ship codes (shareable links) with versioned generator snapshots in the Shipyard.
 - Godot 4.4.1 import verification (editor import and runtime GLTFDocument), with an in-engine render.
+- Livery: names, registrations, emblems, yard marks and chevrons as an embedded decal texture (optional); textures
+  pass the Khronos validator and arrive in Godot as alpha-scissor albedo textures.
 - 1000 seeds per size class: 0 validation errors (a handful of small craft warn that they ended up a little longer
   than planned); about 3 / 7 / 13 ms and 2k / 5.4k / 9.8k triangles for small / medium / large ships.
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
@@ -191,12 +204,12 @@ recipe + seed
 Unity and Unreal have not been tested yet.
 
 **Known limitations:** clearance tests use bounding boxes (conservative); non-lofted parts (cranes, masts) get one
-box each in the collision file; LODs remove whole modules rather than simplifying meshes; no textures (greybox with material roles); no interactive editor (CLI +
+box each in the collision file; LODs remove whole modules rather than simplifying meshes; textures only for livery (hull materials are plain colours by role); no interactive editor (CLI +
 renders only); locking works per stage, not per individual module yet.
 
 **Next (phase B/C ideas):** a viewer with parameter
 controls; per-module locking;
-hull livery (name, logo, mission text decals); more archetypes (mining, tender) and macro families (offset hauler, multi-deck brick); radiators, booms and gantries;
+more archetypes (mining, tender) and macro families (offset hauler, multi-deck brick); radiators, booms and gantries;
 a damage pass; and then the self-contained NoorShip design doc for NoorMD.
 
 ## Layout
