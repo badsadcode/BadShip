@@ -17,6 +17,9 @@ public sealed class Deck
     /// <summary>0 for the main hull, higher for superstructure tiers.</summary>
     public int Level { get; init; }
 
+    /// <summary>An underside: things placed here hang down from <see cref="Y"/> instead of standing on it.</summary>
+    public bool Underside { get; init; }
+
     public List<(float x0, float x1, float z0, float z1)> Used { get; } = [];
 
     public float Width => X1 - X0;
@@ -45,6 +48,9 @@ public sealed class Deck
     }
 }
 
+/// <summary>The underside of a hull mass that ventral structures can hang from.</summary>
+public sealed record BellySpan(Module Module, Profile Profile, float Z0, float Z1, bool Main);
+
 /// <summary>A side face of a hull loft where bays, docking collars and windows can go.</summary>
 public sealed class SideSurface
 {
@@ -71,11 +77,13 @@ public sealed class BuildContext
     public Rng Equip { get; }
     public Rng Detail { get; }
     public Rng Look { get; }
+    public Rng VentralRng { get; }
 
     /// <summary>0 none, 1 some, 2 full surface detail.</summary>
     public int DetailLevel { get; }
 
     public List<Deck> Decks { get; } = [];
+    public List<BellySpan> Bellies { get; } = [];
     public List<SideSurface> Sides { get; } = [];
     public List<LoftPart> Lofts { get; } = [];
 
@@ -91,10 +99,11 @@ public sealed class BuildContext
         Equip = StageRng(recipe, "equipment");
         Detail = StageRng(recipe, "details");
         Look = StageRng(recipe, "look");
+        VentralRng = StageRng(recipe, "ventral");
         DetailLevel = recipe.Detail switch { "low" => 0, "medium" => 1, _ => 2 };
     }
 
-    public static readonly string[] Stages = ["plan", "silhouette", "equipment", "details", "look"];
+    public static readonly string[] Stages = ["plan", "silhouette", "ventral", "equipment", "details", "look"];
 
     private static Rng StageRng(ShipRecipe recipe, string stage)
     {
@@ -139,6 +148,19 @@ public sealed class BuildContext
     {
         var d = new Deck { ModuleId = m.Id, Y = y, X0 = x0, X1 = x1, Z0 = z0, Z1 = z1, Level = level };
         if (d.Width > 1.5f && d.Length > 1.5f) Decks.Add(d);
+        return d;
+    }
+
+    /// <summary>
+    /// Registers the flat underside of a hull mass between z0 and z1: an underside deck for hanging equipment, and,
+    /// when <paramref name="main"/>, the span the ventral structure (keel, gondola, pods) hangs from.
+    /// </summary>
+    public Deck AddBelly(Module m, Profile p, float z0, float z1, bool main)
+    {
+        Bellies.Add(new BellySpan(m, p, z0, z1, main));
+        var half = p.BottomFlatHalf;
+        var d = new Deck { ModuleId = m.Id, Y = p.Bottom, X0 = p.Cx - half, X1 = p.Cx + half, Z0 = z0, Z1 = z1, Level = 0, Underside = true };
+        if (d.Width > 1.2f && d.Length > 2f) Decks.Add(d);
         return d;
     }
 

@@ -13,7 +13,7 @@ using BadShip.Validation;
 //   badship variants --seed 42 --stage equipment [--count 8] [--out out/variants]
 //
 // Any command also takes --set key=value,... (hull_form, prow, bridge, tiers, engines, engine_style, payload,
-// asymmetric, beam, height) and --stage-seed stage=N,... (plan, silhouette, equipment, details, look).
+// asymmetric, ventral, beam, height) and --stage-seed stage=N,... (plan, silhouette, ventral, equipment, details, look).
 
 var cmd = args.Length > 0 ? args[0] : "help";
 var opts = ParseOptions(args.Skip(1).ToArray());
@@ -127,7 +127,7 @@ try
                   badship variants --seed N --stage plan|silhouette|equipment|details|look [--count N] [--out DIR]
 
                   --set key=value,...      pin plan choices: hull_form=faceted, prow=wedge, bridge=overhang, tiers=3,
-                                           engines=2x2, engine_style=pod, payload=tanks, asymmetric=true,
+                                           engines=2x2, engine_style=pod, payload=tanks, asymmetric=true, ventral=keel,
                                            beam=0.25, height=0.12 (fractions of the length)
                   --stage-seed stage=N,... replace the seed for single stages (lock the rest)
                 """);
@@ -188,6 +188,7 @@ static PlanOverrides OverridesFrom(IEnumerable<KeyValuePair<string, string>> pai
             case "engine_style": o.EngineStyle = v; break;
             case "payload": o.Payload = v; break;
             case "asymmetric": o.Asymmetric = bool.Parse(v); break;
+            case "ventral": o.Ventral = v; break;
             case "beam": o.BeamRatio = float.Parse(v, inv); break;
             case "height": o.HeightRatio = float.Parse(v, inv); break;
             default: throw new ArgumentException($"Unknown setting '{k}'.");

@@ -8,14 +8,18 @@ written in C# (.NET 10) with no dependencies beyond the base library, following 
 Y up, metres, recipe + seed, hand-written GLB, and checks with the Khronos validator. It does **not** reference NoorMD.
 The original brief from Bad Ideas Works is in [`docs/brief/`](docs/brief/) (and the zip at the root).
 
-![Gallery](docs/images/gallery_v0.2.png)
+![Gallery](docs/images/gallery_v0.3_low.png)
 
 The faceted hull form with the Thalassa-style wraparound prow glass, and an open hangar bay:
 
 ![Faceted research barge](docs/images/closeup_thalassa_glass.png)
 ![Hangar bay](docs/images/closeup_hangar_bay.png)
 
-![Silhouettes](docs/images/silhouettes_v0.2.png)
+Below the hull: an inverted two-step keel, and slung pods with a hanging sensor dome:
+
+![Ventral structures](docs/images/closeup_ventral.png)
+
+![Silhouettes](docs/images/silhouettes_v0.3.png)
 
 ## Quick start
 
@@ -94,6 +98,11 @@ recipe + seed
 - **Hull forms:** `slab` (upright sides) or `faceted` (the Thalassa look: wide shallow top facets set by
   `Profile.TopRun`, a sharp shoulder crease and a deep inward-sloping lower hull). Faceted hulls get long faceted
   noses with a wraparound band of observation glass across the lower prow facets.
+- **Below the hull** (`Ventral.cs`, `EquipmentVentral.cs`): one ventral structure per ship, `keel` (inverted
+  stepped terraces buried into the hull's lower chamfers, sometimes two steps), `gondola` (a pod on pylons with open
+  space above it; research ships get an observation gondola) or `pods` (tanks or cargo pods slung on short pylons),
+  plus hanging equipment on underside decks: sensor domes, a utility claw, belly doors, downward docking ports with
+  their corridors, ventral hardpoints and floodlights. Ventral structures have their own `ventral` stage seed.
 - **Hull families** (`HullFamilies.cs`): `barge` (one broad stepped hull, like the Thalassa reference), `spine`
   (command block + payload segments on a keel + engine block, with visible gaps), `twin` (two hulls under a bridge
   deck, cross girders and an optional slung cargo pod), `block` (compact armoured brick with sponsons and shrouded engines).
@@ -107,12 +116,13 @@ recipe + seed
   `engine_glow`, `hazard`, `accent`, `radome`, `cargo_a/b/c`. Each is one replaceable glTF material. UVs are
   box-projected in world space at 4 m per tile (they are exported but no textures are attached yet).
 
-## Status (v0.2.0, phase A + the Thalassa pass)
+## Status (v0.3.0: phase A, the Thalassa pass, and below the hull)
 
 - 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.
 - Open hangar bays (lit alcove with depth, gantry, hazard sill, vehicle or crates, railed platform) built from
   closed boxes, plus flat cargo doors where a hangar doesn't fit.
-- 3000 consecutive seeds: 0 validation errors, 0 warnings; about 4.5 ms and roughly 4.5k triangles per ship.
+- Ventral structures (keel, gondola, slung pods) and underside equipment.
+- 2000 consecutive seeds: 0 validation errors, 0 warnings; about 6 ms and roughly 5k triangles per ship.
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
 - 19 unit tests: determinism, stage independence, validation over hundreds of seeds, recipe round trip, GLB structure.
 
@@ -122,7 +132,7 @@ recipe + seed
 box each in the collision file; LODs remove whole modules rather than simplifying meshes; no textures (greybox with material roles); not yet tested in Blender or Godot; no interactive editor (CLI +
 renders only); locking works per stage, not per individual module yet.
 
-**Next (phase B/C ideas):** ventral structures (keels, hanging modules, underside equipment); a viewer with parameter
+**Next (phase B/C ideas):** a viewer with parameter
 controls; per-module locking;
 hull livery (name, logo, mission text decals); more archetypes (mining, tender) and macro families (offset hauler, multi-deck brick); radiators, booms and gantries;
 a damage pass; and then the self-contained NoorShip design doc for NoorMD.

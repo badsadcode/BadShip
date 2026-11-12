@@ -93,6 +93,16 @@ public readonly record struct Profile(float Cx, float Cy, float WBottom, float W
         ChamferTop = ChamferTop * MathF.Min(sw, sh), ChamferBottom = ChamferBottom * MathF.Min(sw, sh),
     };
 
+    /// <summary>The flat part of the bottom face, half its width.</summary>
+    public float BottomFlatHalf => MathF.Max(0, WBottom / 2 - ClampedChamfers().cb);
+
+    /// <summary>Scales width and height keeping the top where it is (a block that hangs below a hull).</summary>
+    public Profile ScaledOnTop(float sw, float sh)
+    {
+        var s = Scaled(sw, sh);
+        return s with { Cy = Top - s.H / 2 };
+    }
+
     /// <summary>Scales width and height keeping the bottom where it is (a block that sits on a deck).</summary>
     public Profile ScaledOnBase(float sw, float sh)
     {

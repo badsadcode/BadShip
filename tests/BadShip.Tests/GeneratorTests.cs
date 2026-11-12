@@ -191,6 +191,42 @@ public class GeneratorTests
         }
     }
 
+    [Theory]
+    [InlineData("barge", "keel")]
+    [InlineData("barge", "gondola")]
+    [InlineData("barge", "pods")]
+    [InlineData("block", "keel")]
+    [InlineData("spine", "gondola")]
+    [InlineData("twin", "pods")]
+    public void Every_ventral_structure_validates_and_hangs_below_the_hull(string family, string ventral)
+    {
+        for (ulong seed = 1; seed <= 25; seed++)
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Family = family, Overrides = new PlanOverrides { Ventral = ventral } });
+            var report = ShipValidator.Validate(ship);
+            Assert.False(report.HasErrors, $"{family}/{ventral} seed {seed}: " + string.Join("; ", report.Issues.Select(i => i.Message)));
+            Assert.Equal(ventral, ship.Plan.Ventral);
+            var type = ventral switch { "keel" => "keel", "gondola" => "gondola", _ => "slung_" };
+            var parts = ship.Modules.Where(m => m.Type.StartsWith(type)).ToList();
+            if (parts.Count == 0) continue; // a span too short for the structure is allowed to skip it
+            var parentBottom = ship.Find(parts[0].ParentId!)!.Bounds.Min.Y;
+            Assert.All(parts, m => Assert.True(m.Bounds.Min.Y < parentBottom - 0.5f, $"{m.Id} should hang below its parent"));
+        }
+    }
+
+    [Fact]
+    public void Rerolling_the_ventral_stage_keeps_the_topside()
+    {
+        foreach (var seed in new ulong[] { 3, 6, 14 })
+        {
+            var a = Make(seed, family: "barge");
+            var b = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Family = "barge", StageSeeds = new() { ["ventral"] = 77 } });
+            string Topside(Ship s) => string.Join("|", s.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Type is not ("keel" or "gondola"))
+                .Select(m => $"{m.Id}:{m.Bounds.Min}:{m.Bounds.Max}"));
+            Assert.Equal(Topside(a), Topside(b));
+        }
+    }
+
     [Fact]
     public void Rng_streams_are_stable()
     {

@@ -52,6 +52,7 @@ public sealed class PlanOverrides
     public string? EngineStyle { get; set; }
     public string? Payload { get; set; }
     public bool? Asymmetric { get; set; }
+    public string? Ventral { get; set; }
 
     /// <summary>Beam and height as fractions of the length.</summary>
     public float? BeamRatio { get; set; }
@@ -76,5 +77,8 @@ public sealed class ShipPlan
     public string EngineStyle { get; set; } = "";
     public string Payload { get; set; } = "";
     public bool Asymmetric { get; set; }
+
+    /// <summary>What hangs below the main hull: none, keel (inverted terraces), gondola (on pylons) or pods (slung).</summary>
+    public string Ventral { get; set; } = "";
     public string Palette { get; set; } = "";
 }

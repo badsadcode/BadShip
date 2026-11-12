@@ -8,7 +8,7 @@ namespace BadShip.Generation;
 /// Functional landmarks placed on decks and side faces after the hull exists: sensors, masts, cranes, containers,
 /// docking collars, cargo bays and weapon hardpoint placeholders. Every item checks its footprint or clearance first.
 /// </summary>
-public static class Equipment
+public static partial class Equipment
 {
     public static void Place(BuildContext c)
     {
@@ -44,6 +44,7 @@ public static class Equipment
                 Repeat(r.Int(1, 3), () => Antenna(c));
                 break;
         }
+        PlaceVentral(c);
         DropBlocking(c, before);
     }
 
@@ -74,10 +75,10 @@ public static class Equipment
     }
 
     /// <summary>Tries decks in preference order (highest first when <paramref name="high"/>) for a free footprint.</summary>
-    private static (Deck deck, float x, float z)? Spot(BuildContext c, float w, float d, bool high, float pad = 1f, Func<Deck, bool>? filter = null)
+    private static (Deck deck, float x, float z)? Spot(BuildContext c, float w, float d, bool high, float pad = 1f, Func<Deck, bool>? filter = null, bool underside = false)
     {
         var r = c.Equip;
-        var decks = c.Decks.Where(dk => filter?.Invoke(dk) ?? true)
+        var decks = c.Decks.Where(dk => dk.Underside == underside && (filter?.Invoke(dk) ?? true))
             .OrderBy(dk => high ? -dk.Level - dk.Y * 0.01 : dk.Level + dk.Y * 0.01)
             .ThenBy(_ => r.NextDouble()).ToList();
         foreach (var deck in decks)

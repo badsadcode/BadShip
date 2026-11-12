@@ -113,7 +113,7 @@
       <h1>BadShip <span>Hangar</span></h1>
       <p>Twelve industrial ships made by the BadShip generator from seeds 1 to 12, shown exactly as exported to GLB. Drag to orbit, scroll or pinch to zoom, click a part to inspect it.</p>
     </div>
-    <div class="stamp" id="stamp">generator v0.2.0 · Bad Ideas Works</div>
+    <div class="stamp" id="stamp">generator v0.3.0 · Bad Ideas Works</div>
   </header>
 
   <section class="bay">
@@ -140,6 +140,7 @@
           <button data-cam="top" aria-pressed="false">Top</button>
           <button data-cam="rear" aria-pressed="false">Rear</button>
           <button data-cam="front" aria-pressed="false">Bow</button>
+          <button data-cam="below" aria-pressed="false">Below</button>
         </div>
         <div class="scale" id="scale">grid 10 m</div>
       </div>
@@ -210,12 +211,12 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const MARKER_COLORS = {
   engine_exhaust: '#5ec8ff', docking_port: '#f2c14e', bridge: '#ffffff', observation_deck: '#e9d8a6',
   sensor: '#9be37a', hardpoint: '#ff6a4d', cargo_door: '#f29a4e', cargo_hardpoint: '#c08a2a',
-  crane_hook: '#d9b21c', nav_light: '#ff3b30', rcs_thruster: '#8aa0b8',
+  crane_hook: '#d9b21c', nav_light: '#ff3b30', rcs_thruster: '#8aa0b8', floodlight: '#ffe2b0', claw: '#e0a936',
 };
 const MARKER_NAMES = {
   engine_exhaust: 'engine exhaust', docking_port: 'docking port', bridge: 'bridge', observation_deck: 'observation deck',
   sensor: 'sensor', hardpoint: 'hardpoint', cargo_door: 'cargo door', cargo_hardpoint: 'cargo mount',
-  crane_hook: 'crane hook', nav_light: 'nav light', rcs_thruster: 'RCS thruster',
+  crane_hook: 'crane hook', nav_light: 'nav light', rcs_thruster: 'RCS thruster', floodlight: 'floodlight', claw: 'utility claw',
 };
 const TIER_COLORS = { primary: '#7f9bb8', secondary: '#e0a936', tertiary: '#59636f' };
 
@@ -334,7 +335,7 @@ function frame(view) {
   current.traverse(o => { if (o.isMesh && o.parent?.name !== 'markers' && !o.parent?.name?.startsWith('marker.')) box.expandByObject(o); });
   const center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
   const dirs = {
-    quarter: [-1, 0.5, 0.62], side: [-1, 0.02, 0], top: [-0.0001, 1, -0.0001], rear: [-0.55, 0.35, -1], front: [-0.45, 0.3, 1],
+    quarter: [-1, 0.5, 0.62], side: [-1, 0.02, 0], top: [-0.0001, 1, -0.0001], rear: [-0.55, 0.35, -1], front: [-0.45, 0.3, 1], below: [-1, -0.4, 0.6],
   };
   const dir = new THREE.Vector3(...dirs[view]).normalize();
   const radius = size.length() / 2;
@@ -389,6 +390,7 @@ function sheet(s) {
     ['Superstructure tiers', p.tiers],
     ['Engines', `${p.engine_layout} ${p.engine_style}s`],
     ...(p.payload ? [['Payload', cap(p.payload)]] : []),
+    ['Below the hull', cap(p.ventral)],
     ['Symmetry', p.asymmetric ? 'Offset' : 'Symmetric'],
     ['Palette', cap(p.palette)],
   ]);

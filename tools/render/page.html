@@ -42,6 +42,7 @@ const VIEWS = {
   front: new THREE.Vector3(-0.45, 0.3, 1),
   low: new THREE.Vector3(-1, 0.14, 0.55),
   lowport: new THREE.Vector3(1, 0.14, 0.55),
+  below: new THREE.Vector3(-1, -0.35, 0.6),
 };
 
 window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'beauty' } = {}) => {
@@ -93,7 +94,7 @@ window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'be
   } else {
     camera = new THREE.PerspectiveCamera(28, w / h, 0.5, 5000);
     const radius = size.length() / 2;
-    const dist = radius / Math.sin((28 * Math.PI / 180) / 2) * (view.startsWith('low') || view === 'quarter' ? 0.66 : 0.85);
+    const dist = radius / Math.sin((28 * Math.PI / 180) / 2) * (view.startsWith('low') || view === 'quarter' || view === 'below' ? 0.66 : 0.85);
     camera.position.copy(center).addScaledVector(dir, dist);
   }
   camera.lookAt(center);

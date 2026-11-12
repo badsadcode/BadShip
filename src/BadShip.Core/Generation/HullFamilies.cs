@@ -36,6 +36,7 @@ public static class HullFamilies
             c.AddDeck(hull, y, -half, half, z0, z1, 0);
         }
         c.AddSides(hull, loft, 1, Profile.FacePosX, Profile.FaceNegX);
+        c.AddBelly(hull, body, zBody0 + 1, zProw - 0.5f, main: true);
         c.AddEnvelope("cargo", hull, new Aabb(new Vector3(-B * 0.35f, body.Bottom + H * 0.2f, zBody0 + 2), new Vector3(B * 0.35f, body.Top - 1, zProw)));
 
         Parts.Engines(c, hull.Id, "", zRear, 0, body.Cy + H * r.Range(-0.05f, 0.15f), B * r.Range(0.6f, 0.88f), H * r.Range(0.85f, 1.2f));
@@ -72,6 +73,7 @@ public static class HullFamilies
             [(zEngFace, engP.Scaled(0.94f, 0.94f)), (zEngFace + 1.2f, engP), (zEngFront - 1.2f, engP), (zEngFront, engP.Scaled(0.9f, 0.9f))], Roles.HullMain);
         c.AddDeck(eng, engP.Top, -engP.TopFlatHalf, engP.TopFlatHalf, zEngFace + 1.5f, zEngFront - 1.5f, 0);
         c.AddSides(eng, engLoft, 1, Profile.FacePosX, Profile.FaceNegX);
+        c.AddBelly(eng, engP, zEngFace + 1.5f, zEngFront - 1.5f, main: false);
         Parts.Engines(c, eng.Id, "", zEngFace, engP.Cx, engP.Cy, ew * r.Range(0.85f, 1.0f), eh * r.Range(0.85f, 1.0f));
         SideBlocks(c, eng, engP, zEngFace + 1.2f, zEngFront - 1.2f, chance: 0.5);
 
@@ -91,6 +93,7 @@ public static class HullFamilies
             c.AddDeck(cmd, y, -half, half, z0, z1, 0);
         }
         c.AddSides(cmd, cmdLoft, 1, Profile.FacePosX, Profile.FaceNegX);
+        c.AddBelly(cmd, cmdP, zCmdRear + 2, zProw - 0.5f, main: true);
         Parts.SideWindows(c, cmd, cmdLoft, 1, 0.6f);
         c.AddEnvelope("habitable", cmd, new Aabb(new Vector3(-cw * 0.35f, cmdP.Bottom + ch * 0.25f, zCmdRear + 2), new Vector3(cw * 0.35f, cmdP.Top - 1, zProw)));
         Parts.Superstructure(c, cmdDeck, p.Tiers, 0.6f, 0.9f, 1f, lengthMin: 0.5f, lengthMax: 0.8f);
@@ -152,6 +155,7 @@ public static class HullFamilies
             var (m, loft) = c.AddLoft(id, "side_hull", ModuleTier.Primary, parent, rings, Roles.HullMain);
             c.AddDeck(m, prof.Top, side * hx - prof.TopFlatHalf, side * hx + prof.TopFlatHalf, zRear + L * 0.03f, zProw - 0.5f, 0);
             c.AddSides(m, loft, 1, side > 0 ? Profile.FacePosX : Profile.FaceNegX);
+            c.AddBelly(m, prof, zRear + L * 0.03f, zProw - 0.5f, main: false);
             return (m, loft, prof, zRear, zFront);
         }
 
@@ -171,6 +175,7 @@ public static class HullFamilies
         var (center, centerLoft) = c.AddLoft("bridge_deck", "bridge_deck", ModuleTier.Primary, port.m.Id,
             [(zd0, deckP.Scaled(0.98f, 0.92f)), (zd0 + 1, deckP), (zd1 - slope, deckP), (zd1, frontP)], Roles.HullMain, "tier");
         var centerDeck = c.AddDeck(center, deckP.Top, -deckP.TopFlatHalf, deckP.TopFlatHalf, zd0 + 1.5f, zd1 - slope - 0.5f, 1);
+        c.AddBelly(center, deckP with { Cx = 0, WBottom = MathF.Min(deckP.WBottom, (hx - wh / 2) * 2 + 1) }, zd0 + 1.5f, zd1 - slope - 0.5f, main: true);
         Shapes.Patch(center.Mesh, Roles.Light, centerLoft, 2, Profile.FaceBottom, 0.3f, 0.7f, 0.2f, 0.8f, 0.05f);
 
         var starboard = Hull(-1, "hull_starboard", center.Id);
@@ -228,6 +233,7 @@ public static class HullFamilies
         var (hull, loft) = c.AddLoft("hull_main", "hull", ModuleTier.Primary, null, rings, Roles.HullMain);
         var deck = c.AddDeck(hull, body.Top, -body.TopFlatHalf, body.TopFlatHalf, zRear + L * 0.06f, zProw - 0.5f, 0);
         c.AddEnvelope("habitable", hull, new Aabb(new Vector3(-B * 0.3f, body.Bottom + H * 0.25f, zRear + 3), new Vector3(B * 0.3f, body.Top - 1, zProw)));
+        c.AddBelly(hull, body, zRear + L * 0.06f, zProw - 0.5f, main: true);
 
         // Sponsons: armoured side masses, hardpoint decks on top.
         var spLen = L * r.Range(0.25f, 0.4f);

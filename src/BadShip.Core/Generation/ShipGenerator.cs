@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.2.0";
+    public const string Version = "0.3.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block"];
@@ -26,6 +26,7 @@ public static class ShipGenerator
             case "block": HullFamilies.Block(c); break;
             default: throw new ArgumentException($"Unknown family '{c.Plan.Family}'.");
         }
+        Ventral.Build(c);
         Equipment.Place(c);
         if (c.DetailLevel > 0) Details.Add(c);
         c.Ship.Finish();
@@ -91,6 +92,13 @@ public static class Planner
             _ => "pods",
         };
         p.Asymmetric = r.Chance(p.Archetype == "freighter" ? 0.35 : 0.2);
+        p.Ventral = p.Family switch
+        {
+            "barge" => r.Weighted<string>([("keel", 0.4), ("gondola", 0.25), ("pods", p.Archetype == "freighter" ? 0.3 : 0.1), ("none", 0.15)]),
+            "block" => r.Weighted<string>([("keel", 0.5), ("gondola", 0.2), ("none", 0.3)]),
+            "spine" => r.Weighted<string>([("keel", 0.35), ("gondola", 0.15), ("none", 0.5)]),
+            _ => r.Weighted<string>([("gondola", 0.4), ("pods", 0.25), ("none", 0.35)]),
+        };
         ApplyOverrides(rec.Overrides, p);
         p.Palette = Choose(rec.Palette, Palettes.Names, () => c.Look.Pick(Palettes.Names), "palette");
         c.Ship.Materials = Palettes.Build(p.Palette, c.Look);
@@ -114,6 +122,8 @@ public static class Planner
         if (p.Family == "spine") p.Payload = Pick(o.Payload, p.Payload, ["containers", "tanks", "pods"], "payload");
         if (o.Tiers is { } t) p.Tiers = t is >= 1 and <= 5 ? t : throw new ArgumentException("Tiers must be 1–5.");
         if (o.Asymmetric is { } a) p.Asymmetric = a;
+        p.Ventral = Pick(o.Ventral, p.Ventral, ["none", "keel", "gondola", "pods"], "ventral structure");
+        if (p.Family == "twin" && p.Ventral == "keel") p.Ventral = "gondola";
         if (o.BeamRatio is { } br) p.Beam = p.Length * (br is >= 0.1f and <= 0.6f ? br : throw new ArgumentException("Beam ratio must be 0.1–0.6."));
         if (o.HeightRatio is { } hr) p.Height = p.Length * (hr is >= 0.05f and <= 0.35f ? hr : throw new ArgumentException("Height ratio must be 0.05–0.35."));
     }

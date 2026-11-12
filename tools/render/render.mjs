@@ -20,6 +20,7 @@ const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i
 const cols = +opt('cols', 4);
 const cellW = +opt('width', 560);
 const each = args.includes('--each');
+const view = opt('view', 'quarter');
 const index = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf8'));
 
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.glb': 'model/gltf-binary', '.json': 'application/json' };
@@ -46,7 +47,7 @@ const cellH = Math.round(cellW * 9 / 16);
 const beauty = [], silhouettes = [];
 for (const s of index) {
   const url = `/data/${s.name}.glb`;
-  const quarter = await page.evaluate(([u, w, h]) => window.renderShip(u, { w, h, view: 'quarter' }), [url, cellW * 2, cellH * 2]);
+  const quarter = await page.evaluate(([u, w, h, v]) => window.renderShip(u, { w, h, view: v }), [url, cellW * 2, cellH * 2, view]);
   beauty.push({ ...s, images: [quarter] });
   const side = await page.evaluate(([u, w, h]) => window.renderShip(u, { w, h, view: 'side', mode: 'silhouette' }), [url, cellW, Math.round(cellW * 0.32)]);
   const top = await page.evaluate(([u, w, h]) => window.renderShip(u, { w, h, view: 'top', mode: 'silhouette' }), [url, cellW, Math.round(cellW * 0.32)]);
@@ -62,7 +63,7 @@ async function sheet(title, cells, file) {
   await el.screenshot({ path: join(dir, file) });
   console.log('wrote', join(dir, file));
 }
-await sheet(`BadShip gallery — ${index.length} seeds (3/4 view)`, beauty, 'contact_sheet.png');
+await sheet(`BadShip gallery — ${index.length} seeds (${view} view)`, beauty, 'contact_sheet.png');
 await sheet('Silhouettes — side and top', silhouettes, 'silhouettes.png');
 
 await browser.close();
