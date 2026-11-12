@@ -22,9 +22,12 @@ try
 {
     switch (cmd)
     {
+        case "version":
+            Console.WriteLine(ShipGenerator.Version);
+            return 0;
         case "generate":
             {
-                var recipe = RecipeFrom(opts, ulong.Parse(Opt("seed", "1")));
+                var recipe = opts.TryGetValue("code", out var code) ? FromCode(code) : RecipeFrom(opts, ulong.Parse(Opt("seed", "1")));
                 var dir = Opt("out", "out/ship");
                 return Emit(recipe, dir, Opt("name", $"ship_{recipe.Seed}")) ? 0 : 2;
             }
@@ -157,6 +160,7 @@ try
             Console.WriteLine("""
                 badship — procedural industrial spaceship exteriors
 
+                  badship generate --code SHIPCODE        (a code from the Shipyard or from another generate)
                   badship generate --seed N [--archetype freighter|research|patrol] [--family barge|spine|twin|block]
                                    [--length M] [--palette gunmetal|naval|offwhite|slate] [--detail low|medium|high]
                                    [--name NAME] [--out DIR]
@@ -188,7 +192,8 @@ bool Emit(ShipRecipe recipe, string dir, string name)
     var ship = ShipGenerator.Generate(recipe);
     var report = ShipValidator.Validate(ship);
     var paths = ShipFiles.Save(ship, report, dir, name);
-    Console.WriteLine($"{name}: {ship.Plan.Archetype} / {ship.Plan.Family}, {ship.Bounds.Size.Z:0} m, {ship.Triangles} triangles, {report.Status} ({sw.ElapsedMilliseconds} ms)");
+    Console.WriteLine($"{name}: {ship.Plan.Size} {ship.Plan.Archetype} / {ship.Plan.Family} by {ship.Plan.ManufacturerName} for the {ship.Plan.FactionName}, {ship.Bounds.Size.Z:0} m, {ship.Triangles} triangles, {report.Status} ({sw.ElapsedMilliseconds} ms)");
+    Console.WriteLine($"  code: {ShipCode.Encode(recipe)}");
     foreach (var issue in report.Issues) Console.WriteLine($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
     foreach (var path in paths) Console.WriteLine($"  {path}");
     return !report.HasErrors;
@@ -209,6 +214,14 @@ ShipRecipe RecipeFrom(Dictionary<string, string> o, ulong seed) => new()
     StageSeeds = o.TryGetValue("stage-seed", out var ss) ? Pairs(ss).ToDictionary(kv => kv.Key, kv => ulong.Parse(kv.Value)) : null,
     Overrides = o.TryGetValue("set", out var set) ? OverridesFrom(Pairs(set)) : null,
 };
+
+static ShipRecipe FromCode(string code)
+{
+    var recipe = ShipCode.Decode(code);
+    if (recipe.GeneratorVersion != ShipGenerator.Version)
+        Console.WriteLine($"note: this code was made by generator {recipe.GeneratorVersion}, this is {ShipGenerator.Version}; the ship may differ.");
+    return recipe;
+}
 
 static IEnumerable<KeyValuePair<string, string>> Pairs(string text) =>
     text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(kv =>

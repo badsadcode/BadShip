@@ -30,4 +30,13 @@ public static partial class Api
 
     [JSExport]
     public static string Version() => ShipGenerator.Version;
+
+    /// <summary>The ship code for a recipe (JSON): what the page puts in its address.</summary>
+    [JSExport]
+    public static string Encode(string recipeJson) =>
+        ShipCode.Encode(JsonSerializer.Deserialize<ShipRecipe>(recipeJson, ShipFiles.Json) ?? new ShipRecipe());
+
+    /// <summary>A ship code back to a recipe (JSON); throws with a readable message for a bad code.</summary>
+    [JSExport]
+    public static string Decode(string code) => JsonSerializer.Serialize(ShipCode.Decode(code), ShipFiles.Json);
 }

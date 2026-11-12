@@ -292,6 +292,38 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Ship_codes_round_trip_to_the_same_ship()
+    {
+        var recipes = new[]
+        {
+            new ShipRecipe { Seed = 917417 },
+            new ShipRecipe { Seed = 3, Faction = "survey", Manufacturer = "meridian", Size = "large", Archetype = "research", Family = "barge", Palette = "naval", Detail = "medium" },
+            new ShipRecipe { Seed = 12, Faction = "faction-12", Manufacturer = "yard-7", StageSeeds = new() { ["equipment"] = 263208, ["look"] = 5, ["ventral"] = 99 } },
+            new ShipRecipe { Seed = 8, Length = 152.3f, Overrides = new PlanOverrides { HullForm = "faceted", Ventral = "keel", ProwStyle = "wedge", Tiers = 3, EngineLayout = "2x2", EngineStyle = "pod", Asymmetric = true, BeamRatio = 0.25f } },
+        };
+        foreach (var r in recipes)
+        {
+            var code = ShipCode.Encode(r);
+            Assert.Matches("^[a-z0-9-]+$", code);
+            Assert.StartsWith("v" + ShipGenerator.Version.Replace('.', 'p') + "-s", code);
+            var back = ShipCode.Decode(code);
+            Assert.Equal(ShipCode.Encode(back), code);
+            Assert.Equal(Signature(ShipGenerator.Generate(r)), Signature(ShipGenerator.Generate(back)));
+        }
+        Assert.Equal(ShipGenerator.Version, ShipCode.VersionOf("https://claude.ai/artifact/x#" + ShipCode.Encode(recipes[1])));
+        Assert.Equal("v0p4p0-s917417", ShipCode.Encode(new ShipRecipe { Seed = 917417 }, "0.4.0"));
+    }
+
+    [Fact]
+    public void Bad_ship_codes_explain_themselves()
+    {
+        Assert.Throws<ArgumentException>(() => ShipCode.Decode(""));
+        Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-fsurvey"));
+        Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-s12-j9"));
+        Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-sabc"));
+    }
+
+    [Fact]
     public void Rng_streams_are_stable()
     {
         // Pinned values: if these change, every seed changes; bump ShipGenerator.Version.

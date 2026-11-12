@@ -65,7 +65,7 @@
   .label { font: 600 11px/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
   .block { display: grid; gap: 8px; min-width: 0; }
   .seedrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-  input[type="number"], select {
+  input[type="number"], input[type="text"], select {
     width: 100%; min-width: 0; font: 500 14px/1 var(--mono); color: var(--fg); background: var(--bg);
     border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px;
   }
@@ -215,6 +215,19 @@
         <dl id="r-plan"></dl>
         <ul class="issues" id="r-issues" hidden></ul>
         <div class="part" id="r-part">Click a part of the ship to see what it is.</div>
+      </div>
+      <div class="block">
+        <div class="label">Share this ship</div>
+        <div class="cmd"><code id="code">—</code><button id="copy-code" type="button">Copy code</button></div>
+        <div class="hint">This page's address follows the ship you are looking at, so Share › Copy link sends this exact ship. A code always opens with the generator version that made it, so it keeps working after updates.</div>
+        <div class="seedrow">
+          <input type="text" id="open-code" placeholder="Paste a ship code or link" aria-label="Ship code to open" autocomplete="off" spellcheck="false">
+          <button class="btn" id="open" type="button" disabled>Open</button>
+        </div>
+        <div class="hint" id="code-note" hidden></div>
+        <label class="hint" for="version">Generator version
+          <select id="version" style="margin-top:5px"></select>
+        </label>
       </div>
       <div class="block">
         <div class="label">Same ship from the command line</div>
@@ -395,16 +408,27 @@ canvas.addEventListener('pointerup', e => {
 });
 
 // ---------------------------------------------------------------- generator (C# in WebAssembly)
+// Every released generator version stays published under framework/<version>/, so a ship code opens with the version
+// that made it and shows the same ship forever. Newest last.
+const VERSIONS = ['0.4.0'];
+const LATEST = VERSIONS[VERSIONS.length - 1];
+const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
+const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
+let loadedVersion = LATEST;
+let currentCode = '';
+let extras = {}; // settings from an opened code that have no control on this page (length, other overrides)
 let api = null;
 const stageSeeds = {};
 const history = [];
 let historyIndex = -1;
 
 function recipe() {
-  const overrides = {};
+  const overrides = { ...(extras.overrides ?? {}) };
+  delete overrides.hull_form; delete overrides.ventral;
   if ($('hull_form').value) overrides.hull_form = $('hull_form').value;
   if ($('ventral').value) overrides.ventral = $('ventral').value;
   return {
+    ...(extras.length ? { length: extras.length } : {}),
     seed: Math.max(1, Math.floor(+$('seed').value || 1)),
     archetype: $('archetype').value, family: $('family').value, palette: $('palette').value, detail: $('detail').value,
     faction: $('faction').value, manufacturer: $('manufacturer').value, size: $('size').value,
@@ -472,6 +496,7 @@ async function build(addToLog = true) {
     const root = await parseGlb(glb);
     show(root);
     readout(info, r);
+    showCode(api.Encode(JSON.stringify(r)));
     if (addToLog) log(root, r, info);
     $('overlay').hidden = true;
   } catch (err) {
@@ -480,6 +505,46 @@ async function build(addToLog = true) {
   } finally {
     setBusy(false);
     for (const b of document.querySelectorAll('[data-stage]')) b.dataset.locked = String(!(b.dataset.stage in stageSeeds));
+  }
+}
+
+function showCode(code) {
+  currentCode = code;
+  $('code').textContent = code;
+  if (hashCode() !== code) location.hash = code;
+}
+
+/** Puts a decoded recipe (snake_case JSON from the generator) into the controls. */
+function applyRecipe(rec) {
+  $('seed').value = rec.seed;
+  for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'palette']) $(id).value = rec[id] ?? 'auto';
+  $('detail').value = rec.detail ?? 'high';
+  $('hull_form').value = rec.overrides?.hull_form ?? '';
+  $('ventral').value = rec.overrides?.ventral ?? '';
+  for (const k of Object.keys(stageSeeds)) delete stageSeeds[k];
+  Object.assign(stageSeeds, rec.stage_seeds ?? {});
+  extras = { length: rec.length ?? null, overrides: rec.overrides ?? null };
+  // Values this page has no option for (procedural yards, a newer page's choices) fall back to Auto.
+  for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'palette']) if (!$(id).value) $(id).value = 'auto';
+}
+
+function openCode(code) {
+  code = code.trim().toLowerCase().replace(/^.*#/, '');
+  if (!code) return;
+  const v = codeVersion(code);
+  if (v && v !== loadedVersion && VERSIONS.includes(v)) {
+    // Another generator version: reload so that version's runtime starts.
+    location.hash = code;
+    location.reload();
+    return;
+  }
+  try {
+    applyRecipe(JSON.parse(api.Decode(code)));
+    $('code-note').hidden = true;
+    build();
+  } catch (err) {
+    $('code-note').hidden = false;
+    $('code-note').textContent = `That code could not be opened: ${String(err?.message ?? err).split('\n')[0]}`;
   }
 }
 
@@ -497,7 +562,7 @@ function log(root, r, info) {
   thumb.getContext('2d').drawImage(renderer.domElement, 0, 0, 320, 180);
   if (selBox) selBox.visible = true;
   renderer.setPixelRatio(ratio); renderer.setSize(w / ratio, h / ratio, false); resize();
-  const entry = { r: JSON.parse(JSON.stringify(r)), info, root };
+  const entry = { r: JSON.parse(JSON.stringify(r)), info, root, code: currentCode };
   history.unshift(entry);
   if (history.length > 12) { const old = history.pop(); if (old.root !== current) dispose(old.root); }
   const b = document.createElement('button');
@@ -518,16 +583,18 @@ function restore(entry, card) {
   for (const k of Object.keys(stageSeeds)) delete stageSeeds[k];
   Object.assign(stageSeeds, r.stage_seeds ?? {});
   for (const b of document.querySelectorAll('[data-stage]')) b.dataset.locked = String(!(b.dataset.stage in stageSeeds));
+  extras = { length: r.length ?? null, overrides: r.overrides ?? null };
   show(entry.root);
   readout(entry.info, r);
+  showCode(entry.code);
   markCurrent(card);
 }
 
 // ---------------------------------------------------------------- controls
 const rand = () => 1 + Math.floor(Math.random() * 999999);
 $('generate').addEventListener('click', () => build());
-$('next').addEventListener('click', () => { $('seed').value = Math.max(1, Math.floor(+$('seed').value || 0) + 1); for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
-$('random').addEventListener('click', () => { $('seed').value = rand(); for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
+$('next').addEventListener('click', () => { extras = {}; $('seed').value = Math.max(1, Math.floor(+$('seed').value || 0) + 1); for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
+$('random').addEventListener('click', () => { extras = {}; $('seed').value = rand(); for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
 $('reset').addEventListener('click', () => { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
 document.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { stageSeeds[b.dataset.stage] = rand(); build(); }));
 $('seed').addEventListener('keydown', e => { if (e.key === 'Enter') { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); } });
@@ -544,6 +611,21 @@ document.querySelectorAll('[data-cam]').forEach(b => b.addEventListener('click',
 }));
 for (const [id, k] of [['t-details', 'details'], ['t-markers', 'markers'], ['t-spin', 'spin']])
   $(id).addEventListener('click', () => { state[k] = !state[k]; $(id).setAttribute('aria-pressed', String(state[k])); applyState(); });
+$('copy-code').addEventListener('click', () => {
+  navigator.clipboard?.writeText(currentCode).then(() => { $('copy-code').textContent = 'Copied'; setTimeout(() => $('copy-code').textContent = 'Copy code', 1400); })
+    .catch(() => { const range = document.createRange(); range.selectNodeContents($('code')); getSelection().removeAllRanges(); getSelection().addRange(range); });
+});
+$('open').addEventListener('click', () => openCode($('open-code').value));
+$('open-code').addEventListener('keydown', e => { if (e.key === 'Enter') openCode($('open-code').value); });
+addEventListener('hashchange', () => { const c = hashCode(); if (api && c && c !== currentCode) openCode(c); });
+$('version').innerHTML = VERSIONS.slice().reverse().map(v => `<option value="${v}">v${v}${v === LATEST ? ' (latest)' : ''}</option>`).join('');
+$('version').addEventListener('change', () => {
+  // Rebuild this ship's settings with another generator version.
+  const v = $('version').value;
+  const rest = (currentCode || `v${LATEST.replaceAll('.', 'p')}-s${$('seed').value}`).replace(/^v[0-9p]+/, '');
+  location.hash = `v${v.replaceAll('.', 'p')}${rest}`;
+  location.reload();
+});
 $('copy').addEventListener('click', () => {
   navigator.clipboard?.writeText($('cmd').textContent).then(() => { $('copy').textContent = 'Copied'; setTimeout(() => $('copy').textContent = 'Copy', 1400); })
     .catch(() => { const range = document.createRange(); range.selectNodeContents($('cmd')); getSelection().removeAllRanges(); getSelection().addRange(range); });
@@ -561,13 +643,27 @@ loop();
 // Start the .NET runtime with the generator.
 try {
   const t0 = performance.now();
-  const { dotnet } = await import('./framework/dotnet.js');
+  const startCode = hashCode();
+  const wanted = codeVersion(startCode);
+  if (wanted && VERSIONS.includes(wanted)) loadedVersion = wanted;
+  else if (wanted) {
+    $('code-note').hidden = false;
+    $('code-note').textContent = `This link was made with generator v${wanted}, which this Shipyard does not have; it opens with v${LATEST} and may look different.`;
+  }
+  $('version').value = loadedVersion;
+  const { dotnet } = await import(`./framework/${loadedVersion}/dotnet.js`);
   const runtime = await dotnet.create();
   const exports = await runtime.getAssemblyExports('BadShip.Web');
   api = exports.BadShip.Web.Api;
   $('engine').innerHTML = `generator <b>v${api.Version()}</b> · C# in WebAssembly · ready in ${Math.round(performance.now() - t0)} ms`;
   setBusy(false);
+  $('open').disabled = false;
   $('overlay').textContent = 'Building your first ship…';
+  if (startCode) {
+    const local = wanted && wanted !== loadedVersion ? startCode.replace(/^v[0-9p]+/, `v${loadedVersion.replaceAll('.', 'p')}`) : startCode;
+    try { applyRecipe(JSON.parse(api.Decode(local))); }
+    catch (err) { $('code-note').hidden = false; $('code-note').textContent = `The code in this link could not be read: ${String(err?.message ?? err).split('\n')[0]}`; }
+  }
   await build();
 } catch (err) {
   $('engine').innerHTML = '<b class="bad">generator failed to start</b>';

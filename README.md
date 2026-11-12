@@ -91,6 +91,17 @@ tools/shipyard/build.sh            # out/shipyard: index.html + framework/
 cd out/shipyard && python3 -m http.server
 ```
 
+**Ship codes and versioned snapshots.** Every ship has a code such as `v0p4p0-s3-fsurvey-mmeridian-zlarge-qe5`
+(generator version, seed, then only the settings that differ from auto; see `Export/ShipCode.cs` for the keys). The
+CLI prints it after every `generate` and rebuilds from it with `--code`; the Shipyard keeps it in the page address,
+so a link names one exact ship. Each released generator lives in the Shipyard under `framework/<version>/` and a code
+always opens with the version that made it, so shared ships never change under people's feet. To release a version:
+
+1. Bump `ShipGenerator.Version` (whenever the same recipe would give a different ship).
+2. Add the version to `VERSIONS` in `tools/shipyard/shipyard.html` (newest last).
+3. Run `tools/shipyard/build.sh` and publish only the new `framework/<version>/` folder with the page; keep the old
+   folders where they are.
+
 The renderer uses three.js in the headless Chromium that comes with Playwright. Any glTF viewer works too
 (Blender, Godot, <https://gltf-viewer.donmccurdy.com>).
 
@@ -150,6 +161,7 @@ recipe + seed
   closed boxes, plus flat cargo doors where a hangar doesn't fit.
 - Ventral structures (keel, gondola, slung pods) and underside equipment.
 - Manufacturer design languages, factions, size classes, `fleet` command and true-scale lineups.
+- Ship codes (shareable links) with versioned generator snapshots in the Shipyard.
 - 1000 seeds per size class: 0 validation errors (a handful of small craft warn that they ended up a little longer
   than planned); about 3 / 7 / 13 ms and 2k / 5.4k / 9.8k triangles for small / medium / large ships.
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
