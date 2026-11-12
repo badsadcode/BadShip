@@ -233,8 +233,25 @@ fighter scale. The Frontier Patrol fields fighters often; other factions only es
 
 ![A dart from four sides](docs/images/fighter_dart_closeup.png)
 
-## Status (v0.9.0: fighter wings)
+### Citadels (v0.10.0)
 
+`--archetype citadel` builds flying fortresses, 260–820 m long: a tall armoured hull with buttress ribs down the
+flanks, broadside gun decks and rows of lit windows between the ribs, hangar mouths in the flanks, a stepped keep
+rising from the deck (each tier narrower and set back, watch towers with stepped caps and lit galleries, a glazed
+command bridge with masts on top), big turrets along the spine (some raised to fire over the others), small towers
+along the deck edges, and a wall of engine nozzles at the stern. Pin choices with `--set`: `prow=ram|blade|bastion`
+(a dagger ram that reaches below the keel line, a long low knife, or armoured terraces), `bridge=aft|mid` (where the
+keep stands), `tiers=2..7`, `engines=2x2|3x2|4x2|3x3`, `ventral=keel|blades|undercroft` (a keel, blades and spikes,
+or an inverted stepped fortress below), `hull_form=slab|faceted`. Markers: `bridge`, `hardpoint` (turrets and bow
+guns), `broadside`, `hangar`, `engine_exhaust`, `sensor`. About 15–21k triangles.
+
+![Citadels](docs/images/citadels_v0.10.png)
+
+![A citadel from four sides](docs/images/citadel_closeup_v0.10.png)
+
+## Status (v0.10.0: citadels)
+
+- Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
   (intact, damaged and derelict), about 1–1.5k triangles each.
 

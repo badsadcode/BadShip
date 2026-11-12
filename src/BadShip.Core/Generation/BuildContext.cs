@@ -93,7 +93,12 @@ public sealed class BuildContext
     /// How big surface features (plates, vents, breaches) are relative to the usual: 1 for ships, much less for
     /// fighters, so a 12 m craft gets hand-sized panels and holes rather than ship-sized ones.
     /// </summary>
-    public float DetailScale => Plan.Family == "fighter" ? Num.Clamp(Plan.Length / 55f, 0.16f, 0.8f) : 1f;
+    public float DetailScale => Plan.Family switch
+    {
+        "fighter" => Num.Clamp(Plan.Length / 55f, 0.16f, 0.8f),
+        "citadel" => Num.Clamp(Plan.Length / 260f, 1f, 2.6f),
+        _ => 1f,
+    };
 
     /// <summary>Fighters: how blocky the cross-section is (0 knife-edged stealth … 1 armoured chamfered block).</summary>
     public float Bulk { get; set; }

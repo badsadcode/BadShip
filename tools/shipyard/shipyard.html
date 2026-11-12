@@ -173,10 +173,10 @@
           <select id="size"><option value="auto">Auto</option><option>small</option><option>medium</option><option>large</option></select>
         </label>
         <label>Archetype
-          <select id="archetype"><option value="auto">Auto</option><option>freighter</option><option>research</option><option>patrol</option><option>fighter</option></select>
+          <select id="archetype"><option value="auto">Auto</option><option>freighter</option><option>research</option><option>patrol</option><option>fighter</option><option>citadel</option></select>
         </label>
         <label>Hull family
-          <select id="family"><option value="auto">Auto</option><option>barge</option><option>spine</option><option>twin</option><option>block</option><option>fighter</option></select>
+          <select id="family"><option value="auto">Auto</option><option>barge</option><option>spine</option><option>twin</option><option>block</option><option>fighter</option><option>citadel</option></select>
         </label>
         <label>Hull form
           <select id="hull_form"><option value="">Auto</option><option>slab</option><option>faceted</option></select>
@@ -423,16 +423,20 @@ canvas.addEventListener('pointerup', e => {
 // Every released generator version stays published under framework/<version>/, so a ship code opens with the version
 // that made it and shows the same ship forever. Newest last.
 // Fighters have their own body forms; bigger ships choose slab or faceted hulls.
+// Citadels have their own undersides; fighters have none.
 function syncHullForms() {
-  const sel = document.getElementById('hull_form');
-  const fighter = document.getElementById('archetype').value === 'fighter' || document.getElementById('family').value === 'fighter';
-  const forms = fighter ? ['dart', 'wedge', 'brick', 'fork', 'hammer', 'twinboom', 'brawler'] : ['slab', 'faceted'];
-  if (sel.dataset.kind === String(fighter)) return;
-  const keep = forms.includes(sel.value) ? sel.value : '';
-  sel.innerHTML = '<option value="">Auto</option>' + forms.map(f => `<option>${f}</option>`).join('');
-  sel.value = keep; sel.dataset.kind = String(fighter);
+  const a = document.getElementById('archetype').value, f = document.getElementById('family').value;
+  const kind = a === 'fighter' || f === 'fighter' ? 'fighter' : a === 'citadel' || f === 'citadel' ? 'citadel' : 'ship';
+  const fill = (sel, opts) => {
+    if (sel.dataset.kind === kind) return;
+    const keep = opts.includes(sel.value) ? sel.value : '';
+    sel.innerHTML = '<option value="">Auto</option>' + opts.map(o => `<option>${o}</option>`).join('');
+    sel.value = keep; sel.dataset.kind = kind;
+  };
+  fill(document.getElementById('hull_form'), kind === 'fighter' ? ['dart', 'wedge', 'brick', 'fork', 'hammer', 'twinboom', 'brawler'] : ['slab', 'faceted']);
+  fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' ? [] : ['keel', 'gondola', 'pods', 'none']);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();

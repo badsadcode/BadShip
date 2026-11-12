@@ -9,10 +9,10 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.9.0";
+    public const string Version = "0.10.0";
 
-    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter"];
-    public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter"];
+    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel"];
+    public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel"];
 
     public static Ship Generate(ShipRecipe recipe)
     {
@@ -25,10 +25,13 @@ public static class ShipGenerator
             case "twin": HullFamilies.Twin(c); break;
             case "block": HullFamilies.Block(c); break;
             case "fighter": Fighters.Build(c); break;
+            case "citadel": Citadels.Build(c); break;
             default: throw new ArgumentException($"Unknown family '{c.Plan.Family}'.");
         }
-        Signatures.Apply(c);
-        if (c.Plan.Family != "fighter")
+        // Fighters and citadels place their own equipment and undersides.
+        var ownKit = c.Plan.Family is "fighter" or "citadel";
+        if (!ownKit) Signatures.Apply(c);
+        if (!ownKit)
         {
             Ventral.Build(c);
             Equipment.Place(c);
@@ -83,9 +86,9 @@ public static class Planner
         p.FactionName = faction.Name;
         p.Size = Choose(rec.Size, Sizes, () => r.Weighted(W(faction.Sizes)), "size");
         // Asking for a big-ship family (barge, spine, ...) rules fighters out of the automatic role pick.
-        var bigFamily = !string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "fighter");
+        var bigFamily = !string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "fighter" or "citadel");
         p.Archetype = Choose(rec.Archetype, ShipGenerator.Archetypes,
-            () => r.Weighted(W(faction.Roles.Where(kv => !bigFamily || kv.Key != "fighter").ToDictionary())), "archetype");
+            () => r.Weighted(W(faction.Roles.Where(kv => !bigFamily || kv.Key is not ("fighter" or "citadel")).ToDictionary())), "archetype");
         p.Manufacturer = string.IsNullOrEmpty(rec.Manufacturer) || rec.Manufacturer == "auto" ? r.Weighted(W(faction.Suppliers)) : rec.Manufacturer;
         var lang = Manufacturers.Get(p.Manufacturer);
         c.Lang = lang;
@@ -93,8 +96,14 @@ public static class Planner
         p.Signature = lang.Signature;
 
         // Asking for the fighter family means a fighter.
-        if (rec.Family == "fighter") p.Archetype = "fighter";
-        if (p.Archetype == "fighter")
+        if (rec.Family is "fighter" or "citadel") p.Archetype = rec.Family;
+        if (p.Archetype == "citadel")
+        {
+            if (!string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "citadel"))
+                throw new ArgumentException($"Citadels have their own family; '{rec.Family}' is for other ships.");
+            Citadels.Plan(c);
+        }
+        else if (p.Archetype == "fighter")
         {
             if (!string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "fighter"))
                 throw new ArgumentException($"Fighters have their own family; '{rec.Family}' is for larger ships.");
@@ -206,6 +215,18 @@ public static class Planner
         if (o is null) return;
         static string Pick(string? v, string current, string[] allowed, string what) =>
             v is null ? current : allowed.Contains(v) ? v : throw new ArgumentException($"Unknown {what} '{v}'. Use one of: {string.Join(", ", allowed)}.");
+        if (p.Family == "citadel")
+        {
+            p.HullForm = Pick(o.HullForm, p.HullForm, ["slab", "faceted"], "hull form");
+            p.ProwStyle = Pick(o.ProwStyle, p.ProwStyle, Citadels.Prows, "citadel prow");
+            p.BridgeStyle = Pick(o.BridgeStyle, p.BridgeStyle, Citadels.Keeps, "keep position");
+            p.EngineLayout = Pick(o.EngineLayout, p.EngineLayout, Citadels.Layouts, "nozzle grid");
+            p.Ventral = Pick(o.Ventral, p.Ventral, Citadels.Undersides, "citadel underside");
+            if (o.Tiers is { } ct) p.Tiers = ct is >= 2 and <= 7 ? ct : throw new ArgumentException("Citadel keeps have 2–7 tiers.");
+            if (o.BeamRatio is { } cb) p.Beam = p.Length * (cb is >= 0.1f and <= 0.3f ? cb : throw new ArgumentException("Beam ratio must be 0.1–0.3."));
+            if (o.HeightRatio is { } chr) p.Height = p.Length * (chr is >= 0.06f and <= 0.2f ? chr : throw new ArgumentException("Height ratio must be 0.06–0.2."));
+            return;
+        }
         if (p.Family == "fighter")
         {
             p.HullForm = Pick(o.HullForm, p.HullForm, Fighters.Forms, "fighter form");

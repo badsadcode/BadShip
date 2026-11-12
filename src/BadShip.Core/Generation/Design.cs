@@ -211,7 +211,7 @@ public static class Factions
         ["patrol"] = new Faction
         {
             Name = "Frontier Patrol Command", HullMain = "#363c44", HullSecondary = "#555c66", Accent = "#a8291f",
-            Roles = new() { ["patrol"] = 4, ["research"] = 0.6, ["freighter"] = 0.8, ["fighter"] = 2.5 },
+            Roles = new() { ["patrol"] = 4, ["research"] = 0.6, ["freighter"] = 0.8, ["fighter"] = 2.5, ["citadel"] = 0.4 },
             Sizes = new() { ["small"] = 2, ["medium"] = 2, ["large"] = 0.8 },
             Suppliers = new() { ["korsak"] = 3, ["halvorsen"] = 1, ["meridian"] = 0.4 },
         },

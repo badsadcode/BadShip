@@ -35,7 +35,7 @@ public static class Details
                     var isTop = f == Profile.FaceTop;
                     var isBottomChamfer = f is Profile.FaceBottomPosX or Profile.FaceBottomNegX;
                     if (isSide || isTop || (full && f is Profile.FaceTopPosX or Profile.FaceTopNegX))
-                        Plates(c, r, d.Mesh, loft, s, f, key, along, across, plateDepth, k, (isTop ? 0.25 : 0.4) * c.Lang.PlateDensity * (fighter ? 1.6 : 1));
+                        Plates(c, r, d.Mesh, loft, s, f, key, along, across, plateDepth, k, (isTop ? 0.25 : 0.4) * c.Lang.PlateDensity * (fighter ? 1.6 : c.Plan.Family == "citadel" ? 0.5 : 1));
                     if (full && isSide && part.Kind is "hull" or "tier") Vents(c, r, d.Mesh, loft, s, f, key, along, across, k);
                     if (isBottomChamfer && part.Kind is "hull" or "pod") RunningLights(c, r, d.Mesh, loft, s, f, key, along, k);
                 }

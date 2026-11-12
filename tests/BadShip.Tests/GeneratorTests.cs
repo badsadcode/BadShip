@@ -489,6 +489,35 @@ public class GeneratorTests
         Assert.Equal("form", ShipGenerator.Generate(new ShipRecipe { Seed = 4, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "wedge", WingStyle = "x" } }).Plan.WingStyle);
     }
 
+    [Theory]
+    [InlineData("ram")]
+    [InlineData("blade")]
+    [InlineData("bastion")]
+    public void Citadels_validate_in_every_size_and_condition(string prow)
+    {
+        foreach (var size in Planner.Sizes)
+            foreach (var condition in new[] { "intact", "derelict" })
+                foreach (var under in Citadels.Undersides)
+                {
+                    var keep = under == "keel" ? "mid" : "aft";
+                    var ship = ShipGenerator.Generate(new ShipRecipe
+                    {
+                        Seed = (ulong)(size.Length + under.Length), Archetype = "citadel", Size = size, Condition = condition,
+                        Overrides = new PlanOverrides { ProwStyle = prow, Ventral = under, BridgeStyle = keep },
+                    });
+                    var report = ShipValidator.Validate(ship);
+                    Assert.False(report.HasErrors, $"{prow} {size} {condition} {under}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                    Assert.Equal("citadel", ship.Plan.Family);
+                    Assert.InRange(ship.Plan.Length, 260, 820);
+                    Assert.Contains(ship.Markers, m => m.Kind == "bridge");
+                    Assert.Contains(ship.Markers, m => m.Kind == "broadside");
+                    Assert.Contains(ship.Markers, m => m.Kind == "hangar");
+                    Assert.Contains(ship.Modules, m => m.Type == "keep");
+                    Assert.True(ship.Triangles < ShipValidator.TriangleBudget["high"]);
+                }
+        Assert.Equal("citadel", ShipGenerator.Generate(new ShipRecipe { Seed = 2, Family = "citadel" }).Plan.Archetype);
+    }
+
     [Fact]
     public void Fighter_family_implies_fighter_and_codes_round_trip()
     {
