@@ -174,6 +174,43 @@ window.renderLineup = async (items, { w = 2400, h = 900, view = 'side', title = 
   return out.toDataURL('image/png');
 };
 
+/** Renders every child of the first node (a layer) on its own, framed alone: a contact sheet of kit parts. */
+window.renderParts = async (url, { w = 360, h = 240 } = {}) => {
+  const gltf = await loader.loadAsync(url);
+  const layer = gltf.scene.children[0];
+  const parts = [...layer.children];
+  const out = [];
+  for (const part of parts) {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#121821');
+    scene.environment = envMap; scene.environmentIntensity = 0.5;
+    scene.add(new THREE.HemisphereLight('#a9bdd6', '#1a1e24', 1.0));
+    const key = new THREE.DirectionalLight('#fff1dc', 2.8); key.position.set(-1, 1.4, 0.9); scene.add(key);
+    const rim = new THREE.DirectionalLight('#7fa8ff', 1.2); rim.position.set(0.8, 0.4, -1); scene.add(rim);
+    const holder = new THREE.Group();
+    const clone = part.clone(true);
+    // Neutral clay: the kit's own material is a very dark grey, and here the shapes are the point.
+    const clay = new THREE.MeshStandardMaterial({ color: '#b8b6b0', roughness: 0.75, metalness: 0.05, side: THREE.DoubleSide });
+    clone.traverse(o => { if (o.isMesh) o.material = clay; });
+    holder.add(clone);
+    scene.add(holder);
+    const box = new THREE.Box3().setFromObject(holder);
+    if (box.isEmpty()) continue;
+    const center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+    const cam = new THREE.PerspectiveCamera(30, w / h, 0.01, 10000);
+    const r = Math.max(size.length() / 2, 0.01);
+    cam.position.copy(center).addScaledVector(new THREE.Vector3(-1, 0.6, 0.75).normalize(), r / Math.sin(15 * Math.PI / 180) * 0.75);
+    cam.near = r / 100; cam.far = r * 100; cam.updateProjectionMatrix();
+    cam.lookAt(center);
+    renderer.setPixelRatio(1); renderer.setSize(w, h, false);
+    renderer.render(scene, cam);
+    let tris = 0;
+    clone.traverse(o => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+    out.push({ name: part.name, img: renderer.domElement.toDataURL('image/png'), tris: Math.round(tris), size: [size.x, size.y, size.z].map(v => +v.toFixed(2)) });
+  }
+  return out;
+};
+
 window.buildSheet = (title, cells, cols, cellW) => {
   const sheet = document.getElementById('sheet');
   sheet.style.gridTemplateColumns = `repeat(${cols}, ${cellW}px)`;
