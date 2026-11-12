@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.4.0";
+    public const string Version = "0.5.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block"];
@@ -29,6 +29,7 @@ public static class ShipGenerator
         Signatures.Apply(c);
         Ventral.Build(c);
         Equipment.Place(c);
+        Livery.LiveryPass.Apply(c);
         if (c.DetailLevel > 0) Details.Add(c);
         c.Ship.Finish();
         return c.Ship;

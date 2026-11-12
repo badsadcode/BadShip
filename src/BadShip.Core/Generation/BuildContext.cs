@@ -118,7 +118,7 @@ public sealed class BuildContext
         DetailLevel = recipe.Detail switch { "low" => 0, "medium" => 1, _ => 2 };
     }
 
-    public static readonly string[] Stages = ["plan", "silhouette", "ventral", "equipment", "details", "look"];
+    public static readonly string[] Stages = ["plan", "silhouette", "ventral", "equipment", "livery", "details", "look"];
 
     private static Rng StageRng(ShipRecipe recipe, string stage)
     {
@@ -141,6 +141,13 @@ public sealed class BuildContext
     }
 
     /// <summary>The tertiary child that holds a module's surface detail (so detail can be toggled per module).</summary>
+    /// <summary>The tertiary child that holds a module's livery decals.</summary>
+    public Module LiveryOf(Module m)
+    {
+        var id = m.Id + ".livery";
+        return Ship.Find(id) ?? Add(id, "livery", ModuleTier.Tertiary, m.Id);
+    }
+
     public Module DetailsOf(Module m)
     {
         var id = m.Id + ".details";

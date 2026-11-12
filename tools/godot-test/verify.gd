@@ -98,6 +98,13 @@ func compare(ship, r: Dictionary, key: String, root: Node) -> bool:
 		fail(ship.name, "%s has no hull_main material" % key); ok = false
 	elif s.materials.has("engine_glow") and not (s.materials["engine_glow"] as BaseMaterial3D).emission_enabled:
 		fail(ship.name, "%s: engine_glow is not emissive" % key); ok = false
+	if s.materials.has("livery"):
+		var lm := s.materials["livery"] as BaseMaterial3D
+		if lm.albedo_texture == null:
+			fail(ship.name, "%s: the livery decal sheet did not arrive as a texture" % key); ok = false
+		elif lm.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR:
+			fail(ship.name, "%s: livery is not alpha cut-out (transparency %d)" % [key, lm.transparency]); ok = false
+		r[key + "_livery_texture"] = lm.albedo_texture != null
 	# Node extras (id, type, tier...) come through as metadata in Godot 4.4+.
 	var hull = names.get(godot_name(ship.modules[0]))
 	var extras_ok: bool = hull != null and hull.has_meta("extras") and hull.get_meta("extras").get("id", "") == ship.modules[0]

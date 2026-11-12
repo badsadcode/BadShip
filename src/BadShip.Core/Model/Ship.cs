@@ -34,7 +34,14 @@ public sealed record Marker(string Id, string Kind, string ModuleId, Vector3 Pos
 public sealed record Envelope(string Id, string Kind, string ModuleId, Aabb Box);
 
 /// <summary>A material by role, with linear colour, roughness, metalness and light given off.</summary>
-public sealed record MaterialDef(string Role, Vector3 Color, float Roughness, float Metallic, Vector3 Emissive, float EmissiveStrength);
+public sealed record MaterialDef(string Role, Vector3 Color, float Roughness, float Metallic, Vector3 Emissive, float EmissiveStrength)
+{
+    /// <summary>A base-colour texture (PNG bytes) embedded in the GLB: the livery decal sheet.</summary>
+    public byte[]? Png { get; init; }
+
+    /// <summary>Alpha-cutout (glTF MASK): transparent parts of the texture are not drawn.</summary>
+    public bool Cutout { get; init; }
+}
 
 public sealed class Ship
 {

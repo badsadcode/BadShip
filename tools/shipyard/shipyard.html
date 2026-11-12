@@ -190,6 +190,9 @@
         <label>Detail
           <select id="detail"><option>high</option><option>medium</option><option>low</option></select>
         </label>
+        <label>Livery
+          <select id="livery"><option value="standard">Name and markings</option><option value="none">Clean, unmarked</option></select>
+        </label>
       </div>
       <div class="actions">
         <button class="btn primary" id="generate" type="button" disabled>Generate</button>
@@ -410,7 +413,7 @@ canvas.addEventListener('pointerup', e => {
 // ---------------------------------------------------------------- generator (C# in WebAssembly)
 // Every released generator version stays published under framework/<version>/, so a ship code opens with the version
 // that made it and shows the same ship forever. Newest last.
-const VERSIONS = ['0.4.0'];
+const VERSIONS = ['0.4.0', '0.5.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
@@ -432,6 +435,7 @@ function recipe() {
     seed: Math.max(1, Math.floor(+$('seed').value || 1)),
     archetype: $('archetype').value, family: $('family').value, palette: $('palette').value, detail: $('detail').value,
     faction: $('faction').value, manufacturer: $('manufacturer').value, size: $('size').value,
+    ...($('livery').value === 'none' ? { livery: 'none' } : {}),
     stage_seeds: Object.keys(stageSeeds).length ? { ...stageSeeds } : null,
     overrides: Object.keys(overrides).length ? overrides : null,
   };
@@ -446,6 +450,7 @@ function cliCommand(r) {
   if (r.family !== 'auto') parts.push(`--family ${r.family}`);
   if (r.palette !== 'auto') parts.push(`--palette ${r.palette}`);
   if (r.detail !== 'high') parts.push(`--detail ${r.detail}`);
+  if (r.livery === 'none') parts.push('--livery none');
   if (r.overrides) parts.push('--set ' + Object.entries(r.overrides).map(([k, v]) => `${k}=${v}`).join(','));
   if (r.stage_seeds) parts.push('--stage-seed ' + Object.entries(r.stage_seeds).map(([k, v]) => `${k}=${v}`).join(','));
   return parts.join(' ');
@@ -454,7 +459,7 @@ function cliCommand(r) {
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : '—';
 function readout(info, r) {
   const p = info.recipe.resolved, meta = info.metadata, v = info.validation;
-  $('r-name').textContent = `Seed ${r.seed}`;
+  $('r-name').textContent = p.ship_name && p.livery !== 'none' ? p.ship_name : (p.ship_name || `Seed ${r.seed}`);
   $('r-sub').textContent = `${p.size} ${p.archetype} · ${p.family}`;
   const st = $('r-status'); st.hidden = false; st.textContent = v.status; st.className = `pill ${v.status}`;
   const tiers = {};
@@ -466,6 +471,7 @@ function readout(info, r) {
     ['Main · gear · detail', `${tiers.primary ?? 0} · ${tiers.secondary ?? 0} · ${tiers.tertiary ?? 0}`],
   ].map(([k, val]) => `<dt>${k}</dt><dd>${val}</dd>`).join('');
   $('r-plan').innerHTML = [
+    ...(p.registration ? [['Registration', p.registration]] : []),
     ['Operator', p.faction_name], ['Built by', p.manufacturer_name],
     ...(p.signature && p.signature !== 'none' ? [['Yard signature', p.signature.replace('_', ' ')]] : []),
     ['Hull form', cap(p.hull_form)], ['Prow', cap(p.prow_style)], ['Bridge', cap(p.bridge_style)], ['Tiers', p.tiers],
@@ -519,6 +525,7 @@ function applyRecipe(rec) {
   $('seed').value = rec.seed;
   for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'palette']) $(id).value = rec[id] ?? 'auto';
   $('detail').value = rec.detail ?? 'high';
+  $('livery').value = rec.livery === 'none' ? 'none' : 'standard';
   $('hull_form').value = rec.overrides?.hull_form ?? '';
   $('ventral').value = rec.overrides?.ventral ?? '';
   for (const k of Object.keys(stageSeeds)) delete stageSeeds[k];
@@ -568,7 +575,7 @@ function log(root, r, info) {
   const b = document.createElement('button');
   b.className = 'card'; b.type = 'button';
   const rerolled = r.stage_seeds ? ' · rerolled' : '';
-  b.innerHTML = `<span class="meta"><span class="nm">Seed ${r.seed}</span><span class="ty">${info.recipe.resolved.manufacturer_name.split(' ')[0]} · ${info.recipe.resolved.size} ${info.recipe.resolved.archetype}${rerolled}</span></span>`;
+  b.innerHTML = `<span class="meta"><span class="nm">${info.recipe.resolved.ship_name || 'Seed ' + r.seed}</span><span class="ty">${info.recipe.resolved.manufacturer_name.split(' ')[0]} · ${info.recipe.resolved.size} ${info.recipe.resolved.archetype}${rerolled}</span></span>`;
   b.prepend(thumb);
   b.addEventListener('click', () => restore(entry, b));
   list.prepend(b);
@@ -598,7 +605,7 @@ $('random').addEventListener('click', () => { extras = {}; $('seed').value = ran
 $('reset').addEventListener('click', () => { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
 document.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { stageSeeds[b.dataset.stage] = rand(); build(); }));
 $('seed').addEventListener('keydown', e => { if (e.key === 'Enter') { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); } });
-for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'hull_form', 'ventral', 'palette', 'detail']) $(id).addEventListener('change', () => build());
+for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'hull_form', 'ventral', 'palette', 'detail', 'livery']) $(id).addEventListener('change', () => build());
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
   state.mode = b.dataset.mode;
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));

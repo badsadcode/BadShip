@@ -60,7 +60,7 @@ public class GeneratorTests
     {
         var low = Make(7, detail: "low");
         var high = Make(7, detail: "high");
-        Assert.DoesNotContain(low.Modules, m => m.Tier == ModuleTier.Tertiary);
+        Assert.DoesNotContain(low.Modules, m => m.Tier == ModuleTier.Tertiary && m.Type != "livery"); // livery is optional decoration, not detail
         Assert.True(low.Triangles < high.Triangles);
     }
 
@@ -321,6 +321,42 @@ public class GeneratorTests
         Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-fsurvey"));
         Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-s12-j9"));
         Assert.Throws<ArgumentException>(() => ShipCode.Decode("v0p4p0-sabc"));
+    }
+
+    [Fact]
+    public void Livery_is_painted_on_and_can_be_left_off()
+    {
+        foreach (var seed in new ulong[] { 4, 9, 12 })
+        {
+            var marked = ShipGenerator.Generate(new ShipRecipe { Seed = seed });
+            var clean = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Livery = "none" });
+            Assert.Contains(marked.Modules, m => m.Type == "livery" && !m.Mesh.IsEmpty);
+            Assert.NotNull(marked.Materials[Roles.Livery].Png);
+            Assert.True(marked.Materials[Roles.Livery].Cutout);
+            Assert.DoesNotContain(clean.Modules, m => m.Type == "livery");
+            Assert.False(clean.Materials.ContainsKey(Roles.Livery));
+            Assert.Matches("^[A-Z]{3}-[0-9]{3,4}$", marked.Plan.Registration);
+            Assert.False(string.IsNullOrWhiteSpace(marked.Plan.ShipName));
+            // Livery never moves the hull.
+            string Primaries(Ship s) => string.Join("|", s.Modules.Where(m => m.Tier == ModuleTier.Primary).Select(m => $"{m.Id}:{m.Bounds.Min}:{m.Bounds.Max}"));
+            Assert.Equal(Primaries(marked), Primaries(clean));
+            Assert.False(ShipValidator.Validate(marked).HasErrors);
+        }
+        var named = ShipGenerator.Generate(new ShipRecipe { Seed = 3, Name = "Thalassa" });
+        Assert.Equal("THALASSA", named.Plan.ShipName);
+        Assert.Equal("v" + ShipGenerator.Version.Replace('.', 'p') + "-s3-inone", ShipCode.Encode(new ShipRecipe { Seed = 3, Livery = "none" }));
+    }
+
+    [Fact]
+    public void Decal_sheet_is_a_valid_png()
+    {
+        var png = ShipGenerator.Generate(new ShipRecipe { Seed = 2 }).Materials[Roles.Livery].Png!;
+        Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, png[..8]);
+        var glb = GlbWriter.Write(ShipGenerator.Generate(new ShipRecipe { Seed = 2 }));
+        var jsonLen = (int)BinaryPrimitives.ReadUInt32LittleEndian(glb.AsSpan(12));
+        using var doc = JsonDocument.Parse(glb.AsMemory(20, jsonLen));
+        Assert.Equal("image/png", doc.RootElement.GetProperty("images")[0].GetProperty("mimeType").GetString());
+        Assert.Contains(doc.RootElement.GetProperty("materials").EnumerateArray(), m => m.TryGetProperty("alphaMode", out var a) && a.GetString() == "MASK");
     }
 
     [Fact]

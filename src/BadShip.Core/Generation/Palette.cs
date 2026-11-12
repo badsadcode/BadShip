@@ -19,9 +19,10 @@ public static class Roles
     public const string CargoA = "cargo_a";
     public const string CargoB = "cargo_b";
     public const string CargoC = "cargo_c";
+    public const string Livery = "livery";
 
     public static readonly string[] All =
-        [HullMain, HullSecondary, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC];
+        [HullMain, HullSecondary, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery];
 
     public static readonly string[] Cargo = [CargoA, CargoB, CargoC];
 }

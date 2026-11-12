@@ -71,6 +71,30 @@ public sealed class Mesh
         }
     }
 
+    /// <summary>Adds a convex polygon with explicit texture coordinates (decals), facing <paramref name="normal"/>.</summary>
+    public void AddPolygonUv(string material, IReadOnlyList<Vector3> pts, IReadOnlyList<Vector2> uvs, Vector3 normal)
+    {
+        if (pts.Count < 3 || pts.Count != uvs.Count) return;
+        var n = Vector3.Normalize(normal);
+        var order = Enumerable.Range(0, pts.Count).ToList();
+        var newell = Vector3.Cross(pts[1] - pts[0], pts[2] - pts[0]);
+        if (Vector3.Dot(newell, n) < 0) order.Reverse();
+        var start = Positions.Count;
+        foreach (var i in order)
+        {
+            Positions.Add(pts[i]);
+            Normals.Add(n);
+            Uvs.Add(uvs[i]);
+        }
+        if (!Groups.TryGetValue(material, out var idx)) Groups[material] = idx = [];
+        for (var i = 1; i + 1 < pts.Count; i++)
+        {
+            idx.Add(start);
+            idx.Add(start + i);
+            idx.Add(start + i + 1);
+        }
+    }
+
     /// <summary>Adds a quad (a, b, c, d in order around it); a noticeably non-planar quad becomes two triangles.</summary>
     public void AddQuad(string material, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3? outward = null)
     {

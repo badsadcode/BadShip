@@ -36,8 +36,11 @@ public sealed class ShipRecipe
     /// <summary>low (silhouette only) | medium | high</summary>
     public string Detail { get; set; } = "high";
 
-    /// <summary>Metadata only.</summary>
+    /// <summary>The ship's name, painted on the hull when it has livery (otherwise one is picked from the seed).</summary>
     public string? Name { get; set; }
+
+    /// <summary>standard (name, registration, emblems, chevrons) | none (clean, unmarked).</summary>
+    public string Livery { get; set; } = "standard";
 
     /// <summary>
     /// Seeds that replace the main seed for single stages (plan, silhouette, equipment, details, look). Keeping the
@@ -77,6 +80,9 @@ public sealed class ShipPlan
     public string Manufacturer { get; set; } = "";
     public string ManufacturerName { get; set; } = "";
     public string Signature { get; set; } = "";
+    public string ShipName { get; set; } = "";
+    public string Registration { get; set; } = "";
+    public string Livery { get; set; } = "";
     public string Archetype { get; set; } = "";
     public string Family { get; set; } = "";
     public float Length { get; set; }

@@ -29,6 +29,8 @@ public static class GlbWriter
         var children = new List<List<int>>();
         var materials = new List<object>();
         var materialIndex = new Dictionary<string, int>();
+        var images = new List<object>();
+        var textures = new List<object>();
         var usesEmissiveStrength = false;
 
         int View(byte[] data, int? target)
@@ -65,6 +67,18 @@ public static class GlbWriter
                     ["roughnessFactor"] = d.Roughness,
                 },
             };
+            if (d.Png is { } png)
+            {
+                // The texture's own bufferView (images take no target), one linear-filtered, clamped sampler.
+                images.Add(new Dictionary<string, object> { ["bufferView"] = View(png, null), ["mimeType"] = "image/png" });
+                textures.Add(new Dictionary<string, object> { ["sampler"] = 0, ["source"] = images.Count - 1 });
+                ((Dictionary<string, object>)mat["pbrMetallicRoughness"])["baseColorTexture"] = new Dictionary<string, object> { ["index"] = textures.Count - 1 };
+            }
+            if (d.Cutout)
+            {
+                mat["alphaMode"] = "MASK";
+                mat["alphaCutoff"] = 0.5f;
+            }
             if (d.Emissive != Vector3.Zero)
             {
                 mat["emissiveFactor"] = new[] { d.Emissive.X, d.Emissive.Y, d.Emissive.Z };
@@ -229,6 +243,12 @@ public static class GlbWriter
             ["buffers"] = new[] { new { byteLength = (int)bin.Length } },
         };
         if (usesEmissiveStrength) gltf["extensionsUsed"] = new[] { "KHR_materials_emissive_strength" };
+        if (images.Count > 0)
+        {
+            gltf["images"] = images;
+            gltf["textures"] = textures;
+            gltf["samplers"] = new[] { new Dictionary<string, object> { ["magFilter"] = 9729, ["minFilter"] = 9987, ["wrapS"] = 33071, ["wrapT"] = 33071 } };
+        }
 
         var json = JsonSerializer.SerializeToUtf8Bytes(gltf, new JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull });
         var jsonPad = (4 - json.Length % 4) % 4;
