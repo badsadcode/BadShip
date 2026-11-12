@@ -15,7 +15,10 @@ public static class Details
     {
         var r = c.Detail;
         var full = c.DetailLevel >= 2;
-        var plateDepth = c.Plan.Archetype == "patrol" ? 0.38f : 0.18f;
+        // Fighters: the same passes at their own scale (a 12 m craft gets hand-sized panels, not 8 m plates).
+        var fighter = c.Plan.Family == "fighter";
+        var k = c.DetailScale;
+        var plateDepth = (c.Plan.Archetype is "patrol" or "fighter" ? 0.38f : 0.18f) * k;
         foreach (var part in c.Lofts)
         {
             var d = c.DetailsOf(part.Module);
@@ -26,31 +29,31 @@ public static class Details
                 for (var f = 0; f < 8; f++)
                 {
                     var (along, across) = loft.FaceSize(s, f);
-                    if (along < 3 || across < 2) continue;
+                    if (along < 3 * k || across < 2 * k) continue;
                     var key = BuildContext.FaceKey(part.Module, s, f);
                     var isSide = f is Profile.FacePosX or Profile.FaceNegX;
                     var isTop = f == Profile.FaceTop;
                     var isBottomChamfer = f is Profile.FaceBottomPosX or Profile.FaceBottomNegX;
                     if (isSide || isTop || (full && f is Profile.FaceTopPosX or Profile.FaceTopNegX))
-                        Plates(c, r, d.Mesh, loft, s, f, key, along, across, plateDepth, (isTop ? 0.25 : 0.4) * c.Lang.PlateDensity);
-                    if (full && isSide && part.Kind is "hull" or "tier") Vents(c, r, d.Mesh, loft, s, f, key, along, across);
-                    if (isBottomChamfer && part.Kind is "hull" or "pod") RunningLights(c, r, d.Mesh, loft, s, f, key, along);
+                        Plates(c, r, d.Mesh, loft, s, f, key, along, across, plateDepth, k, (isTop ? 0.25 : 0.4) * c.Lang.PlateDensity * (fighter ? 1.6 : 1));
+                    if (full && isSide && part.Kind is "hull" or "tier") Vents(c, r, d.Mesh, loft, s, f, key, along, across, k);
+                    if (isBottomChamfer && part.Kind is "hull" or "pod") RunningLights(c, r, d.Mesh, loft, s, f, key, along, k);
                 }
             }
         }
         if (full || c.Lang.Signature == "accent_bands") AccentStripes(c, r);
-        Thrusters(c, r);
+        if (!fighter) Thrusters(c, r);
     }
 
     /// <summary>Raised panels on a grid with random gaps: the layered armour look, kept off anything already placed.</summary>
-    private static void Plates(BuildContext c, Rng r, Mesh m, Loft loft, int s, int f, string key, float along, float across, float depth, double p)
+    private static void Plates(BuildContext c, Rng r, Mesh m, Loft loft, int s, int f, string key, float along, float across, float depth, float k, double p)
     {
-        var cellU = r.Range(5f, 11f);
-        var cellV = r.Range(2.5f, 5f);
+        var cellU = r.Range(5f, 11f) * k;
+        var cellV = r.Range(2.5f, 5f) * k;
         var nu = Math.Max(1, (int)(along / cellU));
         var nv = Math.Max(1, (int)(across / cellV));
-        var mu = 0.35f / along;
-        var mv = 0.3f / across;
+        var mu = 0.35f * k / along;
+        var mv = 0.3f * k / across;
         for (var i = 0; i < nu; i++)
             for (var j = 0; j < nv; j++)
             {
@@ -67,38 +70,38 @@ public static class Details
             }
     }
 
-    private static void Vents(BuildContext c, Rng r, Mesh m, Loft loft, int s, int f, string key, float along, float across)
+    private static void Vents(BuildContext c, Rng r, Mesh m, Loft loft, int s, int f, string key, float along, float across, float k)
     {
-        var count = r.Int(0, (int)(along / 25f) + 1);
-        for (var k = 0; k < count; k++)
+        var count = r.Int(0, (int)(along / (25f * k)) + 1);
+        for (var n = 0; n < count; n++)
         {
-            var w = 3f / along;
-            var h = MathF.Min(0.25f, 1.6f / across);
+            var w = 3f * k / along;
+            var h = MathF.Min(0.25f, 1.6f * k / across);
             var u0 = r.Range(0.05f, 0.95f - w);
             var v0 = r.Range(0.1f, 0.9f - h);
             if (!c.TryUseSurface(key, u0 - 0.01f, u0 + w + 0.01f, v0 - 0.01f, v0 + h + 0.01f)) continue;
-            Shapes.Patch(m, Roles.DarkMechanics, loft, s, f, u0, u0 + w, v0, v0 + h, 0.06f);
+            Shapes.Patch(m, Roles.DarkMechanics, loft, s, f, u0, u0 + w, v0, v0 + h, 0.06f * k);
             var slats = 4;
             for (var i = 0; i < slats; i++)
             {
                 var a = v0 + h * (i + 0.25f) / slats;
-                Shapes.Patch(m, Roles.HullSecondary, loft, s, f, u0 + w * 0.06f, u0 + w * 0.94f, a, a + h * 0.35f / slats, 0.12f);
+                Shapes.Patch(m, Roles.HullSecondary, loft, s, f, u0 + w * 0.06f, u0 + w * 0.94f, a, a + h * 0.35f / slats, 0.12f * k);
             }
         }
     }
 
     /// <summary>Small warm lights along the lower chamfers (ships in the references are lit from underneath).</summary>
-    private static void RunningLights(BuildContext c, Rng r, Mesh m, Loft loft, int s, int f, string key, float along)
+    private static void RunningLights(BuildContext c, Rng r, Mesh m, Loft loft, int s, int f, string key, float along, float k)
     {
-        var spacing = r.Range(6f, 11f);
+        var spacing = r.Range(6f, 11f) * k;
         var n = (int)(along / spacing);
         var v = r.Range(0.3f, 0.7f);
         for (var i = 0; i < n; i++)
         {
             var u = (i + 0.5f) / n;
-            var du = 0.45f / along;
+            var du = 0.45f * k / along;
             if (!c.TryUseSurface(key, u - du, u + du, v - 0.06f, v + 0.06f)) continue;
-            Shapes.Patch(m, Roles.Light, loft, s, f, u - du, u + du, v - 0.06f, v + 0.06f, 0.12f);
+            Shapes.Patch(m, Roles.Light, loft, s, f, u - du, u + du, v - 0.06f, v + 0.06f, 0.12f * k);
         }
     }
 

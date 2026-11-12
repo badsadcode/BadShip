@@ -161,7 +161,7 @@ try
                 badship — procedural industrial spaceship exteriors
 
                   badship generate --code SHIPCODE        (a code from the Shipyard or from another generate)
-                  badship generate --seed N [--archetype freighter|research|patrol] [--family barge|spine|twin|block]
+                  badship generate --seed N [--archetype freighter|research|patrol|fighter] [--family barge|spine|twin|block|fighter]
                                    [--length M] [--palette gunmetal|naval|offwhite|slate] [--detail low|medium|high]
                                    [--name NAME] [--out DIR]
                   badship gallery  --count N [--start S] [same options] [--out DIR]

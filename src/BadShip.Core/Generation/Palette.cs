@@ -20,9 +20,11 @@ public static class Roles
     public const string CargoB = "cargo_b";
     public const string CargoC = "cargo_c";
     public const string Livery = "livery";
+    /// <summary>Thin glowing accent lines (fighters): the accent colour, lit.</summary>
+    public const string Glow = "accent_glow";
 
     public static readonly string[] All =
-        [HullMain, HullSecondary, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery,
+        [HullMain, HullSecondary, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery, Glow,
          Damage.Heat, Damage.Scorch, Damage.Breach, Damage.Embers, Damage.GlassDark, Damage.LightOff, Damage.EngineCold];
 
     public static readonly string[] Cargo = [CargoA, CargoB, CargoC];
@@ -73,11 +75,28 @@ public static class Palettes
         Add(Roles.EngineGlow, "#9fdcff", 0.3f, 0f, "#5ec8ff", 6f);
         Add(Roles.Hazard, "#d9b21c", 0.55f, 0.2f);
         Add(Roles.Accent, accent, 0.55f, 0.3f);
+        Add(Roles.Glow, accent, 0.4f, 0f, accent, 3.5f);
         Add(Roles.Radome, "#d8d8d2", 0.5f, 0.05f);
         Add(Roles.CargoA, cargo[0], 0.65f, 0.35f);
         Add(Roles.CargoB, cargo[1], 0.65f, 0.35f);
         Add(Roles.CargoC, cargo[2], 0.65f, 0.35f);
         return d;
+    }
+
+    /// <summary>
+    /// The stealth look for fighters: the operator's hull colours pushed dark and matte, glass dimmed, so the glowing
+    /// accent lines and engine slits carry the colour.
+    /// </summary>
+    public static void Stealth(Dictionary<string, MaterialDef> mats)
+    {
+        void Darken(string role, float k, float rough, float metal)
+        {
+            if (mats.TryGetValue(role, out var d)) mats[role] = d with { Color = d.Color * k + new Vector3(0.006f, 0.007f, 0.008f), Roughness = rough, Metallic = metal };
+        }
+        Darken(Roles.HullMain, 0.42f, 0.78f, 0.35f);
+        Darken(Roles.HullSecondary, 0.38f, 0.7f, 0.45f);
+        Darken(Roles.DarkMechanics, 0.6f, 0.8f, 0.4f);
+        if (mats.TryGetValue(Roles.Glass, out var g)) mats[Roles.Glass] = g with { Color = Linear("#0d0f12"), EmissiveStrength = 0.7f, Roughness = 0.12f };
     }
 
     /// <summary>sRGB hex to linear RGB (glTF colour factors are linear).</summary>

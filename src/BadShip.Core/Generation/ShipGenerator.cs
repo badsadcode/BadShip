@@ -9,10 +9,10 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.6.0";
+    public const string Version = "0.7.0";
 
-    public static readonly string[] Archetypes = ["freighter", "research", "patrol"];
-    public static readonly string[] Families = ["barge", "spine", "twin", "block"];
+    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter"];
+    public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter"];
 
     public static Ship Generate(ShipRecipe recipe)
     {
@@ -24,11 +24,15 @@ public static class ShipGenerator
             case "spine": HullFamilies.Spine(c); break;
             case "twin": HullFamilies.Twin(c); break;
             case "block": HullFamilies.Block(c); break;
+            case "fighter": Fighters.Build(c); break;
             default: throw new ArgumentException($"Unknown family '{c.Plan.Family}'.");
         }
         Signatures.Apply(c);
-        Ventral.Build(c);
-        Equipment.Place(c);
+        if (c.Plan.Family != "fighter")
+        {
+            Ventral.Build(c);
+            Equipment.Place(c);
+        }
         Livery.LiveryPass.Apply(c);
         c.Plan.Condition = c.Recipe.Condition is "damaged" or "derelict" ? c.Recipe.Condition
             : string.IsNullOrEmpty(c.Recipe.Condition) || c.Recipe.Condition == "intact" ? "intact"
@@ -78,13 +82,49 @@ public static class Planner
         var faction = Factions.Get(p.Faction);
         p.FactionName = faction.Name;
         p.Size = Choose(rec.Size, Sizes, () => r.Weighted(W(faction.Sizes)), "size");
-        p.Archetype = Choose(rec.Archetype, ShipGenerator.Archetypes, () => r.Weighted(W(faction.Roles)), "archetype");
+        // Asking for a big-ship family (barge, spine, ...) rules fighters out of the automatic role pick.
+        var bigFamily = !string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "fighter");
+        p.Archetype = Choose(rec.Archetype, ShipGenerator.Archetypes,
+            () => r.Weighted(W(faction.Roles.Where(kv => !bigFamily || kv.Key != "fighter").ToDictionary())), "archetype");
         p.Manufacturer = string.IsNullOrEmpty(rec.Manufacturer) || rec.Manufacturer == "auto" ? r.Weighted(W(faction.Suppliers)) : rec.Manufacturer;
         var lang = Manufacturers.Get(p.Manufacturer);
         c.Lang = lang;
         p.ManufacturerName = lang.Name;
         p.Signature = lang.Signature;
 
+        // Asking for the fighter family means a fighter.
+        if (rec.Family == "fighter") p.Archetype = "fighter";
+        if (p.Archetype == "fighter")
+        {
+            if (!string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "fighter"))
+                throw new ArgumentException($"Fighters have their own family; '{rec.Family}' is for larger ships.");
+            Fighters.Plan(c);
+        }
+        else
+        {
+            ResolveShip(c, r, lang);
+        }
+        ApplyOverrides(rec.Overrides, p);
+
+        // Paint comes from the operator.
+        if ((string.IsNullOrEmpty(rec.Palette) || rec.Palette == "auto") && !string.IsNullOrEmpty(faction.HullMain))
+        {
+            p.Palette = "faction";
+            c.Ship.Materials = Palettes.Build(faction.HullMain, faction.HullSecondary, faction.Accent, c.Look);
+        }
+        else
+        {
+            p.Palette = Choose(rec.Palette, Palettes.Names, () => c.Look.Pick(Palettes.Names), "palette");
+            c.Ship.Materials = Palettes.Build(p.Palette, c.Look, faction.Accent);
+        }
+        if (p.Family == "fighter") Palettes.Stealth(c.Ship.Materials);
+    }
+
+    /// <summary>The family, proportions and layout choices of a (non-fighter) ship.</summary>
+    private static void ResolveShip(BuildContext c, Rng r, DesignLanguage lang)
+    {
+        var rec = c.Recipe;
+        var p = c.Plan;
         // Hull family: what the role needs, biased by the yard's habits and limited by size.
         double SizeFit(string f) => (p.Size, f) switch
         {
@@ -155,19 +195,6 @@ public static class Planner
             _ => [("gondola", 0.4), ("pods", 0.25), ("none", 0.35)],
         };
         p.Ventral = r.Weighted(Mul(ventralBase, lang.Ventral));
-        ApplyOverrides(rec.Overrides, p);
-
-        // Paint comes from the operator.
-        if ((string.IsNullOrEmpty(rec.Palette) || rec.Palette == "auto") && !string.IsNullOrEmpty(faction.HullMain))
-        {
-            p.Palette = "faction";
-            c.Ship.Materials = Palettes.Build(faction.HullMain, faction.HullSecondary, faction.Accent, c.Look);
-        }
-        else
-        {
-            p.Palette = Choose(rec.Palette, Palettes.Names, () => c.Look.Pick(Palettes.Names), "palette");
-            c.Ship.Materials = Palettes.Build(p.Palette, c.Look, faction.Accent);
-        }
     }
 
     /// <summary>
@@ -179,6 +206,16 @@ public static class Planner
         if (o is null) return;
         static string Pick(string? v, string current, string[] allowed, string what) =>
             v is null ? current : allowed.Contains(v) ? v : throw new ArgumentException($"Unknown {what} '{v}'. Use one of: {string.Join(", ", allowed)}.");
+        if (p.Family == "fighter")
+        {
+            p.HullForm = Pick(o.HullForm, p.HullForm, Fighters.Forms, "fighter form");
+            p.BridgeStyle = Pick(o.BridgeStyle, p.BridgeStyle, Fighters.Cockpits, "cockpit style");
+            p.EngineLayout = Pick(o.EngineLayout, p.EngineLayout, Fighters.Layouts, "engine layout");
+            p.EngineStyle = Pick(o.EngineStyle, p.EngineStyle, Fighters.EngineStyles, "engine style");
+            if (o.BeamRatio is { } fb) p.Beam = p.Length * (fb is >= 0.1f and <= 0.8f ? fb : throw new ArgumentException("Beam ratio must be 0.1–0.8."));
+            if (o.HeightRatio is { } fh) p.Height = p.Length * (fh is >= 0.05f and <= 0.35f ? fh : throw new ArgumentException("Height ratio must be 0.05–0.35."));
+            return;
+        }
         p.HullForm = Pick(o.HullForm, p.HullForm, ["slab", "faceted"], "hull form");
         p.ProwStyle = Pick(o.ProwStyle, p.ProwStyle, ["blunt", "stepped", "faceted", "shovel", "wedge"], "prow style");
         if (p.Family == "twin" && p.ProwStyle == "stepped") p.ProwStyle = "faceted";

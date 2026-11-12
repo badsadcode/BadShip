@@ -56,6 +56,7 @@ public static class Damage
     private static void Breaches(BuildContext c, Rng r, bool derelict)
     {
         var L = c.Plan.Length;
+        var scale = c.DetailScale;
         var count = derelict ? r.Int(7, 12) : r.Int(3, 6);
         if (c.Plan.Size == "small") count = Math.Max(1, count / 2);
         var faces = new List<(LoftPart part, int s, int f, float along, float across)>();
@@ -67,7 +68,7 @@ public static class Damage
                 foreach (var f in new[] { Profile.FacePosX, Profile.FaceNegX, Profile.FaceTop, Profile.FaceTopPosX, Profile.FaceTopNegX, Profile.FaceBottomPosX, Profile.FaceBottomNegX })
                 {
                     var (along, across) = part.Loft.FaceSize(s, f);
-                    if (along > 4 && across > 2.5f) faces.Add((part, s, f, along, across));
+                    if (along > 4 * scale && across > 2.5f * scale) faces.Add((part, s, f, along, across));
                 }
             }
         if (faces.Count == 0) return;
@@ -77,8 +78,8 @@ public static class Damage
             {
                 // Bigger faces are hit more often.
                 var (part, s, f, along, across) = r.Weighted(faces.Select(x => (x, (double)(x.along * x.across))).ToList());
-                var R = MathF.Min(Num.Clamp(L * (derelict ? r.Range(0.028f, 0.065f) : r.Range(0.022f, 0.045f)), 1.4f, 13f), MathF.Min(along, across) * 0.3f);
-                if (R < 0.8f) continue;
+                var R = MathF.Min(Num.Clamp(L * (derelict ? r.Range(0.028f, 0.065f) : r.Range(0.022f, 0.045f)), 1.4f * scale, 13f), MathF.Min(along, across) * 0.3f);
+                if (R < 0.8f * scale) continue;
                 var du = R * 2.2f / along;
                 var dv = R * 2.2f / across;
                 var u = r.Range(du + 0.03f, 1 - du - 0.03f);
@@ -92,7 +93,7 @@ public static class Damage
             }
         }
         // Stripped sections: plating gone, the ribbed frame showing.
-        var stripped = derelict ? r.Int(2, 5) : r.Int(1, 2);
+        var stripped = scale < 1 ? 0 : derelict ? r.Int(2, 5) : r.Int(1, 2);
         for (var k = 0; k < stripped; k++)
             for (var attempt = 0; attempt < 6; attempt++)
             {
@@ -278,6 +279,7 @@ public static class Damage
                 Swap(m, Roles.Glass, GlassDark);
                 Swap(m, Roles.Light, LightOff);
                 Swap(m, Roles.NavRed, LightOff);
+                Swap(m, Roles.Glow, LightOff);
                 Swap(m, Roles.EngineGlow, EngineCold);
             }
             return;

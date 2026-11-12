@@ -51,7 +51,7 @@ node tools/render/lineup.mjs out/fleet_haulers   # true-scale lineup.png
 
 ![Equipment rerolls of one hull](docs/images/variants_equipment_reroll.png)
 
-Options: `--archetype freighter|research|patrol`, `--family barge|spine|twin|block`, `--length <m>`,
+Options: `--archetype freighter|research|patrol|fighter`, `--family barge|spine|twin|block|fighter`, `--length <m>`,
 `--palette gunmetal|naval|offwhite|slate`, `--detail low|medium|high`, `--name`. Anything left out is chosen from the seed.
 
 Each ship produces four files:
@@ -190,7 +190,34 @@ recipe + seed
   `engine_glow`, `hazard`, `accent`, `radome`, `cargo_a/b/c`. Each is one replaceable glTF material. UVs are
   box-projected in world space at 4 m per tile (they are exported but no textures are attached yet).
 
-## Status (v0.6.0: damaged and derelict conditions)
+### Fighters (v0.7.0)
+
+`--archetype fighter` builds small craft in a stealth, hard-surface language (the "badlook"): flat facets with sharp
+creases, chines, sides that lean inwards as they rise (tumblehome, the opposite of a boat hull), arrowhead and
+hunched silhouettes, cockpits blended into the hull (a faceted glass canopy or an armoured brow with glass slits),
+flat slit exhausts with splitter vanes, knife-edged canted fins, sawtooth trailing edges, and thin glowing accent
+lines along the chines. The operator's paint is pushed dark and matte.
+
+| Form | What it is | Sizes |
+|---|---|---|
+| `dart` | sleek arrowhead, cranked delta wings with serrated trailing edges, optional canards and ventral fins | mostly small/medium |
+| `wedge` | one flat faceted delta: the craft is its own wing; V-tails and sawtooth points at the rear | all |
+| `brick` | bulky armoured gunship with a hunched brow and beak, chin guns, stub wings with gun pods, optional side nacelles | mostly large |
+| `fork` | a cockpit body between two long forward prongs with guns at their tips | medium/large |
+
+Sizes: small 8–15 m, medium 15–26 m, large 26–45 m (gunships). Pin a form with `--set hull_form=wedge`; cockpit with
+`bridge_style=canopy|slit`, engines with `engine_layout=1x1|2x1|3x1` and `engine_style=slit|pod`. Guns and missile
+racks carry `hardpoint` markers; the cockpit carries the `bridge` marker. Surface detail, damage and livery work at
+fighter scale. The Frontier Patrol fields fighters often; other factions only escort.
+
+![Fighters](docs/images/fighters_v0.7.png)
+
+![A dart from four sides](docs/images/fighter_dart_closeup.png)
+
+## Status (v0.7.0: fighters)
+
+- Fighters and gunships (4 forms × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
+  (intact, damaged and derelict), about 1–1.5k triangles each.
 
 - 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.
 - Open hangar bays (lit alcove with depth, gantry, hazard sill, vehicle or crates, railed platform) built from
@@ -205,7 +232,7 @@ recipe + seed
 - 1000 seeds per size class: 0 validation errors (a handful of small craft warn that they ended up a little longer
   than planned); about 3 / 7 / 13 ms and 2k / 5.4k / 9.8k triangles for small / medium / large ships.
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
-- 19 unit tests: determinism, stage independence, validation over hundreds of seeds, recipe round trip, GLB structure.
+- 48 unit tests: determinism, stage independence, validation over hundreds of seeds, recipe round trip, GLB structure.
 
 - Stage rerolls (`--stage-seed`, `variants`), plan overrides (`--set`), LOD1/LOD2 and convex collision exports.
 

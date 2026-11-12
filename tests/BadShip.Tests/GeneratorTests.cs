@@ -233,11 +233,14 @@ public class GeneratorTests
         // Halvorsen builds square: almost never faceted, pods for engines, blunt or stepped prows, its engine collar.
         var ships = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "halvorsen" })).ToList();
         Assert.All(ships, s => Assert.Equal("Halvorsen Heavy Works", s.Plan.ManufacturerName));
+        // (Fighters have their own engines and forms.)
+        ships = ships.Where(s => s.Plan.Family != "fighter").ToList();
+        Assert.True(ships.Count >= 25);
         Assert.All(ships, s => Assert.Equal("pod", s.Plan.EngineStyle));
         Assert.True(ships.Count(s => s.Plan.HullForm == "slab") >= 24);
         Assert.True(ships.Count(s => s.Plan.ProwStyle is "blunt" or "stepped") >= 18);
         // Meridian builds faceted survey hulls with nacelles.
-        var meridian = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "meridian" })).ToList();
+        var meridian = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "meridian", Archetype = "research" })).ToList();
         Assert.True(meridian.Count(s => s.Plan.HullForm == "faceted") >= 25);
         Assert.True(meridian.Count(s => s.Plan.EngineStyle == "nacelle") >= 20);
     }
@@ -247,8 +250,11 @@ public class GeneratorTests
     {
         var fleet = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Faction = "patrol" })).ToList();
         var paint = Palettes.Linear(Factions.Presets["patrol"].HullMain);
-        Assert.All(fleet, s => Assert.Equal(paint, s.Materials[Roles.HullMain].Color));
-        Assert.True(fleet.Count(s => s.Plan.Archetype == "patrol") >= 15);
+        // Fighters wear the same paint pushed dark (the stealth look).
+        Assert.All(fleet.Where(s => s.Plan.Family != "fighter"), s => Assert.Equal(paint, s.Materials[Roles.HullMain].Color));
+        Assert.All(fleet.Where(s => s.Plan.Family == "fighter"), s => Assert.True(s.Materials[Roles.HullMain].Color.Length() < paint.Length()));
+        Assert.True(fleet.Count(s => s.Plan.Archetype is "patrol" or "fighter") >= 15);
+        Assert.Contains(fleet, s => s.Plan.Archetype == "fighter");
         Assert.All(fleet, s => Assert.Contains(s.Plan.Manufacturer, Factions.Presets["patrol"].Suppliers.Keys));
     }
 
@@ -396,6 +402,54 @@ public class GeneratorTests
         var a = Rng.Stream(1, "silhouette").NextU64();
         var b = Rng.Stream(1, "details").NextU64();
         Assert.NotEqual(a, b);
+    }
+
+    [Theory]
+    [InlineData("dart")]
+    [InlineData("wedge")]
+    [InlineData("brick")]
+    [InlineData("fork")]
+    public void Every_fighter_form_is_valid_in_every_size_and_condition(string form)
+    {
+        foreach (var size in Planner.Sizes)
+            foreach (var condition in new[] { "intact", "damaged", "derelict" })
+                for (ulong seed = 1; seed <= 6; seed++)
+                {
+                    var ship = ShipGenerator.Generate(new ShipRecipe
+                    {
+                        Seed = seed, Archetype = "fighter", Size = size, Condition = condition,
+                        Overrides = new PlanOverrides { HullForm = form },
+                    });
+                    var report = ShipValidator.Validate(ship);
+                    Assert.False(report.HasErrors, $"{form} {size} {condition} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                    Assert.Equal("fighter", ship.Plan.Family);
+                    Assert.Equal(form, ship.Plan.HullForm);
+                    Assert.Contains(ship.Markers, m => m.Kind == "bridge");
+                    Assert.Contains(ship.Markers, m => m.Kind == "hardpoint");
+                }
+    }
+
+    [Fact]
+    public void Fighters_are_fighter_sized_and_small_ones_are_not_shrunken_big_ones()
+    {
+        var small = Enumerable.Range(1, 20).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Archetype = "fighter", Size = "small" })).ToList();
+        var large = Enumerable.Range(1, 20).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Archetype = "fighter", Size = "large" })).ToList();
+        Assert.All(small, s => Assert.InRange(s.Plan.Length, 8, 15));
+        Assert.All(large, s => Assert.InRange(s.Plan.Length, 26, 45));
+        // Big fighters are mostly gunship forms; small ones never fork.
+        Assert.DoesNotContain(small, s => s.Plan.HullForm == "fork");
+        Assert.True(large.Count(s => s.Plan.HullForm is "brick" or "fork") > large.Count / 2);
+    }
+
+    [Fact]
+    public void Fighter_family_implies_fighter_and_codes_round_trip()
+    {
+        var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 7, Family = "fighter" });
+        Assert.Equal("fighter", ship.Plan.Archetype);
+        var recipe = new ShipRecipe { Seed = 9, Archetype = "fighter", Overrides = new PlanOverrides { HullForm = "wedge", EngineLayout = "3x1" } };
+        var again = ShipCode.Decode(ShipCode.Encode(recipe));
+        Assert.Equal(Signature(ShipGenerator.Generate(recipe)), Signature(ShipGenerator.Generate(again)));
+        Assert.Throws<ArgumentException>(() => ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "fighter", Family = "barge" }));
     }
 }
 

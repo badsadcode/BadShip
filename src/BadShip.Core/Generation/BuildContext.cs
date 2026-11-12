@@ -89,6 +89,12 @@ public sealed class BuildContext
     public float? LastNacelleLength { get; set; }
     public float? LastBayLength { get; set; }
 
+    /// <summary>
+    /// How big surface features (plates, vents, breaches) are relative to the usual: 1 for ships, much less for
+    /// fighters, so a 12 m craft gets hand-sized panels and holes rather than ship-sized ones.
+    /// </summary>
+    public float DetailScale => Plan.Family == "fighter" ? Num.Clamp(Plan.Length / 55f, 0.16f, 0.8f) : 1f;
+
     /// <summary>The manufacturer's design language (set by the planner).</summary>
     public DesignLanguage Lang { get; set; } = new();
 

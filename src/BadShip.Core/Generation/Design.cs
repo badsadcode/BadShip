@@ -185,7 +185,7 @@ public sealed class Faction
     public string HullMain { get; set; } = "";
     public string HullSecondary { get; set; } = "";
     public string Accent { get; set; } = "";
-    public Dictionary<string, double> Roles { get; set; } = new() { ["freighter"] = 1, ["research"] = 1, ["patrol"] = 1 };
+    public Dictionary<string, double> Roles { get; set; } = new() { ["freighter"] = 1, ["research"] = 1, ["patrol"] = 1, ["fighter"] = 0.8 };
     public Dictionary<string, double> Sizes { get; set; } = new() { ["small"] = 1, ["medium"] = 2, ["large"] = 1 };
     public Dictionary<string, double> Suppliers { get; set; } = Manufacturers.Presets.Keys.ToDictionary(k => k, _ => 1.0);
 }
@@ -197,7 +197,7 @@ public static class Factions
         ["haulers"] = new Faction
         {
             Name = "Free Haulers Guild", HullMain = "#4a5058", HullSecondary = "#6b7179", Accent = "#b85a22",
-            Roles = new() { ["freighter"] = 4, ["research"] = 0.5, ["patrol"] = 1 },
+            Roles = new() { ["freighter"] = 4, ["research"] = 0.5, ["patrol"] = 1, ["fighter"] = 0.5 },
             Sizes = new() { ["small"] = 1.2, ["medium"] = 2, ["large"] = 1.5 },
             Suppliers = new() { ["halvorsen"] = 2, ["tanaka"] = 2, ["brightwater"] = 0.5 },
         },
@@ -211,14 +211,14 @@ public static class Factions
         ["patrol"] = new Faction
         {
             Name = "Frontier Patrol Command", HullMain = "#363c44", HullSecondary = "#555c66", Accent = "#a8291f",
-            Roles = new() { ["patrol"] = 4, ["research"] = 0.6, ["freighter"] = 0.8 },
+            Roles = new() { ["patrol"] = 4, ["research"] = 0.6, ["freighter"] = 0.8, ["fighter"] = 2.5 },
             Sizes = new() { ["small"] = 2, ["medium"] = 2, ["large"] = 0.8 },
             Suppliers = new() { ["korsak"] = 3, ["halvorsen"] = 1, ["meridian"] = 0.4 },
         },
         ["miners"] = new Faction
         {
             Name = "Kessler Belt Mining Union", HullMain = "#6c7378", HullSecondary = "#8b9297", Accent = "#d9b21c",
-            Roles = new() { ["freighter"] = 3, ["research"] = 1, ["patrol"] = 0.5 },
+            Roles = new() { ["freighter"] = 3, ["research"] = 1, ["patrol"] = 0.5, ["fighter"] = 0.3 },
             Sizes = new() { ["small"] = 1.5, ["medium"] = 2, ["large"] = 1 },
             Suppliers = new() { ["halvorsen"] = 2, ["tanaka"] = 1, ["korsak"] = 0.5 },
         },
@@ -251,7 +251,7 @@ public static class Factions
         {
             Name = $"{r.Pick(a)} {r.Pick(b)} {r.Pick(c)}",
             HullMain = hull, HullSecondary = Lighten(hull), Accent = r.Pick(accents),
-            Roles = new() { ["freighter"] = r.Range(0.3f, 3f), ["research"] = r.Range(0.3f, 3f), ["patrol"] = r.Range(0.3f, 3f) },
+            Roles = new() { ["freighter"] = r.Range(0.3f, 3f), ["research"] = r.Range(0.3f, 3f), ["patrol"] = r.Range(0.3f, 3f), ["fighter"] = r.Range(0.2f, 2.5f) },
             Sizes = new() { ["small"] = r.Range(0.5f, 2f), ["medium"] = 2, ["large"] = r.Range(0.3f, 1.5f) },
             Suppliers = suppliers,
         };
