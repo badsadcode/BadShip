@@ -186,17 +186,22 @@
 </div>
 
 <script type="application/json" id="fleet">/*__FLEET__*/</script>
-<script type="importmap">
-{ "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-} }
+<script>
+  // If the 3D module can't start (blocked or offline CDN, no WebGL), say so instead of loading forever.
+  setTimeout(() => {
+    if (window.__hangarStarted) return;
+    const el = document.getElementById('loading');
+    el.textContent = 'The 3D viewer could not start: three.js did not load from cdn.jsdelivr.net, or WebGL is off.';
+    el.style.padding = '0 24px'; el.style.textAlign = 'center';
+  }, 20000);
 </script>
 <script type="module">
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+// Absolute jsDelivr ESM builds, no import map: the addons import this exact three.js URL, so there is one instance.
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/+esm';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js/+esm';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js/+esm';
+import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js/+esm';
+window.__hangarStarted = true;
 
 const fleet = JSON.parse(document.getElementById('fleet').textContent);
 const $ = id => document.getElementById(id);
@@ -506,7 +511,12 @@ function loop() {
 }
 
 resize();
-await show(0);
-loop();
-thumbnails();
+try {
+  await show(0);
+  loop();
+  thumbnails();
+} catch (err) {
+  $('loading').hidden = false;
+  $('loading').textContent = `The ships could not be loaded: ${err?.message ?? err}`;
+}
 </script>
