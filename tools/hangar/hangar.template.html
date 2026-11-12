@@ -113,7 +113,7 @@
       <h1>BadShip <span>Hangar</span></h1>
       <p>Twelve industrial ships made by the BadShip generator from seeds 1 to 12, shown exactly as exported to GLB. Drag to orbit, scroll or pinch to zoom, click a part to inspect it.</p>
     </div>
-    <div class="stamp" id="stamp">generator v0.1.0 · Bad Ideas Works</div>
+    <div class="stamp" id="stamp">generator v0.2.0 · Bad Ideas Works</div>
   </header>
 
   <section class="bay">
@@ -383,6 +383,7 @@ function sheet(s) {
     ['Main / equipment / detail parts', `${s.modules.primary ?? 0} / ${s.modules.secondary ?? 0} / ${s.modules.tertiary ?? 0}`],
   ]);
   rows($('s-plan'), [
+    ['Hull form', cap(p.hull_form)],
     ['Prow', cap(p.prow_style)],
     ['Bridge', cap(p.bridge_style)],
     ['Superstructure tiers', p.tiers],

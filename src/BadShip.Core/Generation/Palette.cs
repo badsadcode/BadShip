@@ -58,7 +58,7 @@ public static class Palettes
         Add(Roles.HullMain, main, 0.62f, 0.55f);
         Add(Roles.HullSecondary, secondary, 0.55f, 0.6f);
         Add(Roles.DarkMechanics, "#22262b", 0.7f, 0.5f);
-        Add(Roles.Glass, "#1c1a17", 0.2f, 0.1f, "#ffb866", 2.2f);
+        Add(Roles.Glass, "#1c1a17", 0.2f, 0.1f, "#e8913a", 1.25f);
         Add(Roles.Light, "#f0e6d0", 0.4f, 0f, "#ffe2b0", 4f);
         Add(Roles.NavRed, "#ff2a1a", 0.4f, 0f, "#ff2a1a", 5f);
         Add(Roles.EngineGlow, "#9fdcff", 0.3f, 0f, "#5ec8ff", 6f);

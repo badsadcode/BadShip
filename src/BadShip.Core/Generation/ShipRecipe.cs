@@ -40,6 +40,9 @@ public sealed class ShipPlan
     public float Beam { get; set; }
     public float Height { get; set; }
     public string ProwStyle { get; set; } = "";
+
+    /// <summary>slab (upright sides) or faceted (wide shallow top facets, shoulder crease, deep sloped lower hull).</summary>
+    public string HullForm { get; set; } = "";
     public string BridgeStyle { get; set; } = "";
     public int Tiers { get; set; }
     public string EngineLayout { get; set; } = "";

@@ -9,9 +9,25 @@ public sealed record TierInfo(Module Module, Loft Loft, Deck? Deck, float TopY, 
 /// <summary>Shared building blocks: prows, engine assemblies, superstructure tiers, bridges and windows.</summary>
 public static class Parts
 {
+    // ------------------------------------------------------------------ hull bodies
+
+    /// <summary>
+    /// The main cross-section of a hull mass. "slab": upright sides with modest chamfers. "faceted": the Thalassa
+    /// look, wide shallow top facets meeting the sides in a shoulder crease, over a deep inward-sloping lower hull.
+    /// </summary>
+    public static Profile HullBody(BuildContext c, float cx, float cy, float w, float h, float slabTop = 0.05f)
+    {
+        var r = c.Shape;
+        if (c.Plan.HullForm == "faceted")
+            return new Profile(cx, cy, w * r.Range(0.5f, 0.66f), w, h, h * r.Range(0.16f, 0.24f), h * r.Range(0.38f, 0.5f)) { TopRun = r.Range(1.8f, 2.8f) };
+        return new Profile(cx, cy, w * r.Range(0.66f, 0.86f), w, h, w * r.Range(slabTop * 0.6f, slabTop * 1.4f), h * r.Range(0.25f, 0.42f));
+    }
+
     // ------------------------------------------------------------------ prows
 
-    public static float ProwLength(string style, float length, Rng r) => style switch
+    public static float ProwLength(string style, float length, Rng r, bool faceted = false) => faceted && style is "faceted" or "wedge"
+        ? length * r.Range(0.24f, 0.33f) // the Thalassa's long faceted nose, home of the observation deck
+        : style switch
     {
         "blunt" => length * r.Range(0.035f, 0.06f),
         "stepped" => length * r.Range(0.14f, 0.22f),

@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.1.0";
+    public const string Version = "0.2.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block"];
@@ -77,6 +77,8 @@ public static class Planner
         };
 
         p.ProwStyle = r.Weighted(ProwWeights[p.Archetype]);
+        p.HullForm = r.Chance(p.Archetype == "research" ? 0.7 : p.Family == "block" ? 0.5 : 0.4) ? "faceted" : "slab";
+        if (p.HullForm == "faceted" && p.ProwStyle is "blunt" or "shovel" && r.Chance(0.7)) p.ProwStyle = r.Pick(["faceted", "wedge"]);
         if (p.Family == "twin" && p.ProwStyle == "stepped") p.ProwStyle = "faceted";
         p.BridgeStyle = r.Weighted<string>([("slope", 0.45), ("overhang", 0.4), ("blunt", 0.15)]);
         p.Tiers = p.Family switch { "barge" => r.Int(2, 4), "block" => r.Int(1, 3), _ => r.Int(1, 3) };

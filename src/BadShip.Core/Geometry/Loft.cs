@@ -17,17 +17,25 @@ public readonly record struct Profile(float Cx, float Cy, float WBottom, float W
 
     public static Profile Box(float cx, float cy, float w, float h, float chamfer = 0) => new(cx, cy, w, w, h, chamfer, chamfer);
 
+    private readonly float _topRun;
+
+    /// <summary>
+    /// How far the top chamfer runs inwards per unit it drops (1 is 45°). Values of 2–3 give the wide, shallow top
+    /// facets and sharp shoulder crease of the Thalassa reference.
+    /// </summary>
+    public float TopRun { get => _topRun <= 0 ? 1f : _topRun; init => _topRun = value; }
+
     public float Top => Cy + H / 2;
     public float Bottom => Cy - H / 2;
     public float Area => (WBottom + WTop) * 0.5f * H;
 
     /// <summary>The flat part of the top face, half its width.</summary>
-    public float TopFlatHalf => MathF.Max(0, WTop / 2 - ClampedChamfers().ct);
+    public float TopFlatHalf => MathF.Max(0, WTop / 2 - ClampedChamfers().ct * TopRun);
 
     public (float ct, float cb) ClampedChamfers()
     {
         var h = MathF.Max(H, 0);
-        var ct = Math.Clamp(ChamferTop, 0, MathF.Min(WTop * 0.49f, h * 0.6f));
+        var ct = Math.Clamp(ChamferTop, 0, MathF.Min(WTop * 0.49f / TopRun, h * 0.6f));
         var cb = Math.Clamp(ChamferBottom, 0, MathF.Min(WBottom * 0.49f, h * 0.6f));
         if (ct + cb > h * 0.96f)
         {
@@ -53,8 +61,8 @@ public readonly record struct Profile(float Cx, float Cy, float WBottom, float W
             new(Cx + hb - cb, y0),
             new(Cx + SideX(y0 + cb), y0 + cb),
             new(Cx + SideX(y1 - ct), y1 - ct),
-            new(Cx + ht - ct, y1),
-            new(Cx - ht + ct, y1),
+            new(Cx + ht - ct * TopRun, y1),
+            new(Cx - ht + ct * TopRun, y1),
             new(Cx - SideX(y1 - ct), y1 - ct),
             new(Cx - SideX(y0 + cb), y0 + cb),
         ];

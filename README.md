@@ -8,13 +8,14 @@ written in C# (.NET 10) with no dependencies beyond the base library, following 
 Y up, metres, recipe + seed, hand-written GLB, and checks with the Khronos validator. It does **not** reference NoorMD.
 The original brief from Bad Ideas Works is in [`docs/brief/`](docs/brief/) (and the zip at the root).
 
-![Gallery](docs/images/gallery_v0.1.png)
+![Gallery](docs/images/gallery_v0.2.png)
 
-| | |
-|---|---|
-| ![Freighter twin](docs/images/closeup_ship_0001.png) | ![Freighter barge](docs/images/closeup_ship_0006.png) |
+The faceted hull form with the Thalassa-style wraparound prow glass, and an open hangar bay:
 
-![Silhouettes](docs/images/silhouettes_v0.1.png)
+![Faceted research barge](docs/images/closeup_thalassa_glass.png)
+![Hangar bay](docs/images/closeup_hangar_bay.png)
+
+![Silhouettes](docs/images/silhouettes_v0.2.png)
 
 ## Quick start
 
@@ -75,6 +76,9 @@ recipe + seed
   corners; a `Loft` skins a few profiles along +Z. That covers boxes, chamfered boxes, trapezoid prisms, wedges, sloped
   prows and stepped decks (two rings at the same Z make a step). Faces have fixed indices, so windows, bays and plates
   are placed as `(u, v)` rectangles on named faces and a surface registry keeps them from overlapping.
+- **Hull forms:** `slab` (upright sides) or `faceted` (the Thalassa look: wide shallow top facets set by
+  `Profile.TopRun`, a sharp shoulder crease and a deep inward-sloping lower hull). Faceted hulls get long faceted
+  noses with a wraparound band of observation glass across the lower prow facets.
 - **Hull families** (`HullFamilies.cs`): `barge` (one broad stepped hull, like the Thalassa reference), `spine`
   (command block + payload segments on a keel + engine block, with visible gaps), `twin` (two hulls under a bridge
   deck, cross girders and an optional slung cargo pod), `block` (compact armoured brick with sponsons and shrouded engines).
@@ -88,10 +92,12 @@ recipe + seed
   `engine_glow`, `hazard`, `accent`, `radome`, `cargo_a/b/c`. Each is one replaceable glTF material. UVs are
   box-projected in world space at 4 m per tile (they are exported but no textures are attached yet).
 
-## Status (v0.1.0, phase A)
+## Status (v0.2.0, phase A + the Thalassa pass)
 
-- 4 hull families × 3 archetypes, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.
-- 1000 consecutive seeds: 0 validation errors, 0 warnings; about 5 ms and roughly 4.5k triangles per ship.
+- 4 hull families × 3 archetypes × 2 hull forms, 5 prow styles, 3 bridge styles, 5 engine layouts, 2 engine styles, 4 palettes.
+- Open hangar bays (lit alcove with depth, gantry, hazard sill, vehicle or crates, railed platform) built from
+  closed boxes, plus flat cargo doors where a hangar doesn't fit.
+- 3000 consecutive seeds: 0 validation errors, 0 warnings; about 4.5 ms and roughly 4.5k triangles per ship.
 - Exports pass the Khronos glTF validator with 0 errors and 0 warnings (infos only: UVs unused without textures).
 - 19 unit tests: determinism, stage independence, validation over hundreds of seeds, recipe round trip, GLB structure.
 
@@ -100,7 +106,7 @@ yet; no textures (greybox with material roles); not yet tested in Blender or God
 renders only); no locking or rerolling of individual modules yet.
 
 **Next (phase B/C ideas):** a viewer with parameter controls, module locking and rerolls; LODs and collision hulls;
-more archetypes (mining, tender) and macro families (offset hauler, multi-deck brick); radiators, booms and gantries;
+hull livery (name, logo, mission text decals); more archetypes (mining, tender) and macro families (offset hauler, multi-deck brick); radiators, booms and gantries;
 a damage pass; and then the self-contained NoorShip design doc for NoorMD.
 
 ## Layout

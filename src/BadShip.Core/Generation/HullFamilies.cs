@@ -21,8 +21,8 @@ public static class HullFamilies
         var engLen = L * r.Range(0.07f, 0.1f);
         var zRear = -L / 2 + engLen;
         var zFront = L / 2;
-        var prowLen = Parts.ProwLength(p.ProwStyle, L, r);
-        var body = new Profile(0, 0, B * r.Range(0.66f, 0.86f), B, H, B * r.Range(0.03f, 0.07f), H * r.Range(0.25f, 0.42f));
+        var prowLen = Parts.ProwLength(p.ProwStyle, L, r, p.HullForm == "faceted");
+        var body = Parts.HullBody(c, 0, 0, B, H);
         var zBody0 = zRear + L * 0.025f;
         var zProw = zFront - prowLen;
         List<(float, Profile)> rings = [(zRear, body.Scaled(0.93f, 0.9f)), (zBody0, body), (zProw, body)];
@@ -40,7 +40,7 @@ public static class HullFamilies
 
         Parts.Engines(c, hull.Id, "", zRear, 0, body.Cy + H * r.Range(-0.05f, 0.15f), B * r.Range(0.6f, 0.88f), H * r.Range(0.85f, 1.2f));
         Parts.Superstructure(c, deck, p.Tiers, 0.7f, 0.95f, 1f, lengthMin: 0.55f, lengthMax: 0.88f);
-        ProwWindows(c, hull, loft, 3);
+        ProwDressing(c, hull, loft, zProw);
         SideBlocks(c, hull, body, zBody0, zProw);
     }
 
@@ -78,7 +78,7 @@ public static class HullFamilies
         // Front mass: command section with its own prow and superstructure.
         var cw = B * r.Range(0.85f, 1f);
         var ch = H * r.Range(1.1f, 1.45f);
-        var cmdP = new Profile(0, H * r.Range(0.05f, 0.25f), cw * r.Range(0.72f, 0.88f), cw, ch, cw * r.Range(0.04f, 0.08f), ch * r.Range(0.22f, 0.38f));
+        var cmdP = Parts.HullBody(c, 0, H * r.Range(0.05f, 0.25f), cw, ch, 0.06f);
         var prowLen = MathF.Min(Parts.ProwLength(p.ProwStyle, L, r), cmdLen * 0.55f);
         var zProw = L / 2 - prowLen;
         List<(float, Profile)> rings = [(zCmdRear, cmdP.Scaled(0.92f, 0.92f)), (zCmdRear + 1.5f, cmdP), (zProw, cmdP)];
@@ -94,7 +94,7 @@ public static class HullFamilies
         Parts.SideWindows(c, cmd, cmdLoft, 1, 0.6f);
         c.AddEnvelope("habitable", cmd, new Aabb(new Vector3(-cw * 0.35f, cmdP.Bottom + ch * 0.25f, zCmdRear + 2), new Vector3(cw * 0.35f, cmdP.Top - 1, zProw)));
         Parts.Superstructure(c, cmdDeck, p.Tiers, 0.6f, 0.9f, 1f, lengthMin: 0.5f, lengthMax: 0.8f);
-        ProwWindows(c, cmd, cmdLoft, 3);
+        ProwDressing(c, cmd, cmdLoft, zProw);
 
         // Middle: payload segments hung on the spine, with gaps that show the keel (negative space).
         var n = r.Int(2, 4);
@@ -143,7 +143,7 @@ public static class HullFamilies
 
         (Module m, Loft loft, Profile prof, float zRear, float zFront) Hull(float side, string id, string? parent)
         {
-            var prof = new Profile(side * hx, 0, wh * r.Range(0.7f, 0.85f), wh, H, ct, cb);
+            var prof = c.Plan.HullForm == "faceted" ? Parts.HullBody(c, side * hx, 0, wh, H) : new Profile(side * hx, 0, wh * r.Range(0.7f, 0.85f), wh, H, ct, cb);
             var zRear = -L / 2 + engLen;
             var zFront = side == shortSide ? L / 2 - L * r.Range(0.12f, 0.2f) : L / 2;
             var zProw = zFront - prowLen;
@@ -178,7 +178,7 @@ public static class HullFamilies
         foreach (var (h, side, prefix) in new[] { (port, 1f, "port_"), (starboard, -1f, "starboard_") })
         {
             Parts.Engines(c, h.m.Id, prefix, h.zRear, side * hx, h.prof.Cy - H * 0.05f, engW, engH);
-            ProwWindows(c, h.m, h.loft, 3);
+            ProwDressing(c, h.m, h.loft, h.zFront - prowLen);
         }
 
         // Rear cross girders, and on freighters a cargo pod slung under them.
@@ -221,7 +221,7 @@ public static class HullFamilies
         var zRear = -L / 2 + engLen;
         var prowLen = L * r.Range(0.22f, 0.32f);
         var zProw = L / 2 - prowLen;
-        var body = new Profile(0, 0, B * r.Range(0.72f, 0.88f), B, H, B * r.Range(0.07f, 0.13f), H * r.Range(0.25f, 0.4f));
+        var body = Parts.HullBody(c, 0, 0, B, H, 0.1f);
         List<(float, Profile)> rings = [(zRear, body.Scaled(0.9f, 0.9f)), (zRear + L * 0.05f, body), (zProw, body)];
         rings.AddRange(Parts.Prow(body, zProw, L / 2, p.ProwStyle));
         var (hull, loft) = c.AddLoft("hull_main", "hull", ModuleTier.Primary, null, rings, Roles.HullMain);
@@ -262,10 +262,56 @@ public static class HullFamilies
         }
 
         Parts.Superstructure(c, deck, p.Tiers, 0.6f, 0.9f, 1.1f);
-        ProwWindows(c, hull, loft, 3, chance: 0.3);
+        ProwDressing(c, hull, loft, zProw, chance: 0.3);
     }
 
     // ------------------------------------------------------------------ shared extras
+
+    /// <summary>Observation glass for the prow: wraparound facet glass on faceted hulls, a side window band otherwise.</summary>
+    private static void ProwDressing(BuildContext c, Module m, Loft loft, float zProw, double? chance = null)
+    {
+        var p = c.Plan;
+        if (p.HullForm == "faceted")
+        {
+            var want = chance ?? (p.Archetype == "research" ? 0.85 : p.Archetype == "freighter" ? 0.4 : 0.25);
+            if (c.Shape.Chance(want)) ProwGlass(c, m, loft, zProw);
+            return;
+        }
+        var s = Enumerable.Range(0, loft.Segments).FirstOrDefault(i => loft.Zs[i] >= zProw - 0.01f && !loft.IsStep(i), -1);
+        if (s >= 0) ProwWindows(c, m, loft, s, chance);
+    }
+
+    /// <summary>
+    /// The Thalassa's signature: one continuous band of tall panes across the lower prow facets, following every
+    /// facet to the nose, with a strip of warm lights under it.
+    /// </summary>
+    private static void ProwGlass(BuildContext c, Module m, Loft loft, float zProw)
+    {
+        var placed = false;
+        for (var s = 0; s < loft.Segments; s++)
+        {
+            if (loft.Zs[s] < zProw - 0.01f || loft.IsStep(s)) continue;
+            foreach (var f in new[] { Profile.FaceBottomPosX, Profile.FaceBottomNegX })
+            {
+                var (along, across) = loft.FaceSize(s, f);
+                if (along < 2 || across < 1.5f) continue;
+                var key = BuildContext.FaceKey(m, s, f);
+                c.UseSurface(key, 0, 1, 0, 1);
+                var a = Parts.UpV(f, 0.2f);
+                var b = Parts.UpV(f, 0.9f);
+                Parts.PaneRow(m.Mesh, loft, s, f, 0.01f, 0.99f, MathF.Min(a, b), MathF.Max(a, b), Math.Max(2, (int)(along / 2.4f)), alongU: true, gap: 0.16f);
+                var l0 = Parts.UpV(f, 0.06f);
+                var l1 = Parts.UpV(f, 0.11f);
+                Shapes.Patch(m.Mesh, Roles.Light, loft, s, f, 0.02f, 0.98f, MathF.Min(l0, l1), MathF.Max(l0, l1), 0.07f);
+                placed = true;
+            }
+        }
+        if (placed)
+        {
+            var s0 = Enumerable.Range(0, loft.Segments).First(i => loft.Zs[i] >= zProw - 0.01f);
+            c.AddMarker("observation_deck", m, loft.FacePoint(s0, Profile.FaceBottom, 0.5f, 0.5f), Vector3.UnitZ, loft.Profiles[s0].WTop * 0.4f);
+        }
+    }
 
     /// <summary>A wide observation window band wrapping the first prow segment (mostly research ships).</summary>
     private static void ProwWindows(BuildContext c, Module m, Loft loft, int s, double? chance = null)

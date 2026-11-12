@@ -34,7 +34,7 @@ public static class Details
                     if (isSide || isTop || (full && f is Profile.FaceTopPosX or Profile.FaceTopNegX))
                         Plates(c, r, d.Mesh, loft, s, f, key, along, across, plateDepth, isTop ? 0.25 : 0.4);
                     if (full && isSide && part.Kind is "hull" or "tier") Vents(c, r, d.Mesh, loft, s, f, key, along, across);
-                    if (isBottomChamfer && part.Kind is "hull" or "pod") RunningLights(r, d.Mesh, loft, s, f, along);
+                    if (isBottomChamfer && part.Kind is "hull" or "pod") RunningLights(c, r, d.Mesh, loft, s, f, key, along);
                 }
             }
         }
@@ -88,7 +88,7 @@ public static class Details
     }
 
     /// <summary>Small warm lights along the lower chamfers (ships in the references are lit from underneath).</summary>
-    private static void RunningLights(Rng r, Mesh m, Loft loft, int s, int f, float along)
+    private static void RunningLights(BuildContext c, Rng r, Mesh m, Loft loft, int s, int f, string key, float along)
     {
         var spacing = r.Range(6f, 11f);
         var n = (int)(along / spacing);
@@ -97,6 +97,7 @@ public static class Details
         {
             var u = (i + 0.5f) / n;
             var du = 0.45f / along;
+            if (!c.TryUseSurface(key, u - du, u + du, v - 0.06f, v + 0.06f)) continue;
             Shapes.Patch(m, Roles.Light, loft, s, f, u - du, u + du, v - 0.06f, v + 0.06f, 0.12f);
         }
     }

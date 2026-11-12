@@ -299,6 +299,10 @@ public static class Equipment
                 var end = pt + axis * (reach + 0.4f);
                 var corridor = Aabb.FromPoints(end + axis * 0.2f - new Vector3(0, R * 1.4f, R * 1.4f), end + axis * clearance + new Vector3(0, R * 1.4f, R * 1.4f));
                 if (!c.Clear(corridor, side.Module.Id)) continue;
+                // The collar itself must not stand in another port's approach or an engine's exhaust.
+                var body = Aabb.FromPoints(pt - axis * 1.5f - new Vector3(0, R * 1.3f, R * 1.3f), end + new Vector3(0, R * 1.3f, R * 1.3f)).Expand(0.5f);
+                if (c.Ship.Markers.Any(k => (k.Kind == "docking_port" && body.Penetration(Validation.ShipValidator.DockingVolume(k)) > 0.05f)
+                                         || (k.Kind == "engine_exhaust" && body.Penetration(Validation.ShipValidator.ExhaustVolume(k)) > 0.05f))) continue;
                 c.UseSurface(side.Key, u - du / 2, u + du / 2, 0.15f, 0.85f);
                 var m = c.Add("docking_collar", "docking_collar", ModuleTier.Secondary, side.Module.Id);
                 Shapes.Prism(m.Mesh, Roles.HullSecondary, pt - axis * 1.5f, pt + axis * reach, R, R, 8, MathF.PI / 8);
@@ -318,6 +322,7 @@ public static class Equipment
         var r = c.Equip;
         foreach (var side in c.Sides.OrderBy(_ => r.NextDouble()))
         {
+            if (r.Chance(0.75) && HangarBay(c, side)) return;
             var loft = side.Loft;
             var (along, across) = loft.FaceSize(side.Segment, side.Face);
             if (across < 3.5f) continue;
@@ -356,6 +361,106 @@ public static class Equipment
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// An open hangar bay like the Thalassa's: a real lit alcove with depth, built from closed boxes standing out from
+    /// the hull side (back wall, lintel, sill, jambs) so the mesh stays watertight, with a ceiling light, a gantry,
+    /// a hazard-striped floor edge, a vehicle or crates inside and a railed deck platform in front.
+    /// </summary>
+    private static bool HangarBay(BuildContext c, SideSurface side)
+    {
+        var r = c.Equip;
+        var loft = side.Loft;
+        var s = side.Segment;
+        var prof = loft.Profiles[s];
+        if (prof != loft.Profiles[s + 1] || loft.IsStep(s)) return false; // only on straight sections
+        var (ct, cb) = prof.ClampedChamfers();
+        var sx = side.Face == Profile.FacePosX ? 1f : -1f;
+        var L = c.Plan.Length;
+        // Opening height: from low on the sloped lower hull to just under the shoulder.
+        var ya = prof.Bottom + MathF.Max(cb * 0.35f, prof.H * 0.12f);
+        var yb = MathF.Min(prof.Top - ct - 0.4f, ya + Num.Clamp(L * 0.07f, 4f, 12f));
+        if (yb - ya < 3.5f) return false;
+        var bayLen = Num.Clamp(L * r.Range(0.09f, 0.14f), 9f, 26f);
+        var segLen = loft.Zs[s + 1] - loft.Zs[s];
+        if (bayLen > segLen * 0.6f) return false;
+        var t = Num.Clamp(L * 0.006f, 0.6f, 1.2f);
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            var z0 = r.Range(loft.Zs[s] + t + 1, loft.Zs[s + 1] - bayLen - t - 1);
+            var z1 = z0 + bayLen;
+            var u0 = (z0 - t - loft.Zs[s]) / segLen;
+            var u1 = (z1 + t - loft.Zs[s]) / segLen;
+            var lowFace = sx > 0 ? Profile.FaceBottomPosX : Profile.FaceBottomNegX;
+            var keySide = side.Key;
+            var keyLow = BuildContext.FaceKey(side.Module, s, lowFace);
+            if (!c.SurfaceFree(keySide, u0, u1, 0, 1) || !c.SurfaceFree(keyLow, u0, u1, 0, 1)) continue;
+            var outer = MathF.Max(prof.HalfWidthAt(ya), prof.HalfWidthAt(yb));
+            var inner = MathF.Min(prof.HalfWidthAt(ya - t), prof.HalfWidthAt(yb + t)) - 0.6f;
+            var depth = Num.Clamp((yb - ya) * 0.5f, 2.5f, 4.5f);
+            var xIn = prof.Cx + sx * inner;
+            var xBack = prof.Cx + sx * (outer + 0.1f);
+            var xFront = xBack + sx * depth;
+            var platform = r.Range(2f, 3.5f);
+            var corridor = Aabb.FromPoints(new Vector3(xBack, ya - t, z0 - t), new Vector3(xFront + sx * platform, yb + t, z1 + t));
+            if (!c.Clear(corridor, side.Module.Id)) continue;
+            c.UseSurface(keySide, u0, u1, 0, 1);
+            c.UseSurface(keyLow, u0, u1, 0, 1);
+
+            var m = c.Add("hangar_bay", "hangar_bay", ModuleTier.Secondary, side.Module.Id);
+            var mesh = m.Mesh;
+            void Box(string mat, float xa, float xb, float y0, float y1, float za, float zb) =>
+                Shapes.BoxMinMax(mesh, mat, new Vector3(MathF.Min(xa, xb), y0, za), new Vector3(MathF.Max(xa, xb), y1, zb));
+            // Shell.
+            Box(Roles.DarkMechanics, xIn, xBack, ya - t, yb + t, z0 - t, z1 + t);
+            Box(Roles.HullSecondary, xIn, xFront, yb, yb + t, z0 - t, z1 + t);
+            Box(Roles.HullSecondary, xIn, xFront, ya - t, ya, z0 - t, z1 + t);
+            Box(Roles.HullSecondary, xIn, xFront, ya, yb, z0 - t, z0);
+            Box(Roles.HullSecondary, xIn, xFront, ya, yb, z1, z1 + t);
+            // Inside: ceiling light, gantry beam, control windows on the back wall.
+            var xMid = (xBack + xFront) / 2;
+            Box(Roles.Light, xMid - sx * depth * 0.2f, xMid + sx * depth * 0.2f, yb - 0.18f, yb, z0 + 0.6f, z1 - 0.6f);
+            Box(Roles.Hazard, xBack + sx * depth * 0.15f, xBack + sx * depth * 0.3f, yb - 0.7f, yb - 0.35f, z0, z1);
+            var wz = r.Range(z0 + 1, z1 - bayLen * 0.4f);
+            Box(Roles.Glass, xBack, xBack + sx * 0.12f, yb - 1.6f, yb - 0.8f, wz, wz + bayLen * 0.3f);
+            // Floor: hazard stripes along the edge, and something parked inside.
+            var stripes = Math.Max(6, (int)(bayLen / 1.1f));
+            for (var i = 0; i < stripes; i += 2)
+                Box(Roles.Hazard, xFront - sx * 0.6f, xFront, ya, ya + 0.05f, z0 + bayLen * i / stripes, z0 + bayLen * (i + 1) / stripes);
+            if (r.Chance(0.6))
+            {
+                var vh = MathF.Min(2.4f, (yb - ya) * 0.4f);
+                var vz = r.Range(z0 + 1, z1 - 1 - bayLen * 0.3f);
+                Box(r.Pick(Roles.Cargo), xBack + sx * depth * 0.25f, xBack + sx * depth * 0.7f, ya, ya + vh, vz, vz + bayLen * 0.3f);
+                Box(Roles.Glass, xBack + sx * depth * 0.3f, xBack + sx * depth * 0.68f, ya + vh * 0.55f, ya + vh * 0.85f, vz + bayLen * 0.3f - 0.02f, vz + bayLen * 0.3f + 0.08f);
+            }
+            else
+            {
+                for (var i = 0; i < r.Int(2, 5); i++)
+                {
+                    var cs = r.Range(1f, 1.8f);
+                    var cz = r.Range(z0 + 0.5f, z1 - 0.5f - cs);
+                    var cxo = r.Range(0.1f, 0.6f) * depth;
+                    Box(r.Pick(Roles.Cargo), xBack + sx * cxo, xBack + sx * (cxo + cs), ya, ya + cs, cz, cz + cs);
+                }
+            }
+            // Deck platform with railings.
+            var pz0 = z0 + bayLen * r.Range(0f, 0.2f);
+            var pz1 = z1 - bayLen * r.Range(0f, 0.2f);
+            var xp = xFront + sx * platform;
+            Box(Roles.DarkMechanics, xFront - sx * 0.2f, xp, ya - 0.35f, ya, pz0, pz1);
+            var rail = 1.1f;
+            Shapes.Beam(mesh, Roles.Hazard, new Vector3(xp, ya + rail, pz0), new Vector3(xp, ya + rail, pz1), 0.12f);
+            for (var z = pz0; z <= pz1 + 0.01f; z += MathF.Max(1.5f, (pz1 - pz0) / 8))
+                Shapes.Beam(mesh, Roles.DarkMechanics, new Vector3(xp, ya, z), new Vector3(xp, ya + rail, z), 0.1f);
+            foreach (var z in new[] { z0 - t * 0.5f, z1 + t * 0.5f })
+                Box(Roles.Light, xFront, xFront + sx * 0.25f, yb + t * 0.3f, yb + t * 0.7f, z - 0.2f, z + 0.2f);
+            c.AddMarker("cargo_door", m, new Vector3(xFront, (ya + yb) / 2, (z0 + z1) / 2), new Vector3(sx, 0, 0), bayLen / 2, platform);
+            c.AddEnvelope("cargo", m, new Aabb(new Vector3(MathF.Min(xBack, xFront), ya, z0), new Vector3(MathF.Max(xBack, xFront), yb, z1)));
+            return true;
+        }
+        return false;
     }
 
     /// <summary>A weapon hardpoint placeholder: a mounting ring and cap. No weapon systems.</summary>
