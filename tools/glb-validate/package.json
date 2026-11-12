@@ -1,0 +1,9 @@
+{
+  "name": "badship-glb-validate",
+  "private": true,
+  "description": "Checks BadShip's GLB exports with the Khronos glTF validator.",
+  "type": "module",
+  "devDependencies": {
+    "gltf-validator": "2.0.0-dev.3.10"
+  }
+}

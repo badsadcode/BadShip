@@ -1,0 +1,9 @@
+{
+  "name": "badship-render",
+  "private": true,
+  "description": "Renders BadShip GLB exports to contact sheets with three.js in headless Chromium (Playwright).",
+  "type": "module",
+  "dependencies": {
+    "three": "0.170.0"
+  }
+}

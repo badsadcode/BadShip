@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The procedural ship generator: geometry, recipes, validation and GLB export.
+       No dependencies beyond the .NET base library, so it can move into NoorMD.Media unchanged in spirit. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>BadShip</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BadShip.Tests" />
+  </ItemGroup>
+
+</Project>
