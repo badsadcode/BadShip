@@ -1,7 +1,8 @@
 ## A sliding door for BadShip interiors. Attach it to a node whose glTF extras say type "door" (interior_setup.gd
 ## does that for every door when a ship's interior is loaded or imported). The door reads its size and slide axis
 ## from the extras, slides sideways into the wall when something enters its sensor, and closes when it is clear.
-## Outer airlock doors ("kind": "airlock_outer") stay shut until open() is called by your game code.
+## Outer airlock doors ("kind": "airlock_outer") stay shut until open() is called by your game code, and elevator
+## doors ("kind": "elevator") until the car arrives (elevator.gd opens them).
 extends Node3D
 
 signal opened
@@ -32,7 +33,7 @@ func _ready() -> void:
 	shape.shape = box
 	body.add_child(shape)
 	add_child(body)
-	if kind != "airlock_outer":
+	if kind not in ["airlock_outer", "elevator"]:
 		var sensor := Area3D.new()
 		sensor.name = "sensor"
 		var sshape := CollisionShape3D.new()

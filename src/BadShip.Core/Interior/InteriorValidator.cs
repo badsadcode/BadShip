@@ -32,6 +32,17 @@ public static class InteriorValidator
             links[s.Room].Add(up.Id);
             links[up.Id].Add(s.Room);
         }
+        foreach (var l in interior.Lifts)
+            for (var i = 0; i + 1 < l.Rooms.Length; i++)
+            {
+                if (!rooms.ContainsKey(l.Rooms[i]) || !rooms.ContainsKey(l.Rooms[i + 1]))
+                {
+                    rep.Add("error", "interior.lift", $"{l.Id} stops at a room that does not exist.", [l.Id]);
+                    continue;
+                }
+                links[l.Rooms[i]].Add(l.Rooms[i + 1]);
+                links[l.Rooms[i + 1]].Add(l.Rooms[i]);
+            }
         var start = interior.Doors.FirstOrDefault(d => d.B == "exterior")?.A ?? interior.Rooms.First().Id;
         var seen = new HashSet<string> { start };
         var queue = new Queue<string>([start]);
@@ -44,13 +55,16 @@ public static class InteriorValidator
             rep.Add("warn", "interior.no_airlock", "The interior has no way out to the exterior.", []);
 
         // Inside the hull, with clear height.
-        var P = interior.Hull;
         foreach (var r in interior.Rooms)
         {
+            var P = interior.DeckHulls.TryGetValue(r.Deck, out var hp) ? hp : interior.Hull;
+            var keel = interior.Decks[r.Deck].Part == "keel";
+            float W(float y) => keel ? InteriorGenerator.KeelHalfWidth(P, interior.Hull, y) : P.HalfWidthAt(y);
+            var top = keel ? interior.Hull.Top : P.Top;
             var halfX = Math.Max(Math.Abs(r.Min[0]), Math.Abs(r.Max[0]));
             if (r.Max[1] - r.Min[1] < InteriorGenerator.DoorH + 0.3f)
                 rep.Add("error", "interior.height", $"Room {r.Id} is too low to walk in.", [r.Id]);
-            if (r.Min[1] < P.Bottom || r.Max[1] > P.Top || halfX > P.HalfWidthAt(r.Min[1]) || halfX > P.HalfWidthAt(r.Max[1]))
+            if (r.Min[1] < P.Bottom || r.Max[1] > top || halfX > W(r.Min[1]) || halfX > W(r.Max[1]))
                 rep.Add("error", "interior.outside_hull", $"Room {r.Id} pokes out of the hull.", [r.Id]);
         }
         // No overlapping rooms on a deck.
@@ -61,7 +75,7 @@ public static class InteriorValidator
                 for (var j = i + 1; j < list.Count; j++)
                 {
                     var (a, b) = (list[i], list[j]);
-                    if (a.Kind == "cargo_hold" && b.Kind == "stairwell" || b.Kind == "cargo_hold" && a.Kind == "stairwell") continue;
+                    if (a.Kind == "cargo_hold" && b.Kind is "stairwell" or "elevator" || b.Kind == "cargo_hold" && a.Kind is "stairwell" or "elevator") continue;
                     var ox = Math.Min(a.Max[0], b.Max[0]) - Math.Max(a.Min[0], b.Min[0]);
                     var oz = Math.Min(a.Max[2], b.Max[2]) - Math.Max(a.Min[2], b.Min[2]);
                     if (ox > 0.05f && oz > 0.05f) rep.Add("error", "interior.overlap", $"Rooms {a.Id} and {b.Id} overlap.", [a.Id, b.Id]);
@@ -70,6 +84,8 @@ public static class InteriorValidator
         rep.Metrics["decks"] = interior.Decks.Count;
         rep.Metrics["rooms"] = interior.Rooms.Count;
         rep.Metrics["doors"] = interior.Doors.Count;
+        rep.Metrics["ladders"] = interior.Lifts.Count(l => l.Kind == "ladder");
+        rep.Metrics["elevators"] = interior.Lifts.Count(l => l.Kind == "elevator");
         rep.Metrics["rooms_by_kind"] = interior.Rooms.GroupBy(r => r.Kind).OrderBy(g => g.Key, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.Count());
         return rep;
     }

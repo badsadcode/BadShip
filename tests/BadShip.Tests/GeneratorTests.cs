@@ -717,10 +717,62 @@ public class GeneratorTests
         // A big ship gets several decks with stairs, a bridge, engineering and an airlock.
         var big = BadShip.Interior.InteriorGenerator.Build(ShipGenerator.Generate(new ShipRecipe { Seed = 7, Archetype = "freighter", Size = "medium" }))!;
         Assert.True(big.Decks.Count >= 2);
-        Assert.Equal(big.Decks.Count - 1, big.Stairs.Count(s => s.ToRoom is null));
+        Assert.Equal(big.Decks.Count(d => d.Part == "hull") - 1, big.Stairs.Count(s => s.ToRoom is null));
         foreach (var kind in new[] { "bridge", "engineering", "airlock", "stairwell", "corridor" })
             Assert.Contains(big.Rooms, r => r.Kind == kind);
         Assert.Contains(big.Doors, d => d.B == "exterior");
+    }
+
+    [Fact]
+    public void Superstructure_and_keel_decks_join_the_hull_by_ladder()
+    {
+        // BadSad's freighter: a deck in the keel, the hull's own deck and one in the bridge block on top.
+        var ship = ShipGenerator.Generate(ShipCode.Decode("v0p21p0-s387544-1y-hfaceted"));
+        var interior = ship.Interior!;
+        Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors);
+        Assert.Equal(["keel", "hull", "superstructure"], interior.Decks.Select(d => d.Part).ToArray());
+        // Decks are numbered from the bottom up.
+        Assert.True(interior.Decks.Zip(interior.Decks.Skip(1)).All(p => p.First.CeilingY < p.Second.FloorY));
+        var ladders = interior.Lifts.Where(l => l.Kind == "ladder").ToList();
+        Assert.Equal(2, ladders.Count);
+        foreach (var l in ladders)
+        {
+            Assert.Equal(2, l.Decks.Length);
+            Assert.Equal(l.Decks[0] + 1, l.Decks[1]);
+            // Each end opens into a room on its own deck, and the ladder is a node with its access points.
+            for (var i = 0; i < 2; i++) Assert.Equal(l.Decks[i], interior.Rooms.Single(r => r.Id == l.Rooms[i]).Deck);
+            var node = interior.Model.Find(l.Id)!;
+            Assert.Equal("ladder", node.Type);
+            Assert.True(node.Extras!.ContainsKey("top") && node.Extras.ContainsKey("bottom"));
+        }
+    }
+
+    [Fact]
+    public void Elevators_stop_at_every_hull_deck_behind_their_own_doors()
+    {
+        var elevators = 0;
+        var annexes = 0;
+        foreach (var archetype in new[] { "warship", "civilian", "industrial", "citadel", "research" })
+            for (ulong seed = 1; seed <= 4; seed++)
+            {
+                var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "large", Interior = true });
+                var interior = ship.Interior;
+                if (interior is null) continue;
+                Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors, $"{archetype} {seed}");
+                annexes += interior.Decks.Count(d => d.Part != "hull");
+                foreach (var l in interior.Lifts.Where(l => l.Kind == "elevator"))
+                {
+                    elevators++;
+                    var hull = interior.Decks.Where(d => d.Part == "hull").Select(d => d.Index).ToArray();
+                    Assert.Equal(hull, l.Decks);
+                    Assert.Equal(l.Decks.Length, l.Doors.Length);
+                    Assert.All(l.Doors, id => Assert.Equal("elevator", interior.Doors.Single(d => d.Id == id).Kind));
+                    var car = interior.Model.Find("elevator")!;
+                    Assert.Equal(l.Decks.Length, ((float[])car.Extras!["stops_y"]).Length);
+                }
+            }
+        Assert.True(elevators >= 5, $"elevators {elevators}");
+        Assert.True(annexes >= 5, $"annex decks {annexes}");
     }
 
     [Fact]

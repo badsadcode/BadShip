@@ -50,8 +50,10 @@ public static partial class Api
         // A plain dictionary: the trimmed browser build cannot serialize anonymous types.
         var kinds = interior.Rooms.Where(r => d < 0 || r.Deck == d).GroupBy(r => r.Kind).OrderByDescending(g => g.Count())
             .Select(g => $"\"{g.Key}\":{g.Count()}");
+        var parts = string.Join(",", interior.Decks.Select(x => $"\"{x.Part}\""));
         _interiorInfo = $"{{\"decks\":{interior.Decks.Count},\"deck\":{d},\"rooms\":{interior.Rooms.Count}," +
-            $"\"doors\":{interior.Doors.Count(x => x.Kind != "opening")},\"deck_rooms\":{{{string.Join(",", kinds)}}},\"status\":\"{report.Status}\"}}";
+            $"\"doors\":{interior.Doors.Count(x => x.Kind != "opening")},\"deck_rooms\":{{{string.Join(",", kinds)}}},\"status\":\"{report.Status}\"," +
+            $"\"parts\":[{parts}],\"ladders\":{interior.Lifts.Count(l => l.Kind == "ladder")},\"elevators\":{interior.Lifts.Count(l => l.Kind == "elevator")}}}";
         return GlbWriter.Write(model, Keep, markers: false);
     }
 
