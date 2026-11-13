@@ -65,7 +65,10 @@ public static class InteriorValidator
             var halfX = Math.Max(Math.Abs(r.Min[0] - cx), Math.Abs(r.Max[0] - cx));
             if (r.Max[1] - r.Min[1] < InteriorGenerator.DoorH + 0.3f)
                 rep.Add("error", "interior.height", $"Room {r.Id} is too low to walk in.", [r.Id]);
-            if (r.Min[1] < P.Bottom || r.Max[1] > top || halfX > W(r.Min[1]) || halfX > W(r.Max[1]))
+            // A shaped deck's rooms are cut to the block's shape above head height: only the walking band must fit.
+            var shapedDeck = interior.Decks[r.Deck].Shaped;
+            var yTop = shapedDeck ? r.Min[1] + InteriorGenerator.DoorH : r.Max[1];
+            if (r.Min[1] < P.Bottom - (shapedDeck ? InteriorGenerator.Slab : 0) || yTop > top || halfX > W(r.Min[1] + (shapedDeck ? 0.01f : 0)) || halfX > W(yTop))
                 rep.Add("error", "interior.outside_hull", $"Room {r.Id} pokes out of the hull.", [r.Id]);
         }
         // No overlapping rooms on a deck.

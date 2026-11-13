@@ -484,6 +484,17 @@ a block's deck may be as low as 2.5 m clear, and it reaches on into the block's 
 (`Loft`-section test), so a **bridge block's deck ends in a bridge** across the front. Ladders and stairs stand where
 the two decks overlap across the ship.
 
+### Hull-shaped block decks (v0.24.0)
+
+A block deck with nothing stacked on it now follows the block's own shape instead of being a box (`shaped` in the
+JSON). Its **inner skin** is the block's cross-section moved 0.3 m inward, clipped to the band between floor and
+ceiling: it is the outer wall, slants across the upper corners along the block's chamfers, and comes down with the
+ceiling under sloped or tapered ends. Floors stay flat and walls between rooms stay straight (people and navigation
+meshes need both), but their tops and outer ends follow the skin. Only the band people walk in (floor to a little over
+door height) has to fit, so shaped decks are wider and reach further into the block's ends. Code in
+`Interior/Skin.cs`; the skin is a double-sided `interior_skin` material, and its overhead parts are in the deck's
+`ceiling` node (hidden when you look in from above).
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -491,7 +502,7 @@ the two decks overlap across the ship.
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.23.0: bridge block decks)
+## Status (v0.24.0: hull-shaped block decks)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

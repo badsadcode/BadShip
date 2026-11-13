@@ -7,8 +7,9 @@ namespace BadShip.Interior;
 
 /// <summary>A deck: <c>Part</c> is "hull" for the main stack, "superstructure" for a deck inside a block on top of the
 /// hull, "keel" for one inside the keel under it.</summary>
-/// <c>Cx</c> is the deck's centre across the ship (blocks may sit off the centreline).
-public sealed record DeckInfo(int Index, float FloorY, float CeilingY, float HalfWidth, float Z0, float Z1, bool Narrow, string Part = "hull", float Cx = 0);
+/// <c>Cx</c> is the deck's centre across the ship (blocks may sit off the centreline). A <c>Shaped</c> deck follows its
+/// block's shape (slanted upper corners, a ceiling that comes down under sloped ends) instead of being a box.
+public sealed record DeckInfo(int Index, float FloorY, float CeilingY, float HalfWidth, float Z0, float Z1, bool Narrow, string Part = "hull", float Cx = 0, bool Shaped = false);
 public sealed record RoomInfo(string Id, string Kind, int Deck, float[] Min, float[] Max);
 public sealed record DoorInfo(string Id, string Kind, string A, string B, int Deck, float[] Center, float[] Normal, float Width, float Height);
 /// <summary>A flight of stairs from a room on one deck up to the next; <c>ToRoom</c> names the room it arrives in when that is
@@ -65,6 +66,8 @@ public static class InteriorGenerator
 {
     public const float DeckPitch = 3.4f, Slab = 0.3f, Clear = DeckPitch - Slab, Wall = 0.2f, DoorW = 1.4f, DoorH = 2.2f, HalfCorridor = 1f;
     public const string Floor = "interior_floor", WallMat = "interior_wall", Trim = "interior_trim", DoorMat = "interior_door";
+    /// <summary>The inner skin of a shaped deck: seen from inside, and from outside when looking in with the roof off.</summary>
+    public const string SkinMat = "interior_skin";
 
     public const float WindowW = 1.4f, Sill = 1.0f, WindowH = 1.2f;
 
@@ -102,6 +105,7 @@ public static class InteriorGenerator
         model.Materials[WallMat] = new MaterialDef(WallMat, Palettes.Linear("#8d939a"), 0.7f, 0.2f, Vector3.Zero, 1);
         model.Materials[Trim] = new MaterialDef(Trim, Palettes.Linear("#c7902a"), 0.6f, 0.3f, Vector3.Zero, 1);
         model.Materials[DoorMat] = new MaterialDef(DoorMat, Palettes.Linear("#56616b"), 0.5f, 0.5f, Vector3.Zero, 1);
+        model.Materials[SkinMat] = new MaterialDef(SkinMat, Palettes.Linear("#9aa1a8"), 0.7f, 0.2f, Vector3.Zero, 1) { DoubleSided = true };
         foreach (var (zone, hex) in new[] { ("command", "#3f5670"), ("crew", "#4d5747"), ("work", "#6a5434"), ("cargo", "#56493a"), ("medical", "#2f6b66"), ("plaza", "#5b4a6e") })
             model.Materials["zone_" + zone] = new MaterialDef("zone_" + zone, Palettes.Linear(hex), 0.8f, 0.2f, Vector3.Zero, 1);
         var result = new ShipInterior { Model = model, Hull = P };
@@ -147,7 +151,10 @@ public static class InteriorGenerator
     }
 
     /// <summary>A deck that fits inside a superstructure block or the keel, before it is joined to the main decks.</summary>
-    private sealed record AnnexSpec(string Part, Profile P, float FloorY, float Ceiling, float HalfWidth, float Z0, float Z1, float Cx = 0, bool Bridge = false);
+    private sealed record AnnexSpec(string Part, Profile P, float FloorY, float Ceiling, float HalfWidth, float Z0, float Z1, float Cx = 0, bool Bridge = false, Loft? Shell = null);
+
+    /// <summary>The height a shaped deck must keep clear everywhere people walk: a door's height and a little.</summary>
+    private const float Walk = DoorH + 0.15f;
 
     /// <summary>
     /// Decks outside the main hull: one in every centred superstructure block on top of the hull (stacked tiers each get
@@ -157,6 +164,7 @@ public static class InteriorGenerator
     private static List<AnnexSpec> Annexes(Ship ship, ShipInterior result)
     {
         var list = new List<AnnexSpec>();
+        var shapes = new Dictionary<int, AnnexSpec?>();
         var decks = result.Decks;
         var blocks = ship.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Lofts.Count > 0 && (m.Type is "bridge_block" or "superstructure" or "keel" || m.Type == "gondola" && ship.Recipe.Interior))
             .Select(m => (m, s: BodySegment(m.Lofts[0]))).Where(x => x.s >= 0)
@@ -230,8 +238,34 @@ public static class InteriorGenerator
                 spec = spec with { Z0 = e0, Z1 = e1 };
             }
             list.Add(spec);
+            if (spec.Part == "superstructure") shapes[list.Count - 1] = Shaped(spec, blockLoft, q);
+        }
+        // A block deck with nothing stacked on it follows the block's shape: only the band people walk in (floor to a
+        // little over door height) has to fit, so it is wider and reaches further into the tapered ends.
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (!shapes.TryGetValue(i, out var shaped) || shaped is null) continue;
+            var a = list[i];
+            var stacked = list.Skip(i + 1).Any(b => b.Part == "superstructure" && b.FloorY > a.FloorY + 1 && b.Z1 > a.Z0 + 4 && b.Z0 < a.Z1 - 4);
+            if (!stacked) list[i] = shaped;
         }
         return list;
+    }
+
+    /// <summary>The shaped version of a block deck: as wide as the walking band allows, reaching as far into the block's
+    /// ends as that band still fits.</summary>
+    private static AnnexSpec? Shaped(AnnexSpec spec, Loft loft, Profile q)
+    {
+        var lo = MathF.Max(spec.FloorY - Slab, q.Bottom + 0.01f);
+        var narrowest = float.MaxValue;
+        for (var y = lo; y <= spec.FloorY + Walk + 0.01f; y += 0.25f) narrowest = MathF.Min(narrowest, q.HalfWidthAt(y));
+        var hw = MathF.Floor((narrowest - 0.45f) * 2) / 2;
+        if (hw < spec.HalfWidth) hw = spec.HalfWidth;
+        bool Fits(float z) => BoxInsideLoft(loft, z, spec.Cx - hw - 0.35f, spec.Cx + hw + 0.35f, lo, spec.FloorY + Walk);
+        var (e0, e1) = (spec.Z0, spec.Z1);
+        while (e1 + 0.5f <= loft.Zs[^1] - 0.3f && Fits(e1 + 0.5f)) e1 += 0.5f;
+        while (e0 - 0.5f >= loft.Zs[0] + 0.3f && Fits(e0 - 0.5f)) e0 -= 0.5f;
+        return spec with { HalfWidth = hw, Z0 = e0, Z1 = e1, Shell = loft };
     }
 
     /// <summary>Whether an axis-aligned box across the ship (x0–x1, y0–y1) at station z lies inside a loft's section there.</summary>
@@ -301,6 +335,9 @@ public static class InteriorGenerator
         private float _engEnd = float.NaN, _bridgeStart = float.NaN;
         private readonly List<Link> _links = [];
         private readonly Dictionary<int, int> _annexDeck = [];
+        // Shaped decks and the block loft each one follows.
+        private readonly Dictionary<int, Loft> _shells = [];
+        private const float SkinInset = 0.3f;
         // The elevator: its stretch along the starboard... port strip [z, z + 3.2] and shaft x range, on every main deck.
         private float? _liftZ;
         private float _liftX0, _liftX1;
@@ -824,7 +861,8 @@ public static class InteriorGenerator
                 var a = annexSpecs[k];
                 var idx = result.Decks.Count;
                 _annexDeck[k] = idx;
-                result.Decks.Add(new DeckInfo(idx, a.FloorY, a.Ceiling, a.HalfWidth, a.Z0, a.Z1, a.HalfWidth < 3.5f, a.Part, a.Cx));
+                result.Decks.Add(new DeckInfo(idx, a.FloorY, a.Ceiling, a.HalfWidth, a.Z0, a.Z1, a.HalfWidth < 3.5f, a.Part, a.Cx, a.Shell != null));
+                if (a.Shell != null) _shells[idx] = a.Shell;
                 result.DeckHulls[idx] = a.P;
                 // Rooms are laid out about the centreline, then moved across to the block's centre.
                 var nRooms = result.Rooms.Count;
@@ -985,6 +1023,8 @@ public static class InteriorGenerator
             result.Lifts.Clear(); result.Lifts.AddRange(lifts);
             var hulls = result.DeckHulls.ToDictionary(kv => map[kv.Key], kv => kv.Value);
             result.DeckHulls.Clear(); foreach (var kv in hulls) result.DeckHulls[kv.Key] = kv.Value;
+            var shells = _shells.ToDictionary(kv => map[kv.Key], kv => kv.Value);
+            _shells.Clear(); foreach (var kv in shells) _shells[kv.Key] = kv.Value;
             var voids = _voids.ToDictionary(kv => map[kv.Key], kv => kv.Value);
             _voids.Clear(); foreach (var kv in voids) _voids[kv.Key] = kv.Value;
         }
@@ -1165,7 +1205,16 @@ public static class InteriorGenerator
                 holes.AddRange(voids);
                 holes.AddRange(risers.Where(x => x.hi == d.Index).Select(x => (HoleX0(d, x.x0), x.x1, x.z0, x.z1)));
                 SlabWithHoles(deck.Mesh, Floor, d.Cx - hw - Wall, d.Cx + hw + Wall, d.Z0 - Wall, d.Z1 + Wall, d.FloorY - Slab, d.FloorY, holes);
-                if (HasRoof(d))
+                _shells.TryGetValue(d.Index, out var shell);
+                if (shell != null)
+                {
+                    // The block's own shape: skin for outer walls, slanted corners and sloped ends; a flat ceiling
+                    // where the block is taller than the deck.
+                    var skinWalls = Add(model, $"skin_{d.Index}", "walls", deck.Id);
+                    var skinOver = Add(model, $"ceiling_{d.Index}", "ceiling", deck.Id);
+                    Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, d.Z1 + Wall, d.FloorY, d.CeilingY);
+                }
+                else if (HasRoof(d))
                 {
                     // Over the top deck of the hull and every deck outside it: a roof, open where a connector goes up.
                     var roof = Add(model, $"ceiling_{d.Index}", "ceiling", deck.Id);
@@ -1242,6 +1291,15 @@ public static class InteriorGenerator
                     }
                     foreach (var (a, b) in merged)
                     {
+                        if (shell != null)
+                        {
+                            // Outer walls are the skin; the rest follow it at their tops and ends.
+                            if (axis == 'z' && MathF.Abs(MathF.Abs(at - d.Cx) - hw) < 0.05f) continue;
+                            if (axis == 'z') WallAlongZ(walls.Mesh, at, a, b, d, doors, (m0, x, za, zb, y0, y1) => Skin.WallAlong(m0, WallMat, shell, SkinInset, x, za, zb, y0, y1, Wall));
+                            else WallAlongX(walls.Mesh, at, a, b, d, doors, (m0, z, xa, xb, y0, y1) => Skin.WallAcross(m0, WallMat, shell, SkinInset, z,
+                                MathF.Abs(xa - (d.Cx - hw)) < 0.05f ? -1e4f : xa, MathF.Abs(xb - (d.Cx + hw)) < 0.05f ? 1e4f : xb, y0, y1, Wall));
+                            continue;
+                        }
                         if (axis == 'z') WallAlongZ(walls.Mesh, at, a, b, d, doors);
                         else WallAlongX(walls.Mesh, at, a, b, d, doors);
                     }
@@ -1262,6 +1320,13 @@ public static class InteriorGenerator
                     if (room.Kind == "gallery")
                         foreach (var s in new[] { -1f, 1f })
                             Lights(m.Mesh, new Aabb(new Vector3(s * (box.Size.X / 2 - Gallery / 2) - 0.3f, box.Min.Y, box.Min.Z), new Vector3(s * (box.Size.X / 2 - Gallery / 2) + 0.3f, box.Max.Y, box.Max.Z)), room.Kind);
+                    else if (shell != null)
+                    {
+                        // Under a sloped end the light hangs from the skin, not from the flat ceiling height.
+                        var top = Skin.TopAt(Skin.Inset(Skin.SectionAt(shell, box.Center.Z), SkinInset), box.Center.X);
+                        var y1 = float.IsNaN(top) ? box.Max.Y : MathF.Min(box.Max.Y, top - 0.05f);
+                        Lights(m.Mesh, new Aabb(box.Min, new Vector3(box.Max.X, y1, box.Max.Z)), room.Kind);
+                    }
                     else Lights(m.Mesh, box, room.Kind);
                     if (room.Kind != "gallery" && Zone(room.Kind) is { } zone && box.Size.X > 1.2f && box.Size.Z > 1.2f)
                         Shapes.BoxMinMax(m.Mesh, "zone_" + zone, new Vector3(box.Min.X + 0.35f, d.FloorY, box.Min.Z + 0.35f), new Vector3(box.Max.X - 0.35f, d.FloorY + 0.012f, box.Max.Z - 0.35f));
@@ -1414,7 +1479,8 @@ public static class InteriorGenerator
         }
 
         /// <summary>A wall at x = <paramref name="x"/> running along Z from z0 to z1, with openings for the doors in it.</summary>
-        private void WallAlongZ(Mesh m, float x, float z0, float z1, DeckInfo d, List<DoorInfo> doors)
+        private void WallAlongZ(Mesh m, float x, float z0, float z1, DeckInfo d, List<DoorInfo> doors,
+            Action<Mesh, float, float, float, float, float>? shaped = null)
         {
             var openings = doors.Where(o => MathF.Abs(o.Center[0] - x) < 0.05f && MathF.Abs(o.Normal[0]) > 0.5f && o.Center[2] > z0 && o.Center[2] < z1)
                 .Select(o => (c: o.Center[2], w: o.Width, lo: 0f, hi: o.Height, frame: o.Kind != "opening")).ToList();
@@ -1423,17 +1489,24 @@ public static class InteriorGenerator
                 openings.Add(((win.Z0 + win.Z1) / 2, win.Z1 - win.Z0, win.Y0 - d.FloorY, win.Y1 - d.FloorY, false));
             openings.Sort((p, q) => p.c.CompareTo(q.c));
             Segments(z0, z1, openings, (a, b, y0, y1) =>
-                Shapes.BoxMinMax(m, WallMat, new Vector3(x - Wall / 2, d.FloorY + y0, a), new Vector3(x + Wall / 2, d.FloorY + y1, b)),
+                {
+                    if (shaped != null) shaped(m, x, a, b, d.FloorY + y0, d.FloorY + y1);
+                    else Shapes.BoxMinMax(m, WallMat, new Vector3(x - Wall / 2, d.FloorY + y0, a), new Vector3(x + Wall / 2, d.FloorY + y1, b));
+                },
                 d.CeilingY - d.FloorY, (c) => Frame(m, new Vector3(x, d.FloorY, c), alongX: false));
         }
 
         /// <summary>A wall at z = <paramref name="z"/> running along X from x0 to x1, with openings for the doors in it.</summary>
-        private void WallAlongX(Mesh m, float z, float x0, float x1, DeckInfo d, List<DoorInfo> doors)
+        private void WallAlongX(Mesh m, float z, float x0, float x1, DeckInfo d, List<DoorInfo> doors,
+            Action<Mesh, float, float, float, float, float>? shaped = null)
         {
             var openings = doors.Where(o => MathF.Abs(o.Center[2] - z) < 0.05f && MathF.Abs(o.Normal[2]) > 0.5f && o.Center[0] > x0 && o.Center[0] < x1)
                 .Select(o => (c: o.Center[0], w: o.Width, lo: 0f, hi: o.Height, frame: o.Kind != "opening")).OrderBy(v => v.c).ToList();
             Segments(x0, x1, openings, (a, b, y0, y1) =>
-                Shapes.BoxMinMax(m, WallMat, new Vector3(a, d.FloorY + y0, z - Wall / 2), new Vector3(b, d.FloorY + y1, z + Wall / 2)),
+                {
+                    if (shaped != null) shaped(m, z, a, b, d.FloorY + y0, d.FloorY + y1);
+                    else Shapes.BoxMinMax(m, WallMat, new Vector3(a, d.FloorY + y0, z - Wall / 2), new Vector3(b, d.FloorY + y1, z + Wall / 2));
+                },
                 d.CeilingY - d.FloorY, (c) => Frame(m, new Vector3(c, d.FloorY, z), alongX: true));
         }
 
