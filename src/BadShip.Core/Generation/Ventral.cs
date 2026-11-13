@@ -110,11 +110,13 @@ public static class Ventral
 
         if (a == "research")
         {
-            // An observation gondola: glass all round its lower facets.
-            foreach (var f in new[] { Profile.FaceBottomPosX, Profile.FaceBottomNegX })
+            // An observation gondola: glass all round its lower facets; with an interior, round its sides at eye level,
+            // where the lounge inside can look out through it.
+            var faces = c.Recipe.Interior ? new[] { Profile.FacePosX, Profile.FaceNegX } : new[] { Profile.FaceBottomPosX, Profile.FaceBottomNegX };
+            foreach (var f in faces)
             {
-                var lo = Parts.UpV(f, 0.18f);
-                var hi = Parts.UpV(f, 0.85f);
+                var lo = Parts.UpV(f, c.Recipe.Interior ? 0.3f : 0.18f);
+                var hi = Parts.UpV(f, c.Recipe.Interior ? 0.8f : 0.85f);
                 c.UseSurface(BuildContext.FaceKey(g, 1, f), 0, 1, 0, 1);
                 var (along, _) = loft.FaceSize(1, f);
                 Parts.PaneRow(g.Mesh, loft, 1, f, 0.03f, 0.97f, MathF.Min(lo, hi), MathF.Max(lo, hi), Math.Max(3, (int)(along / 2.4f)), alongU: true, gap: 0.16f);
