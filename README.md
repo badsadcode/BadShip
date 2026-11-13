@@ -439,8 +439,10 @@ with 1,600 rooms included.
 
 ## Devlog
 
-[The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. With GitHub Pages
-serving the `docs` folder, it is the site's front page.
+[The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
+`Devlog on GitHub Pages` workflow (`.github/workflows/pages.yml`) publishes it on every push to `main` that touches it
+(or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
+devlog, the images it uses and a front-page redirect go online.
 
 ## Status (v0.20.0: complex interiors)
 
