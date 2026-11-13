@@ -65,6 +65,8 @@ In the interior files, rooms, doors, ladders, elevators and stairs are nodes wit
 - **door**: `kind` (interior, elevator, airlock_outer, opening), `rooms` it joins, `width`, `height`, `slide_axis`, `opens`.
 - **ladder / elevator**: `decks` it links, `stops_y` per deck, `doors` (elevator), `access` points for navigation links, `shaft` bounds.
 - **stairs**: `from_deck`, `to_deck`.
+- **furniture**: `kind` (bunk, console, mess_table…), the `room` and `deck` it is in, `width` (along the wall), `depth`,
+  `height`, and `facing` (from the wall into the room). Its origin is the middle of its footprint on the floor.
 
 The `tools/godot-interior` scripts show all of these in use: doors slide, elevators ride, and navigation links join the decks.
 
@@ -81,6 +83,7 @@ var materials := {"hull_main": preload("res://art/hull_plates.tres"), "window_gl
 var counts := AssetSwap.apply(ship_root, parts, materials)   # {"parts": 6, "surfaces": 41}
 ```
 
+Keys can also be `"type/kind"` for one kind of a type: `"furniture/bunk"`, `"door/airlock_outer"`.
 Each matching part gets your scene as a child named `asset`, and the generated mesh is hidden (not deleted, so anything else you attached keeps working). `verify_swap.gd` is a headless test of it on a real ship:
 
 ```bash

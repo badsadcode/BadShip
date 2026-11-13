@@ -4,7 +4,8 @@
 ##   var mats := {"hull_main": preload("res://art/hull_metal.tres"), "window_glass": preload("res://art/glass.tres")}
 ##   AssetSwap.apply(ship_root, parts, mats)
 ##
-## Parts are matched by their glTF extras "type" (see docs/REFERENCE.md for every type). Each match gets your scene
+## Parts are matched by their glTF extras "type" (see docs/REFERENCE.md for every type), or "type/kind" for one kind
+## of a type ("furniture/bunk", "door/airlock_outer"). Each match gets your scene
 ## as a child, at the part's origin (the centre of the part; a window's centre; a door's leaf), and the generated
 ## mesh is hidden (not freed, so gameplay scripts on it keep working). With "fit": true the scene is scaled
 ## uniformly to fit the part's "size" from the extras, assuming your scene is about 1 m across: handy for blocking
@@ -16,8 +17,11 @@ static func apply(root: Node, parts: Dictionary = {}, materials: Dictionary = {}
 	for node in _all(root):
 		var extras: Dictionary = node.get_meta("extras", {})
 		var type := str(extras.get("type", ""))
-		if type != "" and parts.has(type) and node is Node3D:
-			var spec = parts[type]
+		# "furniture/bunk" (type/kind) is more specific than "furniture".
+		var key := type + "/" + str(extras.get("kind", ""))
+		if not parts.has(key): key = type
+		if type != "" and parts.has(key) and node is Node3D:
+			var spec = parts[key]
 			var scene: PackedScene = spec if spec is PackedScene else spec.get("scene")
 			if scene == null: continue
 			var inst: Node3D = scene.instantiate()

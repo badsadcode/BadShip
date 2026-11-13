@@ -63,7 +63,7 @@ public sealed class ShipInterior
 /// where it is tight, by a ladder through a hatch; ships with three or more decks get an elevator through the main
 /// stack, with a car and a door at every stop that opens only when the car is there.
 /// Narrow hulls (small craft) get one deck of rooms in a row. Rooms come from the ship type (crew quarters, mess,
-/// medbay, labs, armoury, passenger cabins, wards...). No furniture: rooms, walls, doors, stairs and lights.
+/// medbay, labs, armoury, passenger cabins, wards...): rooms, walls, doors, stairs and lights, and furniture against the walls (see Furniture).
 /// Doors are separate nodes (type "door") with their rooms, size and slide axis in the extras, so an engine can turn
 /// each into a working door; rooms are empty nodes (type "room") at their centres with their box in the extras.
 /// Coordinates are the ship's, so the interior lines up with the exterior.
@@ -1550,6 +1550,8 @@ public static class InteriorGenerator
                 }
             }
             foreach (var l in result.Lifts) LiftGeometry(model, root, l);
+            Furniture.Place(model, result, _shells, SkinInset, _voids,
+                model.Markers.Where(x => x.Kind == "room").ToDictionary(x => x.Id["room_".Length..], x => x.Position));
             model.Markers.Add(new Marker("spawn_0", "spawn", "interior", SpawnPoint(), Vector3.UnitZ, 0.5f, 0));
             model.Finish();
         }

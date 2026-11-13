@@ -1,5 +1,5 @@
-## Headless check of asset_swap.gd: loads a ship, puts a stand-in scene on every turret and window and a new
-## material on the hull, and checks they landed where the parts are.
+## Headless check of asset_swap.gd: loads a ship (or an interior), puts a stand-in scene on every turret, window and
+## bunk and a new material on the hull and on soft furnishings, and checks they landed where the parts are.
 ##   godot --headless --path tools/godot-interior --script res://verify_swap.gd -- path/to/ship.glb
 extends SceneTree
 
@@ -18,18 +18,21 @@ func _initialize() -> void:
 	scene.pack(box)
 	var metal := StandardMaterial3D.new()
 	metal.albedo_color = Color(0.8, 0.2, 0.2)
-	var want := {"turret": 0, "window": 0, "hardpoint": 0}
+	var want := {"turret": 0, "window": 0, "hardpoint": 0, "furniture/bunk": 0}
 	for n in AssetSwap._all(ship):
-		var t := str(n.get_meta("extras", {}).get("type", ""))
-		if want.has(t): want[t] += 1
-	var counts := AssetSwap.apply(ship, {"turret": {"scene": scene, "fit": true}, "hardpoint": scene, "window": scene}, {"hull_main": metal})
-	var expected: int = want.turret + want.window + want.hardpoint
+		var x: Dictionary = n.get_meta("extras", {})
+		var t := str(x.get("type", ""))
+		var tk := t + "/" + str(x.get("kind", ""))
+		if want.has(tk): want[tk] += 1
+		elif want.has(t): want[t] += 1
+	var counts := AssetSwap.apply(ship, {"turret": {"scene": scene, "fit": true}, "hardpoint": scene, "window": scene, "furniture/bunk": scene}, {"hull_main": metal, "furniture_soft": metal})
+	var expected: int = want.turret + want.window + want.hardpoint + want["furniture/bunk"]
 	# Every swapped part: the asset at the part's origin, the generated mesh hidden.
 	var placed := 0
 	for n in AssetSwap._all(ship):
 		var a = n.get_node_or_null("asset")
 		if a != null and (a as Node3D).position.length() < 0.001: placed += 1
-	print("parts swapped %d of %d (turrets %d, hardpoints %d, windows %d), placed at their origins %d, hull surfaces re-skinned %d" % [counts.parts, expected, want.turret, want.hardpoint, want.window, placed, counts.surfaces])
+	print("parts swapped %d of %d (turrets %d, hardpoints %d, windows %d, bunks %d), placed at their origins %d, surfaces re-skinned %d" % [counts.parts, expected, want.turret, want.hardpoint, want.window, want["furniture/bunk"], placed, counts.surfaces])
 	var ok: bool = counts.parts == expected and placed == expected and counts.surfaces > 0 and expected > 0
 	print("PASS" if ok else "FAIL")
 	quit(0 if ok else 1)
