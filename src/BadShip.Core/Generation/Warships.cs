@@ -27,7 +27,12 @@ public static class Warships
             "large" => r.Weighted<string>([("cruiser", 0.55), ("carrier", 0.45)]),
             _ => r.Weighted<string>([("frigate", 0.3), ("destroyer", 0.5), ("cruiser", 0.2)]),
         };
-        if (c.Recipe.Overrides?.Payload is { } pinned && Classes.Contains(pinned)) p.Payload = pinned;
+        if (c.Recipe.Overrides?.Payload is { } pinned && Classes.Contains(pinned))
+        {
+            // A pinned class also sets the size class it belongs to (a carrier is never "small").
+            p.Payload = pinned;
+            p.Size = pinned switch { "corvette" or "frigate" => "small", "destroyer" => "medium", _ => "large" };
+        }
         var (lmin, lmax) = p.Payload switch
         {
             "corvette" => (60f, 90f), "frigate" => (90f, 150f), "destroyer" => (150f, 220f), "cruiser" => (220f, 320f), _ => (300f, 450f),
