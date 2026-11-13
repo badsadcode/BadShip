@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BadShip Shipyard Log</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="The BadShip devlog: how a procedural spaceship generator grew, one launch at a time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a launch rail down the left; each launch is a slipway entry clamped to it, grouped by shipyard day. */
+:root {
+  --bg: #e6ecf0;          /* steel plate */
+  --panel: #f5f8fa;
+  --ink: #16212b;
+  --muted: #4f5f6c;
+  --line: #b8c5cf;
+  --hazard: #c98a12;      /* trim amber, as on the interior door frames */
+  --hazard-ink: #1a1405;
+  --signal: #1f7a86;      /* window-glass teal */
+  --bug: #a33a2e;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e141a; --panel: #151e26; --ink: #dfe7ee; --muted: #93a3b1; --line: #2a3742;
+  --hazard: #e3a82b; --hazard-ink: #1a1405; --signal: #4fb7c4; --bug: #e07466; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e141a; --panel: #151e26; --ink: #dfe7ee; --muted: #93a3b1; --line: #2a3742;
+  --hazard: #e3a82b; --hazard-ink: #1a1405; --signal: #4fb7c4; --bug: #e07466; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 0 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+a { color: var(--signal); }
+a:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
+
+/* Hero: the yard sign. */
+.sign { padding-block: 48px 28px; display: grid; gap: 18px; }
+.stripe { height: 14px; background: repeating-linear-gradient(-45deg, var(--hazard) 0 14px, transparent 14px 28px); border-block: 2px solid var(--hazard); }
+.sign h1 { font: 900 clamp(3rem, 10vw, 6.4rem)/0.86 var(--display); text-transform: uppercase; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+.sign h1 span { color: var(--hazard); }
+.sign p { margin: 0; max-width: 62ch; font-size: 1.08rem; color: var(--muted); }
+.crew { display: flex; flex-wrap: wrap; gap: 10px; }
+.tag { font: 500 0.78rem/1 var(--mono); padding: 6px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--ink); white-space: nowrap; }
+.tag b { color: var(--hazard); font-weight: 500; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 6px; }
+.board div { background: var(--panel); padding: 12px 14px; }
+.board strong { display: block; font: 800 2.1rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.board span { font: 500 0.72rem/1.3 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+
+/* Day bands. */
+.day { margin-top: 44px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; border-bottom: 2px solid var(--ink); padding-bottom: 6px; }
+.day h2 { font: 800 2rem/1 var(--display); text-transform: uppercase; margin: 0; letter-spacing: 0.02em; }
+.day time { font: 500 0.8rem var(--mono); color: var(--muted); }
+
+/* The rail. */
+.rail { position: relative; padding-left: 132px; }
+.rail::before { content: ""; position: absolute; left: 104px; top: 0; bottom: 0; width: 4px;
+  background: repeating-linear-gradient(var(--line) 0 10px, transparent 10px 16px); }
+.entry { position: relative; padding-block: 26px 4px; display: grid; gap: 12px; }
+.entry::before { content: ""; position: absolute; left: -34px; top: 34px; width: 16px; height: 16px; background: var(--hazard); transform: rotate(45deg); border: 3px solid var(--bg); }
+.ver { position: absolute; left: -132px; top: 30px; width: 84px; text-align: right; font: 500 0.82rem var(--mono); color: var(--hazard); }
+.entry h3 { font: 800 1.85rem/1.02 var(--display); margin: 0; text-transform: uppercase; letter-spacing: 0.015em; text-wrap: balance; }
+.entry p { margin: 0; max-width: 64ch; }
+.who { display: flex; flex-wrap: wrap; gap: 8px; }
+.who .tag { font-size: 0.72rem; }
+figure { margin: 4px 0 0; border: 1px solid var(--line); background: var(--panel); }
+figure img { display: block; width: 100%; height: auto; max-width: 100%; }
+figcaption { font: 500 0.75rem/1.4 var(--mono); color: var(--muted); padding: 8px 10px; border-top: 1px solid var(--line); }
+.bug { border-left: 4px solid var(--bug); background: var(--panel); padding: 10px 14px; max-width: 64ch; font-size: 0.95rem; }
+.bug b { font: 500 0.72rem var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--bug); display: block; margin-bottom: 2px; }
+.quote { font-style: italic; color: var(--muted); }
+.next { margin-top: 48px; padding: 22px; background: var(--hazard); color: var(--hazard-ink); display: grid; gap: 8px; }
+.next h2 { margin: 0; font: 900 2.2rem/1 var(--display); text-transform: uppercase; }
+.next p { margin: 0; max-width: 64ch; }
+footer { margin-top: 36px; font: 500 0.78rem var(--mono); color: var(--muted); }
+
+@media (max-width: 640px) {
+  .rail { padding-left: 26px; }
+  .rail::before { left: 4px; }
+  .entry::before { left: -29px; }
+  .ver { position: static; width: auto; text-align: left; }
+  .entry h3 { font-size: 1.6rem; }
+  .board div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .entry::before { transition: transform .3s; }
+  .entry:hover::before { transform: rotate(225deg); }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="sign">
+  <div class="stripe" aria-hidden="true"></div>
+  <h1>BadShip <span>Shipyard</span> Log</h1>
+  <p>Three friends, one spaceship generator, a lot of "what if we also...". This is the story of BadShip, told from the yard floor. Every entry is a launch: a new version of the generator that rolled down the slipway.</p>
+  <div class="crew">
+    <span class="tag"><b>BadSad</b> · captain, asks for cool stuff</span>
+    <span class="tag"><b>Noor</b> · concept art, idea brewer</span>
+    <span class="tag"><b>Sage</b> · welder, writes the C#</span>
+  </div>
+  <div class="board">
+    <div><strong>20</strong><span>launches</span></div>
+    <div><strong>2</strong><span>days in the yard</span></div>
+    <div><strong>11</strong><span>kinds of ship</span></div>
+    <div><strong>12</strong><span>paint schemes</span></div>
+    <div><strong>0</strong><span>cathedrals</span></div>
+  </div>
+</header>
+
+<!-- ============================== DAY ONE ============================== -->
+<div class="day"><h2>Day one</h2><time datetime="2026-11-12">12 Nov 2026</time></div>
+<div class="rail">
+
+  <article class="entry">
+    <span class="ver">v0.1.0</span>
+    <h3>A box with engines</h3>
+    <p>Every shipyard starts somewhere. Ours started with a hull, some engines and a bridge, stacked up from a single number called the seed. Same seed, same ship, every time. Different seed, different ship. We exported it to GLB and opened it in a 3D viewer. It flew. Well, it sat there. But it <em>looked</em> like it could fly.</p>
+    <div class="who"><span class="tag">BadSad: "make ships"</span><span class="tag">Sage: makes ships</span></div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.2.0</span>
+    <h3>The glass nose</h3>
+    <p>Faceted hulls with sharp chamfers, wraparound glass on the prow, and hangar bays you can actually see into. The first time a ship looked less like a brick and more like something with a crew.</p>
+    <figure><img src="../images/closeup_thalassa_glass.png" alt="Close-up of a faceted spaceship prow with wraparound glass" loading="lazy"><figcaption>Wraparound prow glass. Nobody has to steer with a periscope.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.3.0</span>
+    <h3>Look under the ship</h3>
+    <p>Most generators forget the belly. We gave ours keels, gondolas, slung cargo pods and underside equipment. Now ships look good from below too, which matters when you fly under them.</p>
+    <figure><img src="../images/closeup_ventral.png" alt="The underside of a ship with a keel and slung pods" loading="lazy"><figcaption>Belly view. Yes, we checked under there.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">Shipyard</span>
+    <h3>The yard opens to visitors</h3>
+    <p>We compiled the whole generator to WebAssembly, so it runs in a browser. Pick a faction, roll a seed, spin the ship around. Every ship gets a short code you can send to a friend, and the code always rebuilds the exact same ship.</p>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.4–0.5</span>
+    <h3>Companies, flags and paint</h3>
+    <p>Ships now come from manufacturers (each yard has its own style) and fly for factions (each faction has its own paint). Then came the livery: ship names, registration numbers, emblems and chevrons. A ship with a name feels different. Nobody wants to lose the <em>Halvorsen Dawn</em>.</p>
+    <figure><img src="../images/livery_sheets.png" alt="Sheets of ships with different names, numbers and emblems" loading="lazy"><figcaption>Livery sheets: same yard, different owners.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.6.0</span>
+    <h3>We broke them on purpose</h3>
+    <p>Damaged and derelict ships: scorch marks, holes, missing plates, bent antennas. It is strangely fun to build a nice ship and then ruin it with one switch.</p>
+    <figure><img src="../images/conditions.png" alt="The same ship intact, damaged and derelict" loading="lazy"><figcaption>Intact, damaged, derelict. Same ship, three very different weeks.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.7–0.9</span>
+    <h3>The badlook fighters</h3>
+    <p>BadSad wanted stealth fighters: faceted, aggressive, hard-surface, with a few bevels. Then he wanted more hull types, "not only pointy, some a bit blockier". Then wings, lots of wings. Now there are eight fighter forms, a bulk dial, three nose styles, and wings that sweep forward, fold up like a gull, stack in layers or go lopsided on purpose.</p>
+    <figure><img src="../images/fighter_wings_v0.9.png" alt="A grid of fighters with different wing styles" loading="lazy"><figcaption>The wing catalogue. Pick one, or let the seed pick.</figcaption></figure>
+    <div class="who"><span class="tag">Noor: wing concept art</span></div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.10.0</span>
+    <h3>Citadel, not cathedral</h3>
+    <p>The request: a flying fortress. Big, heavy, covered in towers and guns, but original, and no cathedrals. The answer: ram prows, stacked keeps, bastions on the shoulders, broadside batteries and hangars in the flanks. Some of them are over 250 metres long.</p>
+    <figure><img src="../images/citadels_v0.10.png" alt="A line of heavy flying fortress ships" loading="lazy"><figcaption>A fortress that flies. Zero stained-glass windows.</figcaption></figure>
+    <p class="quote">"Technically, it's like a flying citadel or fortress :P" (BadSad)</p>
+  </article>
+</div>
+
+<!-- ============================== DAY TWO ============================== -->
+<div class="day"><h2>Day two</h2><time datetime="2026-11-13">13 Nov 2026</time></div>
+<div class="rail">
+
+  <article class="entry">
+    <span class="ver">v0.11.0</span>
+    <h3>Noor's sketchbook arrives</h3>
+    <p>Noor sent concept sheets full of ship types and colour schemes. We turned them into a seven-step plan and twelve palettes: gunmetal, naval, off-white, stealth, pirate, luxury, medical and more. Banded schemes got their stripes.</p>
+    <figure><img src="../images/palettes_v0.11.png" alt="One ship painted in twelve colour schemes" loading="lazy"><figcaption>One hull, twelve outfits.</figcaption></figure>
+    <div class="who"><span class="tag">Noor: concept sheets</span><span class="tag">BadSad: "Start with your plan"</span></div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.12–0.13</span>
+    <h3>The working ships</h3>
+    <p>Not every ship is a hero. Some drill asteroids, run refineries, swing cranes or pull wrecks apart. Small craft run errands: runabouts, mules, shuttles and pioneers. These are the ships that keep everything else flying.</p>
+    <figure><img src="../images/industrial_v0.12.png" alt="Industrial ships with drills, cranes and refineries" loading="lazy"><figcaption>The night shift of space.</figcaption></figure>
+    <div class="bug"><b>Bug of the day</b>The mule, a cargo hauler, kept showing up carrying passenger pods. A mule with seats. We fixed it, but we liked it a little.</div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.14.0</span>
+    <h3>Rings and a Gyre</h3>
+    <p>Ring ships for science, expeditions and habitats, and a new fighter called the Gyre that flies inside its own ducted rings.</p>
+    <figure><img src="../images/ring_ships_v0.14.png" alt="Ships built around large rings" loading="lazy"><figcaption>Lord of the rings, but legally distinct.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.15.0</span>
+    <h3>Liners, medics, explorers</h3>
+    <p>Civilian ships at last: long passenger liners, medical ships with a pulse-line emblem, and explorers covered in sensors. Then BadSad went to lie down and said "continue without my decisions, I trust you". So the yard kept working.</p>
+    <figure><img src="../images/civilian_v0.15.png" alt="A white passenger liner" loading="lazy"><figcaption>Window seats available.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.16.0</span>
+    <h3>Pirates of the Drift</h3>
+    <p>Raiders: normal hulls that pirates rebuilt. Ram spikes on the nose, junk welded on at odd angles, mismatched patch plates and, yes, tattered sails on masts. In space. Do not ask how the sails work.</p>
+    <figure><img src="../images/raiders_v0.16.png" alt="Pirate ships with spikes, junk and sails" loading="lazy"><figcaption>The Free Raiders of the Drift. Their paint job is mostly rust.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.17.0</span>
+    <h3>The warship ladder</h3>
+    <p>Corvette, frigate, destroyer, cruiser, carrier. Each step bigger, each with more turrets and more attitude. The carrier has flight decks.</p>
+    <figure><img src="../images/warship_ladder_v0.17.png" alt="Five warships from smallest to largest" loading="lazy"><figcaption>Climb the ladder. Mind the turrets.</figcaption></figure>
+    <div class="bug"><b>Bug of the day</b>Some warships came out with no turrets at all. The guns wanted more room than the top deck had. We gave them a shoulder deck. Peace through firepower restored.</div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.18.0</span>
+    <h3>You can walk inside now</h3>
+    <p>Interiors. Real decks you can walk on, rooms by ship type, stairwells between decks, an airlock, and sliding doors that work in Godot. We even wrote a robot that loads every ship in Godot and walks to every single room to prove you can get there.</p>
+    <figure><img src="../images/interior_deck_v0.18.png" alt="A cutaway of a ship deck with rooms and corridors" loading="lazy"><figcaption>Crew quarters, mess, medbay, engineering. No furniture yet. Very minimalist.</figcaption></figure>
+    <div class="bug"><b>Bug of the day</b>On short ships the airlock was placed inside the bridge. Great for a quick exit, bad for the captain.</div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.19.0</span>
+    <h3>Say hi to the neighbours</h3>
+    <p>Real windows, cut right through the hull, with glass you can see through from both sides. Fly past a liner and you can see into the lit cabins. Stand in a cabin and you can look out at space. The yard makes sure nothing gets bolted over the glass.</p>
+    <figure><img src="../images/windows_v0.19.png" alt="Looking through a ship window from outside and inside" loading="lazy"><figcaption>Outside looking in, inside looking out.</figcaption></figure>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.20.0</span>
+    <h3>Atriums and ring corridors</h3>
+    <p>BadSad sent a Blender sketch with a big hall, a ring corridor and rooms of many sizes, plus a hint: "multiple decks etc? 😛". So now big ships get halls two decks tall (an atrium on a liner, a hangar on a warship, a cargo bay on a freighter) with a gallery walkway around the void and a grand staircase up to it. Some decks get a ring corridor around a central room. Deep rooms become suites: medbay and ward, lab and clean room, the captain's office and cabin.</p>
+    <figure><img src="../images/interiors_halls_v0.20.png" alt="A two-deck atrium with a grand staircase and a gallery, and a ring corridor seen from above" loading="lazy"><figcaption>The atrium from its floor and from the gallery, the gallery deck, and a ring corridor.</figcaption></figure>
+    <div class="bug"><b>Bug of the day</b>Godot's walking robot kept missing exactly one room per ship. The doors were 1.2 m wide, and after Godot kept a safe distance from both door frames, only half a metre was left. Sometimes that rounded down to nothing. Doors are 1.4 m now. Turns out spaceships need wide doors too.</div>
+  </article>
+</div>
+
+<section class="next">
+  <h2>Next on the slipway</h2>
+  <p>Maybe furniture. Maybe ships for our game project (title to be decided, the old one was taken). Maybe whatever Noor draws next. The yard is open.</p>
+</section>
+
+<footer>BadShip: a procedural spaceship generator in C#. Built by BadSad, Noor and Sage.</footer>
+</div>
+</body>
+</html>

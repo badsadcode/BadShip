@@ -27,7 +27,7 @@ public static class InteriorValidator
         }
         foreach (var s in interior.Stairs)
         {
-            var up = interior.Rooms.FirstOrDefault(r => r.Kind == "stairwell" && r.Deck == s.ToDeck);
+            var up = s.ToRoom is { } to ? interior.Rooms.FirstOrDefault(r => r.Id == to) : interior.Rooms.FirstOrDefault(r => r.Kind == "stairwell" && r.Deck == s.ToDeck);
             if (up is null) { rep.Add("error", "interior.stairs", $"Stairs {s.Id} lead to a deck without a stairwell.", [s.Id]); continue; }
             links[s.Room].Add(up.Id);
             links[up.Id].Add(s.Room);

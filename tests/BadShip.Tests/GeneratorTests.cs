@@ -717,10 +717,47 @@ public class GeneratorTests
         // A big ship gets several decks with stairs, a bridge, engineering and an airlock.
         var big = BadShip.Interior.InteriorGenerator.Build(ShipGenerator.Generate(new ShipRecipe { Seed = 7, Archetype = "freighter", Size = "medium" }))!;
         Assert.True(big.Decks.Count >= 2);
-        Assert.Equal(big.Decks.Count - 1, big.Stairs.Count);
+        Assert.Equal(big.Decks.Count - 1, big.Stairs.Count(s => s.ToRoom is null));
         foreach (var kind in new[] { "bridge", "engineering", "airlock", "stairwell", "corridor" })
             Assert.Contains(big.Rooms, r => r.Kind == kind);
         Assert.Contains(big.Doors, d => d.B == "exterior");
+    }
+
+    [Fact]
+    public void Big_interiors_get_halls_galleries_rings_and_suites()
+    {
+        int halls = 0, rings = 0, suites = 0;
+        foreach (var archetype in new[] { "civilian", "warship", "industrial", "research", "citadel" })
+            for (ulong seed = 1; seed <= 3; seed++)
+            {
+                var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "large" });
+                var interior = BadShip.Interior.InteriorGenerator.Build(ship);
+                if (interior is null) continue;
+                Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors, $"{archetype} {seed}");
+                foreach (var gallery in interior.Rooms.Where(r => r.Kind == "gallery"))
+                {
+                    halls++;
+                    // The hall below is two decks tall, under the gallery, and a grand staircase joins them.
+                    var hall = interior.Rooms.Single(r => r.Deck == gallery.Deck - 1 && r.Min[2] == gallery.Min[2] && r.Max[2] == gallery.Max[2]);
+                    Assert.Contains(hall.Kind, new[] { "atrium", "hangar", "cargo_bay", "hall" });
+                    Assert.Equal(interior.Decks[gallery.Deck].CeilingY, hall.Max[1], 2);
+                    Assert.Contains(interior.Stairs, s => s.Room == hall.Id && s.ToRoom == gallery.Id);
+                    Assert.Contains(interior.Model.Modules, m => m.Type == "railing" && m.Id.StartsWith("gallery_rail"));
+                }
+                rings += interior.Rooms.Count(r => r.Id.StartsWith("ring_") && r.Id.EndsWith("_aft"));
+                // A suite's back room opens only into its front room.
+                foreach (var back in interior.Rooms.Where(r => r.Kind is "ward" or "clean_room" or "bunk_room"))
+                {
+                    suites++;
+                    var doors = interior.Doors.Where(d => d.A == back.Id || d.B == back.Id).ToList();
+                    Assert.Single(doors);
+                }
+                // Doors are wide enough for game characters to path through.
+                Assert.All(interior.Doors, d => Assert.True(d.Width >= 1.4f));
+            }
+        Assert.True(halls >= 4, $"halls {halls}");
+        Assert.True(rings >= 4, $"rings {rings}");
+        Assert.True(suites >= 10, $"suites {suites}");
     }
 
     [Fact]

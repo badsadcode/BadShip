@@ -381,11 +381,10 @@ inside the hull, that doors join real rooms and that rooms do not overlap; `stre
 extras and opens when someone walks up; outer airlock doors wait for `open()`), `interior_setup.gd` (gives every
 `door` node the script and walls, floors and stairs collision; also usable as an import script via `post_import.gd`)
 and `run.sh`, which loads an interior headless, opens and closes a door, bakes a navigation mesh and walks from the
-spawn point to every room: 7 of 8 test ships reach every room (a 255 m citadel reaches 570 of 571; the miss looks like
-a precision limit of baking that much interior as one navigation tile). The Shipyard has an **Exterior / Interior**
+spawn point to every room (see v0.20.0 for what made that reliable). The Shipyard has an **Exterior / Interior**
 switch with deck buttons.
 
-Not yet: real window openings (to see people inside from outside), furniture, and a BadLevel export.
+Not yet: furniture and a BadLevel export.
 
 ![Deck plans](docs/images/interior_plans_v0.18.png)
 
@@ -412,7 +411,38 @@ separate physics layer), since the convex pieces enclose the interior.
 
 ![Windows along a liner's hull](docs/images/windows_hull_v0.19.png)
 
-## Status (v0.19.0: windows)
+### Complex interiors (v0.20.0)
+
+Bigger ships no longer get the same corridor on every deck:
+
+- **Halls two decks tall**: an atrium (liners, research and ring ships), a hangar (warships, patrols, citadels) or a
+  cargo bay (freighters, industrial ships, raiders) on a pair of wide decks, low in working ships and mid-ship in the
+  rest. On the deck above, a **gallery** walkway runs round the void over the hall, with railings, and a **grand
+  staircase** rises from the hall floor to it. Rooms on both decks open onto the hall and the gallery.
+- **Ring corridors**: on other wide decks, the corridor splits round a central room (a lounge, lab, operations room
+  or commons) with doors on both lanes, and rooms outside the ring open onto it.
+- **Suites**: deep rooms become a pair, the front one on the corridor and a second one behind it against the hull:
+  medbay and ward, lab and clean room, the captain's office and cabin, mess and galley, briefing and comms, and now and
+  then a cabin with its own lounge, quarters with a bunk room, a workshop or armoury with its store.
+- **Stairwells** are as wide as their deck allows, up to 6 m, with a store beyond them on wide decks.
+
+The interior JSON marks a hall's two-deck height in its box (and `decks: 2` in the room node's extras), and the grand
+staircase in `stairs` has `to_room` (the gallery). `tools/render/hallview.mjs` looks round a hall and a ring.
+
+Doors are now 1.4 m wide (they were 1.2 m). With a 0.35 m agent radius, Godot's navigation baking kept only half a
+metre of a 1.2 m door, which at a 0.2 m cell sometimes rounded to nothing: one room per big ship was unreachable.
+Flights of stairs also step sideways on tapering hulls instead of stacking exactly in a narrow shaft, which confused
+the baker. The Godot walk test (`tools/godot-interior/run.sh`) now reaches every room of every test ship, citadels
+with 1,600 rooms included.
+
+![A two-deck atrium, its gallery and a ring corridor](docs/images/interiors_halls_v0.20.png)
+
+## Devlog
+
+[The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. With GitHub Pages
+serving the `docs` folder, it is the site's front page.
+
+## Status (v0.20.0: complex interiors)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
