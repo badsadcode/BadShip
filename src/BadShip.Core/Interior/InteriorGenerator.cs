@@ -180,7 +180,8 @@ public static class InteriorGenerator
     /// <summary>
     /// Decks outside the main hull: one in every centred superstructure block on top of the hull (stacked tiers each get
     /// theirs, above the one below) and one in the keel, each in the block's longest constant section, with its floor
-    /// and ceiling clear of the decks next to it.
+    /// and ceiling clear of the decks next to it. A bridge block's deck goes up to its front glass instead, with decks
+    /// filling the block under it one deck apart.
     /// </summary>
     private static List<AnnexSpec> Annexes(Ship ship, ShipInterior result)
     {
@@ -195,7 +196,70 @@ public static class InteriorGenerator
         {
             var z0 = MathF.Ceiling(za + 0.6f);
             var z1 = MathF.Floor(zb - 0.6f);
-            if (z1 - z0 < 6) continue;
+            // A bridge block's middle may be short (a long sloped or overhanging front): its deck reaches on into the
+            // ends, and only the deck it ends up with has to be long enough.
+            if (z1 - z0 < (m.Type == "bridge_block" ? 2 : 6)) continue;
+            // A deck in this block with its floor at fy: as wide as the block allows over its height, reaching on into
+            // the block's tapered ends (a sloped or overhanging front, a rounded back) as far as it still fits, so a
+            // bridge gets right up to its front windows.
+            AnnexSpec? Make(float fy, float clear, bool bridge)
+            {
+                // Blocks have thinner walls than the hull: 0.4 m from the deck's edge to the outside. A keel deck reaches
+                // up into the bottom of the hull, so above the keel's top the hull's own width counts.
+                var narrowest = float.MaxValue;
+                for (var y = MathF.Max(fy - Slab, q.Bottom + 0.01f); y <= fy + clear + 0.01f; y += 0.25f)
+                    narrowest = MathF.Min(narrowest, m.Type == "keel" ? KeelHalfWidth(q, result.Hull, y) : q.HalfWidthAt(y));
+                narrowest = MathF.Min(narrowest, m.Type == "keel" ? KeelHalfWidth(q, result.Hull, fy + clear) : q.HalfWidthAt(fy + clear));
+                var hw = MathF.Floor((narrowest - 0.4f) * 2) / 2;
+                if (hw < 1.5f) return null;
+                var sp = new AnnexSpec(m.Type == "keel" ? "keel" : "superstructure", q, fy, fy + clear, hw, z0, z1, q.Cx, bridge);
+                bool Fits(float z) => BoxInsideLoft(blockLoft, z, sp.Cx - sp.HalfWidth - 0.3f, sp.Cx + sp.HalfWidth + 0.3f,
+                    MathF.Max(sp.FloorY - Slab, q.Bottom + 0.01f), sp.Ceiling + Slab + 0.05f);
+                if (sp.Part != "keel")
+                {
+                    var (e0, e1) = (sp.Z0, sp.Z1);
+                    while (e1 + 0.5f <= blockLoft.Zs[^1] - 0.3f && Fits(e1 + 0.5f)) e1 += 0.5f;
+                    while (e0 - 0.5f >= blockLoft.Zs[0] + 0.3f && Fits(e0 - 0.5f)) e0 -= 0.5f;
+                    sp = sp with { Z0 = e0, Z1 = e1 };
+                }
+                return sp;
+            }
+            void Add(AnnexSpec sp)
+            {
+                list.Add(sp);
+                if (sp.Part is "superstructure" or "gondola" or "keel") shapes[list.Count - 1] = Shaped(sp, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
+            }
+            // A bridge block: the bridge deck goes where its crew can see out, with the bottom of the front glass at
+            // about sill height over the floor, however tall the block is; the space under it fills with decks one
+            // deck apart, stepping down from it, so normal stairs climb to the bridge.
+            if (m.Type == "bridge_block" && GlassBottom(blockLoft) is var glass && !float.IsNaN(glass))
+            {
+                var under = list.Where(a => a.Part == "superstructure" && a.Z1 > z0 + 4 && a.Z0 < z1 - 4).Select(a => a.Ceiling)
+                    .Append(decks[^1].CeilingY).Max();
+                var lowest = MathF.Max(q.Bottom + Slab, under + 2 * Slab);
+                AnnexSpec? helm = null;
+                for (var step = 0; step <= 5 && helm is null; step++)
+                {
+                    var clear = Clear - step * 0.1f;
+                    var fy = MathF.Min(glass - Sill, q.Top - 0.2f - clear);
+                    // The glass has to start no higher than eye level over the floor.
+                    if (fy < lowest || glass - fy > 1.6f) continue;
+                    helm = Make(fy, clear, true);
+                    if (helm != null && helm.Z1 - helm.Z0 < 5) helm = null;
+                }
+                if (helm != null)
+                {
+                    var fillers = new List<AnnexSpec>();
+                    for (var fy = helm.FloorY - DeckPitch; fy >= lowest - 0.01f; fy -= DeckPitch)
+                    {
+                        if (Make(fy, Clear, false) is not { } f || f.Z1 - f.Z0 < 6) break;
+                        fillers.Add(f);
+                    }
+                    for (var i = fillers.Count - 1; i >= 0; i--) Add(fillers[i]);
+                    Add(helm);
+                    continue;
+                }
+            }
             // The deck's clear height may drop from 3.1 m to 2.5 m (still over the doors) to fit a smaller block.
             AnnexSpec? spec = null;
             for (var clear = Clear; clear > 2.45f && spec is null; clear -= 0.1f)
@@ -237,30 +301,11 @@ public static class InteriorGenerator
                     fy = MathF.Max(q.Bottom + Slab, under + 2 * Slab);
                     if (fy + clear > q.Top - 0.2f) continue;
                 }
-                // Blocks have thinner walls than the hull: 0.4 m from the deck's edge to the outside. A keel deck reaches
-                // up into the bottom of the hull, so above the keel's top the hull's own width counts.
-                var narrowest = float.MaxValue;
-                for (var y = MathF.Max(fy - Slab, q.Bottom + 0.01f); y <= fy + clear + 0.01f; y += 0.25f)
-                    narrowest = MathF.Min(narrowest, m.Type == "keel" ? KeelHalfWidth(q, result.Hull, y) : q.HalfWidthAt(y));
-                narrowest = MathF.Min(narrowest, m.Type == "keel" ? KeelHalfWidth(q, result.Hull, fy + clear) : q.HalfWidthAt(fy + clear));
-                var hw = MathF.Floor((narrowest - 0.4f) * 2) / 2;
-                if (hw < 1.5f) continue;
-                spec = new AnnexSpec(m.Type == "keel" ? "keel" : "superstructure", q, fy, fy + clear, hw, z0, z1, q.Cx, m.Type == "bridge_block");
+                spec = Make(fy, clear, m.Type == "bridge_block");
+                if (spec != null && spec.Z1 - spec.Z0 < 6) spec = null;
             }
             if (spec is null) continue;
-            // Past the constant section the block tapers (a sloped or overhanging front, a rounded back): the deck
-            // reaches on into it as far as it still fits, so a bridge gets right up to its front windows.
-            bool Fits(float z) => BoxInsideLoft(blockLoft, z, spec.Cx - spec.HalfWidth - 0.3f, spec.Cx + spec.HalfWidth + 0.3f,
-                MathF.Max(spec.FloorY - Slab, q.Bottom + 0.01f), spec.Ceiling + Slab + 0.05f);
-            if (spec.Part != "keel")
-            {
-                var (e0, e1) = (spec.Z0, spec.Z1);
-                while (e1 + 0.5f <= blockLoft.Zs[^1] - 0.3f && Fits(e1 + 0.5f)) e1 += 0.5f;
-                while (e0 - 0.5f >= blockLoft.Zs[0] + 0.3f && Fits(e0 - 0.5f)) e0 -= 0.5f;
-                spec = spec with { Z0 = e0, Z1 = e1 };
-            }
-            list.Add(spec);
-            if (spec.Part is "superstructure" or "gondola" or "keel") shapes[list.Count - 1] = Shaped(spec, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
+            Add(spec);
         }
         // A block deck with nothing stacked on it follows the block's shape: only the band people walk in (floor to a
         // little over door height) has to fit, so it is wider and reaches further into the tapered ends.
@@ -287,6 +332,22 @@ public static class InteriorGenerator
         while (e1 + 0.5f <= loft.Zs[^1] - 0.3f && Fits(e1 + 0.5f)) e1 += 0.5f;
         while (e0 - 0.5f >= loft.Zs[0] + 0.3f && Fits(e0 - 0.5f)) e0 -= 0.5f;
         return spec with { HalfWidth = hw, Z0 = e0, Z1 = e1, Shell = loft };
+    }
+
+    /// <summary>The bottom of a bridge block's front glass: the window band across a flat front, or the panes on its
+    /// sloped front (the last segment); NaN when it has none.</summary>
+    private static float GlassBottom(Loft loft)
+    {
+        if (loft.CapPanes.Count > 0) return loft.CapPanes.Min(p => p.Y0);
+        var y = float.NaN;
+        foreach (var (s, f, u0, u1, v0, v1) in loft.Panes.Where(p => p.S == loft.Segments - 1))
+            foreach (var u in new[] { u0, u1 })
+                foreach (var v in new[] { v0, v1 })
+                {
+                    var py = loft.FacePoint(s, f, u, v).Y;
+                    if (float.IsNaN(y) || py < y) y = py;
+                }
+        return y;
     }
 
     /// <summary>Whether an axis-aligned box across the ship (x0–x1, y0–y1) at station z lies inside a loft's section there.</summary>
@@ -792,48 +853,72 @@ public static class InteriorGenerator
                 else if (hold && other == 0) there = Free(main[0], 1);
                 else there = Free(main[other], 1.5f);
                 var here = annexFree[k];
-                Link? link = null;
-                // A gondola hangs clear of the hull: always a ladder, up an access trunk through the gap.
-                foreach (var kind in a.Part != "gondola" && hw >= 2.5f && !otherNarrow && rise <= 6.2f ? new[] { "stairs", "ladder" } : new[] { "ladder" })
+                Link? Search(List<(float a, float b)> here)
                 {
-                    var run = kind == "stairs" ? MathF.Ceiling(MathF.Max(StairRun, rise) * 10) / 10 : 1f;
-                    var len = kind == "stairs" ? StairFoot + run + 1.6f : LadderLen;
-                    var section = true;
-                    // Inside a room (a narrow deck's rooms, or engineering or the bridge, which need no hall of their own)
-                    // only the ladder itself has to fit, 0.6 m clear of the room's ends, anywhere along its landing.
-                    if (other >= 0 && kind == "ladder")
+                    // A gondola hangs clear of the hull: always a ladder, up an access trunk through the gap.
+                    foreach (var kind in a.Part != "gondola" && hw >= 2.5f && !otherNarrow && rise <= 6.2f ? new[] { "stairs", "ladder" } : new[] { "ladder" })
                     {
-                        var rooms = new List<(float a, float b)>();
-                        if (main[other].Narrow) rooms.AddRange(result.Rooms.Where(q => q.Deck == other).Select(q => (q.Min[2], q.Max[2])));
-                        else
+                        var run = kind == "stairs" ? MathF.Ceiling(MathF.Max(StairRun, rise) * 10) / 10 : 1f;
+                        var len = kind == "stairs" ? StairFoot + run + 1.6f : LadderLen;
+                        var section = true;
+                        // Inside a room (a narrow deck's rooms, or engineering or the bridge, which need no hall of their own)
+                        // only the ladder itself has to fit, 0.6 m clear of the room's ends, anywhere along its landing.
+                        if (other >= 0 && kind == "ladder")
                         {
-                            if (other == 0 && !float.IsNaN(_engEnd)) rooms.Add((main[0].Z0, _engEnd));
-                            if (other == top && !float.IsNaN(_bridgeStart)) rooms.Add((_bridgeStart, main[top].Z1));
+                            var rooms = new List<(float a, float b)>();
+                            if (main[other].Narrow) rooms.AddRange(result.Rooms.Where(q => q.Deck == other).Select(q => (q.Min[2], q.Max[2])));
+                            else
+                            {
+                                if (other == 0 && !float.IsNaN(_engEnd)) rooms.Add((main[0].Z0, _engEnd));
+                                if (other == top && !float.IsNaN(_bridgeStart)) rooms.Add((_bridgeStart, main[top].Z1));
+                            }
+                            var sectioned = main[other].Narrow ? null : Both(here, there).Where(x => x.b - x.a >= len).OrderBy(x => x.a).Cast<(float a, float b)?>().FirstOrDefault();
+                            if (sectioned is null)
+                            {
+                                (float z, float foot)? pick = null;
+                                foreach (var (ha, hb) in here)
+                                    foreach (var (ra, rb) in rooms)
+                                        for (var zz = MathF.Ceiling(ha * 2) / 2; zz + len <= hb + 0.001f && pick is null; zz += 0.5f)
+                                        {
+                                            // Clear of the room's end walls and the doors in them.
+                                            var foot = MathF.Max(zz + 0.3f, ra + 0.6f);
+                                            if (foot + 1 <= MathF.Min(zz + len - 0.3f, rb - 0.6f)) pick = (zz, foot);
+                                        }
+                                if (pick is not { } p) continue;
+                                return new Link(k, other, a.Part == "superstructure", kind, p.z, len, left + Wall / 2, 1f, run, false, p.foot);
+                            }
                         }
-                        var sectioned = main[other].Narrow ? null : Both(here, there).Where(x => x.b - x.a >= len).OrderBy(x => x.a).Cast<(float a, float b)?>().FirstOrDefault();
-                        if (sectioned is null)
-                        {
-                            (float z, float foot)? pick = null;
-                            foreach (var (ha, hb) in here)
-                                foreach (var (ra, rb) in rooms)
-                                    for (var zz = MathF.Ceiling(ha * 2) / 2; zz + len <= hb + 0.001f && pick is null; zz += 0.5f)
-                                    {
-                                        // Clear of the room's end walls and the doors in them.
-                                        var foot = MathF.Max(zz + 0.3f, ra + 0.6f);
-                                        if (foot + 1 <= MathF.Min(zz + len - 0.3f, rb - 0.6f)) pick = (zz, foot);
-                                    }
-                            if (pick is not { } p) continue;
-                            link = new Link(k, other, a.Part == "superstructure", kind, p.z, len, left + Wall / 2, 1f, run, false, p.foot);
-                            break;
-                        }
+                        var fit = Both(here, there).Where(x => x.b - x.a >= len).OrderBy(x => x.a).Cast<(float a, float b)?>().FirstOrDefault();
+                        if (fit is not { } f) continue;
+                        var z = MathF.Ceiling(f.a * 2) / 2;
+                        if (z + len > f.b) z = f.a;
+                        var w = kind == "stairs" ? Num.Clamp((hw - 1) * 0.6f, 1.4f, 1.8f) : 1f;
+                        return new Link(k, other, a.Part == "superstructure", kind, z, len, left + Wall / 2, w, run, section);
                     }
-                    var fit = Both(here, there).Where(x => x.b - x.a >= len).OrderBy(x => x.a).Cast<(float a, float b)?>().FirstOrDefault();
-                    if (fit is not { } f) continue;
-                    var z = MathF.Ceiling(f.a * 2) / 2;
-                    if (z + len > f.b) z = f.a;
-                    var w = kind == "stairs" ? Num.Clamp((hw - 1) * 0.6f, 1.4f, 1.8f) : 1f;
-                    link = new Link(k, other, a.Part == "superstructure", kind, z, len, left + Wall / 2, w, run, section);
-                    break;
+                    return null;
+                }
+                var link = Search(here);
+                // A bridge deck with no room for a landing behind its bridge: the ladder or stairs come up through a
+                // hatch at the back of the bridge itself.
+                if (link is null && a.Bridge && BridgeLen(a) > 0)
+                {
+                    var full = new List<(float a, float b)> { (a.Z0 + 0.4f, a.Z1 - MathF.Min(2.5f, (a.Z1 - a.Z0) * 0.15f)) };
+                    foreach (var l in _links.Where(l => l.Annex == k || l.Other == -1 - k)) Claim(full, l.Z, l.Z + l.Len);
+                    link = Search(full);
+                }
+                // Stacked block decks whose only overlap is the landing the lower one's own ladder arrives in: a ladder
+                // tower, the next ladder up standing beside the first in the same landing room.
+                if (link is null && other < 0 && right - left >= 5f)
+                {
+                    var j = -1 - other;
+                    foreach (var l in _links.Where(l => l.Kind == "ladder" && (l.Annex == j || l.Other == -1 - j)))
+                    {
+                        var x0 = l.X0 + 2f;
+                        if (x0 + 1f + 0.9f > right - Wall / 2) continue;
+                        if (!here.Any(h => h.a <= l.Z + 0.001f && l.Z + LadderLen <= h.b + 0.001f)) continue;
+                        link = new Link(k, other, a.Part == "superstructure", "ladder", l.Z, LadderLen, x0, 1f, 1f);
+                        break;
+                    }
                 }
                 if (link is null) continue;
                 _links.Add(link);
@@ -985,7 +1070,9 @@ public static class InteriorGenerator
         }
 
         /// <summary>A bridge block's deck ends in the bridge, across the deck at the front, when there is room for it.</summary>
-        private static float BridgeLen(AnnexSpec a) => a.Z1 - a.Z0 >= 9 ? Num.Clamp(MathF.Round((a.Z1 - a.Z0) * 0.3f), 3.5f, 6f) : 0;
+        /// <summary>How deep a block deck's bridge is: about a third of a long deck; a short one is all bridge (its ladder or
+        /// stairs come up at the back of it).</summary>
+        private static float BridgeLen(AnnexSpec a) => a.Z1 - a.Z0 >= 9 ? Num.Clamp(MathF.Round((a.Z1 - a.Z0) * 0.3f), 3.5f, 6f) : a.Z1 - a.Z0;
 
         private void AnnexRooms(DeckInfo d, List<(float a, float b, string kind)> landings, float bridgeLen = 0)
         {
@@ -993,8 +1080,14 @@ public static class InteriorGenerator
             var fy = d.FloorY;
             var program = new Program(Kind, r, d.Part);
             // Landings, stretched to the deck's end where the leftover would be too short for a room.
-            var marks = landings.OrderBy(x => x.a).Select(x => (a: x.a, b: x.b, x.kind)).ToList();
+            var marks = new List<(float a, float b, string kind)>();
+            // Landings that overlap (a ladder tower: one ladder arriving, the next leaving from the same room) are one.
+            foreach (var x in landings.OrderBy(x => x.a))
+                if (marks.Count > 0 && x.a < marks[^1].b - 0.01f) marks[^1] = (marks[^1].a, MathF.Max(marks[^1].b, x.b), marks[^1].kind);
+                else marks.Add((x.a, x.b, x.kind));
             if (bridgeLen > 0 && marks[^1].b <= d.Z1 - bridgeLen + 0.01f) marks.Add((d.Z1 - bridgeLen, d.Z1, "bridge"));
+            // A landing reaching into the bridge (a hatch at its back, when there was no room behind it) is part of it.
+            else if (bridgeLen > 0) marks[^1] = (marks[^1].a, d.Z1, "bridge");
             if (marks[0].a - d.Z0 < 2.5f) marks[0] = (d.Z0, marks[0].b, marks[0].kind);
             if (d.Z1 - marks[^1].b < 2.5f) marks[^1] = (marks[^1].a, d.Z1, marks[^1].kind);
             // Landings closer than a room's length meet (the earlier one reaches to the next), with an opening between.

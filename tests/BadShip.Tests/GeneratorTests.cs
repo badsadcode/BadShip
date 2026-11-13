@@ -863,6 +863,32 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Bridges_in_tall_blocks_sit_at_their_front_glass()
+    {
+        // Overhanging and blunt bridge blocks can be many decks tall, with their glass far above the block's floor. The
+        // bridge deck goes where the glass is (decks fill the block under it, stairs or ladders climb to it), so the
+        // bridge looks out through real front windows.
+        var withFront = 0;
+        foreach (var (archetype, seed) in new[] { ("civilian", 1UL), ("patrol", 1UL), ("industrial", 2UL), ("warship", 1UL) })
+            foreach (var style in new[] { "overhang", "blunt" })
+            {
+                var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "large", Interior = true, Overrides = new PlanOverrides { BridgeStyle = style } });
+                var interior = ship.Interior!;
+                Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors, $"{archetype} {seed} {style}");
+                foreach (var bridge in interior.Rooms.Where(r => r.Kind == "bridge" && interior.Decks[r.Deck].Part == "superstructure"))
+                {
+                    var d = interior.Decks[bridge.Deck];
+                    var front = interior.Windows.Where(w => w.Room == bridge.Id && w.F == 8).ToList();
+                    if (front.Count == 0) continue;
+                    withFront++;
+                    // The glass starts within reach of the floor: no climbing on the consoles to see out.
+                    Assert.All(front, w => Assert.InRange(w.Y0 - d.FloorY, 0.35f, 1.65f));
+                }
+            }
+        Assert.True(withFront >= 5, $"{withFront} bridges with front windows");
+    }
+
+    [Fact]
     public void Rooms_are_furnished_without_blocking_doors_stairs_or_lifts()
     {
         var pieces = 0;

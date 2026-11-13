@@ -571,6 +571,21 @@ ship is still reachable on foot.
 
 ![Furnished rooms](docs/images/furniture_v0.30.png)
 
+### Bridges at their glass (v0.31.0)
+
+A bridge block can be many decks tall, with its window band (an overhanging or blunt front) or sloped windscreen far
+above its floor: the bridge used to sit at the bottom of the block, metres under its own glass, or got no deck at all.
+Now the bridge deck goes where its crew can see out, with the bottom of the front glass at about sill height over its
+floor (`Sill`, 1 m; within 0.35–1.65 m), and the space under it fills with decks one deck apart, stepping down from it,
+so ordinary stairs climb to the bridge. Short bridge blocks reach their deck into their tapered ends, and a short deck
+is all bridge, with the ladder or stairs coming up through a hatch at its back. Where stacked block decks overlap only
+where the lower one's own ladder arrives, the next ladder stands beside it in the same landing room (a ladder tower).
+Over a sample of 138 bridge blocks (8 ship types, 3 seeds, 2 sizes, each bridge style) the bridges that look out
+through real front windows went from 2 to 60; most of the rest are blocks out over the bow or stern where no hull deck
+reaches (still to do).
+
+![A bridge at its glass](docs/images/bridge_glass_v0.31.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -578,7 +593,7 @@ ship is still reachable on foot.
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.30.0: furnished rooms, asset-ready parts)
+## Status (v0.31.0: bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
