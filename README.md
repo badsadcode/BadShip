@@ -303,7 +303,20 @@ Shuttles often wear the civilian scheme, mules and pioneers the industrial one. 
 
 ![A runabout](docs/images/utility_runabout_v0.13.png)
 
-## Status (v0.13.0: utility craft)
+### Ring ships and the Gyre (v0.14.0)
+
+`--archetype ring` builds a slim spine hull (the shared hull body, prow, engines and bridge) carrying big chamfered
+rings on spokes from a collar round the hull, 60–320 m. Jobs (`--set payload=...`): `science` (one ring with a
+window band), `expedition` (twin rings fore and aft) and `habitat` (one huge ring covered in rows of lit windows,
+six spokes). Rings carry `ring_hub` markers. Decks, the bridge, the underside structure, equipment, kit and markings
+keep clear of the rings. Science ships often wear the research scheme, habitats the civilian one.
+
+The fighters gain an eighth form, `gyre`: a cockpit body between two big ducted ring engines on short arms, with fan
+hubs and stator vanes glowing inside the ducts.
+
+![Ring ships and Gyre fighters](docs/images/ring_ships_v0.14.png)
+
+## Status (v0.14.0: ring ships)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

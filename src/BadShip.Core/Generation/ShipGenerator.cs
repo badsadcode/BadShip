@@ -9,10 +9,10 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.13.0";
+    public const string Version = "0.14.0";
 
-    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility"];
-    public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility"];
+    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility", "ring"];
+    public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility", "ring"];
 
     public static Ship Generate(ShipRecipe recipe)
     {
@@ -28,6 +28,7 @@ public static class ShipGenerator
             case "citadel": Citadels.Build(c); break;
             case "industrial": Industrials.Build(c); break;
             case "utility": Utilities.Build(c); break;
+            case "ring": RingShips.Build(c); break;
             default: throw new ArgumentException($"Unknown family '{c.Plan.Family}'.");
         }
         // Fighters and citadels place their own equipment and undersides.
@@ -89,7 +90,7 @@ public static class Planner
         p.FactionName = faction.Name;
         p.Size = Choose(rec.Size, Sizes, () => r.Weighted(W(faction.Sizes)), "size");
         // Asking for a big-ship family (barge, spine, ...) rules fighters out of the automatic role pick.
-        string[] own = ["fighter", "citadel", "industrial", "utility"];
+        string[] own = ["fighter", "citadel", "industrial", "utility", "ring"];
         var bigFamily = !string.IsNullOrEmpty(rec.Family) && rec.Family != "auto" && !own.Contains(rec.Family);
         p.Archetype = Choose(rec.Archetype, ShipGenerator.Archetypes,
             () => r.Weighted(W(faction.Roles.Where(kv => !bigFamily || !own.Contains(kv.Key)).ToDictionary())), "archetype");
@@ -101,7 +102,13 @@ public static class Planner
 
         // Asking for the fighter family means a fighter.
         if (own.Contains(rec.Family)) p.Archetype = rec.Family;
-        if (p.Archetype == "utility")
+        if (p.Archetype == "ring")
+        {
+            if (!string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "ring"))
+                throw new ArgumentException($"Ring ships have their own family; '{rec.Family}' is for other ships.");
+            RingShips.Plan(c);
+        }
+        else if (p.Archetype == "utility")
         {
             if (!string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "utility"))
                 throw new ArgumentException($"Utility craft have their own family; '{rec.Family}' is for other ships.");
@@ -262,7 +269,7 @@ public static class Planner
             p.HullForm = Pick(o.HullForm, p.HullForm, Fighters.Forms, "fighter form");
             p.BridgeStyle = Pick(o.BridgeStyle, p.BridgeStyle, Fighters.Cockpits, "cockpit style");
             p.ProwStyle = Pick(o.ProwStyle, p.ProwStyle, Fighters.Noses, "nose style");
-            if (p.HullForm is not ("wedge" or "fork")) p.WingStyle = Pick(o.WingStyle, p.WingStyle, Fighters.WingStyles, "wing style");
+            if (p.HullForm is not ("wedge" or "fork" or "gyre")) p.WingStyle = Pick(o.WingStyle, p.WingStyle, Fighters.WingStyles, "wing style");
             else if (o.WingStyle is { } ws && !Fighters.WingStyles.Contains(ws)) Pick(ws, "", Fighters.WingStyles, "wing style");
             else p.WingStyle = "form";
             if (o.WingSpan is { } wsp) p.WingSpan = wsp is >= 0.5f and <= 1.8f ? wsp : throw new ArgumentException("Wing span must be 0.5–1.8.");
@@ -280,6 +287,7 @@ public static class Planner
         p.EngineStyle = Pick(o.EngineStyle, p.EngineStyle, ["pod", "nacelle"], "engine style");
         if (p.Family == "spine") p.Payload = Pick(o.Payload, p.Payload, ["containers", "tanks", "pods"], "payload");
         if (p.Family == "industrial") p.Payload = Pick(o.Payload, p.Payload, Industrials.Jobs, "industrial job");
+        if (p.Family == "ring") p.Payload = Pick(o.Payload, p.Payload, RingShips.Jobs, "ring ship job");
         if (o.Tiers is { } t) p.Tiers = t is >= 1 and <= 5 ? t : throw new ArgumentException("Tiers must be 1–5.");
         if (o.Asymmetric is { } a) p.Asymmetric = a;
         p.Ventral = Pick(o.Ventral, p.Ventral, ["none", "keel", "gondola", "pods"], "ventral structure");

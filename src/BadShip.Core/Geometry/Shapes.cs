@@ -137,4 +137,40 @@ public static class Shapes
         Slab(m, mat, loft.FacePoint(s, f, u0, v0), loft.FacePoint(s, f, u0, v1), loft.FacePoint(s, f, u1, v1), loft.FacePoint(s, f, u1, v0), n, depth);
         return true;
     }
+
+    /// <summary>
+    /// A ring around an axis parallel to Z through (cx, cy): a chamfered rectangular cross-section (radially from
+    /// <paramref name="rIn"/> to <paramref name="rOut"/>, along Z from z0 to z1) swept round in flat segments. Every
+    /// <paramref name="altEvery"/>-th segment uses <paramref name="altMat"/>, giving the panel bands of a hard-surface ring.
+    /// </summary>
+    public static void Ring(Mesh m, string mat, float cx, float cy, float rIn, float rOut, float z0, float z1, int segments,
+        float chamfer, string? altMat = null, int altEvery = 0, float rotation = 0)
+    {
+        var c = MathF.Min(chamfer, MathF.Min(rOut - rIn, z1 - z0) * 0.45f);
+        (float r, float z)[] sec =
+        [
+            (rIn, z0 + c), (rIn + c, z0), (rOut - c, z0), (rOut, z0 + c),
+            (rOut, z1 - c), (rOut - c, z1), (rIn + c, z1), (rIn, z1 - c),
+        ];
+        var rm = (rIn + rOut) / 2;
+        var zm = (z0 + z1) / 2;
+        Vector3 P(float r, float z, float a) => new(cx + MathF.Cos(a) * r, cy + MathF.Sin(a) * r, z);
+        for (var i = 0; i < segments; i++)
+        {
+            var a0 = rotation + i * MathF.Tau / segments;
+            var a1 = rotation + (i + 1) * MathF.Tau / segments;
+            var am = (a0 + a1) / 2;
+            var segMat = altMat != null && altEvery > 0 && i % altEvery == 0 ? altMat : mat;
+            for (var j = 0; j < sec.Length; j++)
+            {
+                var (ra, za) = sec[j];
+                var (rb, zb) = sec[(j + 1) % sec.Length];
+                // Outward in the (r, z) plane, then turned to the segment's angle.
+                var nr = (ra + rb) / 2 - rm;
+                var nz = (za + zb) / 2 - zm;
+                var hint = new Vector3(MathF.Cos(am) * nr, MathF.Sin(am) * nr, nz);
+                m.AddQuad(segMat, P(ra, za, a0), P(rb, zb, a0), P(rb, zb, a1), P(ra, za, a1), hint);
+            }
+        }
+    }
 }

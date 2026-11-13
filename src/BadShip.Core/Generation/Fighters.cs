@@ -14,7 +14,7 @@ namespace BadShip.Generation;
 /// </summary>
 public static class Fighters
 {
-    public static readonly string[] Forms = ["dart", "wedge", "brick", "fork", "hammer", "twinboom", "brawler"];
+    public static readonly string[] Forms = ["dart", "wedge", "brick", "fork", "hammer", "twinboom", "brawler", "gyre"];
     public static readonly string[] Noses = ["point", "chisel", "blunt"];
 
     /// <summary>
@@ -36,9 +36,9 @@ public static class Fighters
         p.Family = "fighter";
         (string, double)[] forms = p.Size switch
         {
-            "small" => [("dart", 0.3), ("wedge", 0.25), ("brick", 0.1), ("hammer", 0.15), ("brawler", 0.2)],
-            "large" => [("wedge", 0.1), ("brick", 0.25), ("fork", 0.22), ("hammer", 0.15), ("twinboom", 0.28)],
-            _ => [("dart", 0.18), ("wedge", 0.14), ("brick", 0.14), ("fork", 0.12), ("hammer", 0.14), ("twinboom", 0.14), ("brawler", 0.14)],
+            "small" => [("dart", 0.27), ("wedge", 0.22), ("brick", 0.1), ("hammer", 0.13), ("brawler", 0.18), ("gyre", 0.1)],
+            "large" => [("wedge", 0.1), ("brick", 0.25), ("fork", 0.22), ("hammer", 0.15), ("twinboom", 0.28), ("gyre", 0.08)],
+            _ => [("dart", 0.16), ("wedge", 0.12), ("brick", 0.12), ("fork", 0.11), ("hammer", 0.12), ("twinboom", 0.12), ("brawler", 0.13), ("gyre", 0.12)],
         };
         p.HullForm = r.Weighted(forms);
         // A pinned form must also get that form's proportions and nose (the draw above still happens, so pinning
@@ -55,6 +55,7 @@ public static class Fighters
             "hammer" => (L * r.Range(0.26f, 0.32f), L * r.Range(0.13f, 0.17f)),
             "twinboom" => (L * r.Range(0.42f, 0.55f), L * r.Range(0.1f, 0.13f)),
             "brawler" => (L * r.Range(0.34f, 0.42f), L * r.Range(0.18f, 0.24f)),
+            "gyre" => (L * r.Range(0.26f, 0.32f), L * r.Range(0.16f, 0.2f)),
             _ => (L * r.Range(0.36f, 0.46f), L * r.Range(0.1f, 0.13f)),
         };
         // The nose: a needle point, a flat chisel tip or a blunt armoured face. Every form can have any of them.
@@ -78,7 +79,7 @@ public static class Fighters
         // Wings: the wedge is its own wing and the fork's prongs do that job; the others can take any style.
         (string, double)[] wings = p.HullForm switch
         {
-            "wedge" or "fork" => [("form", 1)],
+            "wedge" or "fork" or "gyre" => [("form", 1)],
             "dart" => [("form", 0.3), ("swept", 0.15), ("forward", 0.12), ("x", 0.1), ("gull", 0.1), ("layered", 0.08), ("pods", 0.1), ("asym", 0.05)],
             "twinboom" => [("form", 0.4), ("swept", 0.15), ("forward", 0.1), ("x", 0.12), ("layered", 0.1), ("pods", 0.13)],
             "brawler" => [("form", 0.35), ("layered", 0.25), ("pods", 0.2), ("gull", 0.1), ("x", 0.1)],
@@ -97,7 +98,7 @@ public static class Fighters
         var r = c.Shape;
         var (b0, b1) = c.Plan.HullForm switch
         {
-            "dart" => (0f, 0.45f), "wedge" => (0f, 0.35f), "fork" => (0f, 0.55f),
+            "dart" => (0f, 0.45f), "wedge" => (0f, 0.35f), "fork" => (0f, 0.55f), "gyre" => (0.3f, 0.8f),
             "brick" => (0.3f, 0.9f), "hammer" => (0.4f, 0.9f), "twinboom" => (0.2f, 0.8f), _ => (0.5f, 1f),
         };
         c.Bulk = r.Chance(0.3) ? b0 : r.Range(b0, b1);
@@ -110,6 +111,7 @@ public static class Fighters
             case "hammer": Hammer(c); break;
             case "twinboom": Twinboom(c); break;
             case "brawler": Brawler(c); break;
+            case "gyre": Gyre(c); break;
             default: throw new ArgumentException($"Unknown fighter form '{c.Plan.HullForm}'. Use one of: {string.Join(", ", Forms)}.");
         }
     }
@@ -594,6 +596,61 @@ public static class Fighters
         GlowLines(c, hull);
     }
 
+
+    /// <summary>
+    /// A cockpit body between two big ducted ring engines on short arms: a fan hub glowing inside each ring, guns
+    /// under the nose. Built for turning on a coin, not for speed.
+    /// </summary>
+    private static void Gyre(BuildContext c)
+    {
+        var p = c.Plan;
+        var r = c.Shape;
+        float L = p.Length, w = p.Beam, h = p.Height, zR = -L / 2, zN = L / 2;
+        var bev = Bevel(c);
+        List<(float, Profile)> rings =
+        [
+            (zR + L * 0.08f, Section(c, 0, 0, w * 0.8f, h * 0.8f, bev)),
+            (zR + L * 0.2f, Section(c, 0, 0, w, h, bev)),
+            (zR + L * 0.6f, Section(c, 0, h * 0.04f, w * 0.92f, h * 1.05f, bev)),
+        ];
+        rings.Add((zN, Nose(c, Section(c, 0, -h * 0.15f, w * 0.15f, h * 0.2f, bev), rings[^1].Item2)));
+        var hull = Body(c, rings);
+        // The ducts: chamfered rings round a fan hub, on arms out to each side.
+        var R = L * r.Range(0.2f, 0.26f);
+        var depth = L * r.Range(0.16f, 0.22f);
+        var thick = R * r.Range(0.16f, 0.22f);
+        var rIn = R - thick;
+        var x = w / 2 + R * r.Range(1.05f, 1.2f);
+        var zc = zR + depth / 2;
+        var y = h * r.Range(-0.1f, 0.15f);
+        foreach (var s in new[] { 1f, -1f })
+        {
+            var id = s > 0 ? "duct_port" : "duct_starboard";
+            var m = c.Add(id, "engine", ModuleTier.Secondary, hull.Id);
+            Shapes.Ring(m.Mesh, Roles.HullMain, s * x, y, rIn, R, zc - depth / 2, zc + depth / 2, 20, thick * 0.3f, Roles.HullSecondary, 5);
+            // Arm to the body, with a hazard band.
+            var armT = MathF.Max(0.25f, h * 0.18f);
+            Shapes.Box(m.Mesh, Roles.HullSecondary, new Vector3(s * (w * 0.3f + (x - R * 0.95f - w * 0.3f) / 2), y, zc), new Vector3(x - R * 0.95f - w * 0.3f + 0.4f, armT, depth * 0.5f));
+            Shapes.Box(m.Mesh, Roles.Hazard, new Vector3(s * (x - R * 1.02f), y, zc), new Vector3(0.3f, armT * 1.05f, depth * 0.52f));
+            // Fan hub and stator vanes inside the duct.
+            var hubR = rIn * 0.32f;
+            Shapes.Prism(m.Mesh, Roles.DarkMechanics, new Vector3(s * x, y, zc + depth * 0.45f), new Vector3(s * x, y, zc - depth * 0.35f), hubR * 0.6f, hubR, 8, 0, capB: true, capBMat: Roles.EngineGlow);
+            for (var k = 0; k < 4; k++)
+            {
+                var a = k * MathF.PI / 2 + MathF.PI / 4;
+                var d = new Vector3(MathF.Cos(a), MathF.Sin(a), 0);
+                Shapes.Beam(m.Mesh, Roles.DarkMechanics, new Vector3(s * x, y, zc) + d * hubR * 0.8f, new Vector3(s * x, y, zc) + d * rIn * 1.02f, MathF.Max(0.08f, thick * 0.3f));
+            }
+            // A glowing disc deep in the duct: the fan's wash.
+            Shapes.Prism(m.Mesh, Roles.EngineGlow, new Vector3(s * x, y, zc - depth * 0.1f), new Vector3(s * x, y, zc - depth * 0.12f), rIn * 0.95f, rIn * 0.95f, 20, 0);
+            c.AddMarker("engine_exhaust", m, new Vector3(s * x, y, zc - depth / 2 - 0.1f), -Vector3.UnitZ, rIn * 0.9f, L * 0.5f);
+            WingTip(c, m, new Vector3(s * (x + R), y, zc), MathF.Max(0.12f, thick * 0.4f), s);
+        }
+        Fins(c, hull, rings, w * 0.2f, r.Range(0f, 15f), h * r.Range(0.5f, 0.8f), zR + L * 0.1f, L * 0.16f, L);
+        Cockpit(c, hull, rings, zR + L * 0.5f, zR + L * 0.82f, w * 0.5f, h * 0.45f);
+        Guns(c, hull, [new(w * 0.15f, -h * 0.38f, zR + L * 0.78f), new(-w * 0.15f, -h * 0.38f, zR + L * 0.78f)], L * 0.16f, L, chin: true);
+        GlowLines(c, hull);
+    }
 
     // ------------------------------------------------------------------ wings
 

@@ -234,7 +234,7 @@ public class GeneratorTests
         var ships = Enumerable.Range(1, 60).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "halvorsen" })).ToList();
         Assert.All(ships, s => Assert.Equal("Halvorsen Heavy Works", s.Plan.ManufacturerName));
         // (Fighters have their own engines and forms.)
-        ships = ships.Where(s => s.Plan.Family is not ("fighter" or "citadel" or "industrial" or "utility")).ToList();
+        ships = ships.Where(s => s.Plan.Family is not ("fighter" or "citadel" or "industrial" or "utility" or "ring")).ToList();
         Assert.True(ships.Count >= 18);
         Assert.All(ships, s => Assert.Equal("pod", s.Plan.EngineStyle));
         Assert.True(ships.Count(s => s.Plan.HullForm == "slab") >= ships.Count * 0.8);
@@ -412,6 +412,7 @@ public class GeneratorTests
     [InlineData("hammer")]
     [InlineData("twinboom")]
     [InlineData("brawler")]
+    [InlineData("gyre")]
     public void Every_fighter_form_is_valid_in_every_size_and_condition(string form)
     {
         foreach (var size in Planner.Sizes)
@@ -591,6 +592,35 @@ public class GeneratorTests
                     Assert.Contains(ship.Markers, m => m.Kind == "bridge");
                     if (job == "shuttle") Assert.Contains(ship.Markers, m => m.Kind == "docking_port");
                 }
+    }
+
+    [Theory]
+    [InlineData("science", 1)]
+    [InlineData("expedition", 2)]
+    [InlineData("habitat", 1)]
+    public void Ring_ships_carry_their_rings_clear_of_everything(string job, int ringCount)
+    {
+        foreach (var size in Planner.Sizes)
+            foreach (var condition in new[] { "intact", "damaged", "derelict" })
+                for (ulong seed = 1; seed <= 4; seed++)
+                {
+                    var recipe = new ShipRecipe { Seed = seed, Archetype = "ring", Size = size, Condition = condition, Overrides = new PlanOverrides { Payload = job } };
+                    var ship = ShipGenerator.Generate(recipe);
+                    var report = ShipValidator.Validate(ship);
+                    Assert.False(report.HasErrors, $"{job} {size} {condition} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                    Assert.Equal(ringCount, ship.Modules.Count(m => m.Type == "ring"));
+                    Assert.Equal(ringCount, ship.Markers.Count(m => m.Kind == "ring_hub"));
+                    Assert.Contains(ship.Markers, m => m.Kind == "bridge");
+                    // The rings stand clear of the hull: wider than the hull in both directions.
+                    foreach (var ring in ship.Modules.Where(m => m.Type == "ring"))
+                        Assert.True(ring.Bounds.Size.X > ship.Plan.Beam * 1.5f);
+                }
+        foreach (var size in Planner.Sizes)
+        {
+            var gyre = ShipGenerator.Generate(new ShipRecipe { Seed = 5, Archetype = "fighter", Size = size, Overrides = new PlanOverrides { HullForm = "gyre" } });
+            Assert.False(ShipValidator.Validate(gyre).HasErrors);
+            Assert.Equal(2, gyre.Markers.Count(m => m.Kind == "engine_exhaust"));
+        }
     }
 
     [Fact]
