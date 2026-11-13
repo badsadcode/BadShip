@@ -146,6 +146,40 @@ public sealed class Loft
         if (capEnd) m.AddPolygon(material, Rings[^1], Vector3.UnitZ);
     }
 
+    /// <summary>
+    /// Builds the loft with rectangular holes cut into some faces (window openings): each hole is a (u0, u1, v0, v1)
+    /// rectangle in the face's own coordinates. A face with holes is rebuilt from the grid its hole edges make,
+    /// leaving out the cells inside a hole; every other face is built as usual.
+    /// </summary>
+    public void BuildWithHoles(Mesh m, string material, IReadOnlyDictionary<(int s, int f), List<(float u0, float u1, float v0, float v1)>> holes)
+    {
+        for (var s = 0; s < Segments; s++)
+            for (var f = 0; f < 8; f++)
+            {
+                if (!holes.TryGetValue((s, f), out var list) || list.Count == 0)
+                {
+                    var q = Face(s, f);
+                    m.AddQuad(material, q[0], q[1], q[2], q[3], OutwardHint(s, f));
+                    continue;
+                }
+                var us = list.SelectMany(h => new[] { h.u0, h.u1 }).Append(0f).Append(1f).Select(x => Math.Clamp(x, 0, 1)).Distinct().OrderBy(x => x).ToList();
+                var vs = list.SelectMany(h => new[] { h.v0, h.v1 }).Append(0f).Append(1f).Select(x => Math.Clamp(x, 0, 1)).Distinct().OrderBy(x => x).ToList();
+                var hint = OutwardHint(s, f);
+                for (var i = 0; i + 1 < us.Count; i++)
+                    for (var j = 0; j + 1 < vs.Count; j++)
+                    {
+                        var (ua, ub, va, vb) = (us[i], us[i + 1], vs[j], vs[j + 1]);
+                        if (ub - ua < 1e-5f || vb - va < 1e-5f) continue;
+                        var cu = (ua + ub) / 2;
+                        var cv = (va + vb) / 2;
+                        if (list.Any(h => cu > h.u0 && cu < h.u1 && cv > h.v0 && cv < h.v1)) continue;
+                        m.AddQuad(material, FacePoint(s, f, ua, va), FacePoint(s, f, ua, vb), FacePoint(s, f, ub, vb), FacePoint(s, f, ub, va), hint);
+                    }
+            }
+        m.AddPolygon(material, Rings[0], -Vector3.UnitZ);
+        m.AddPolygon(material, Rings[^1], Vector3.UnitZ);
+    }
+
     /// <summary>The quad of face <paramref name="f"/> in segment <paramref name="s"/>: a, b on the rear ring, c, d on the front.</summary>
     public Vector3[] Face(int s, int f)
     {

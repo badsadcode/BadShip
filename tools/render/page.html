@@ -45,7 +45,7 @@ const VIEWS = {
   below: new THREE.Vector3(-1, -0.35, 0.6),
 };
 
-window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'beauty' } = {}) => {
+window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'beauty', eye = null, target = null, fov = 40 } = {}) => {
   const gltf = await loader.loadAsync(url);
   const ship = gltf.scene;
   const markers = ship.getObjectByName('markers');
@@ -81,7 +81,12 @@ window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'be
   const size = box.getSize(new THREE.Vector3());
   const dir = VIEWS[view].clone().normalize();
   let camera;
-  if (mode === 'silhouette' || view === 'side' || view === 'top') {
+  if (eye && target) {
+    // A placed camera (a look through a window).
+    camera = new THREE.PerspectiveCamera(fov, w / h, 0.05, 5000);
+    camera.position.set(...eye);
+    center.set(...target);
+  } else if (mode === 'silhouette' || view === 'side' || view === 'top') {
     const aspect = w / h;
     // Fit the projected extents with a margin.
     const ext = view === 'top' ? [size.z, size.x] : [size.z, size.y];

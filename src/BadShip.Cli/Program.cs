@@ -151,7 +151,7 @@ try
                     if (report.Status == "error") errors++;
                     if (report.Status == "warn") warns++;
                     foreach (var issue in report.Issues) codes[issue.Code] = codes.GetValueOrDefault(issue.Code) + 1;
-                    if (opts.ContainsKey("interior") && BadShip.Interior.InteriorGenerator.Build(ship) is { } interior)
+                    if (opts.ContainsKey("interior") && (ship.Interior ?? BadShip.Interior.InteriorGenerator.Build(ship)) is { } interior)
                     {
                         interiors++;
                         var irep = BadShip.Interior.InteriorValidator.Validate(interior);
@@ -207,14 +207,14 @@ bool Emit(ShipRecipe recipe, string dir, string name)
     foreach (var path in paths) Console.WriteLine($"  {path}");
     if (opts.ContainsKey("interior"))
     {
-        var interior = BadShip.Interior.InteriorGenerator.Build(ship);
+        var interior = ship.Interior ?? BadShip.Interior.InteriorGenerator.Build(ship);
         if (interior is null) Console.WriteLine("  interior: none (fighters and hulls too small to walk in)");
         else
         {
             var irep = BadShip.Interior.InteriorValidator.Validate(interior);
             Console.WriteLine($"  interior: {interior.Decks.Count} decks, {interior.Rooms.Count} rooms, {interior.Doors.Count} doors, {irep.Status}");
             foreach (var issue in irep.Issues) Console.WriteLine($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
-            foreach (var path in ShipFiles.SaveInterior(interior, irep, dir, name)) Console.WriteLine($"  {path}");
+            foreach (var path in ShipFiles.SaveInterior(interior, irep, dir, name, ship)) Console.WriteLine($"  {path}");
             if (irep.HasErrors) return false;
         }
     }
@@ -224,6 +224,7 @@ bool Emit(ShipRecipe recipe, string dir, string name)
 ShipRecipe RecipeFrom(Dictionary<string, string> o, ulong seed) => new()
 {
     Seed = seed,
+    Interior = o.ContainsKey("interior"),
     Archetype = o.GetValueOrDefault("archetype", "auto"),
     Family = o.GetValueOrDefault("family", "auto"),
     Length = o.TryGetValue("length", out var l) ? float.Parse(l, System.Globalization.CultureInfo.InvariantCulture) : null,

@@ -393,7 +393,26 @@ Not yet: real window openings (to see people inside from outside), furniture, an
 
 ![The interior view in the Shipyard](docs/images/interior_shipyard_v0.18.png)
 
-## Status (v0.18.0: interiors)
+### Windows (v0.19.0)
+
+With `--interior` (recipe `"interior": true`, code key `1y`), the interior is planned right after the hull masses
+and rooms along the hull walls (cabins, mess, bridge, lounges, medbay, corridor ends) get **real windows**: each is
+cut as an opening through the hull (where one of its side faces covers the window's height and nothing stands
+outside), with a see-through, double-sided glass pane (`window_glass`, glTF BLEND) and a reveal (the short tunnel
+through the hull to the interior wall), and a matching opening in the interior's wall. The windows reserve their
+patch of hull first, so plates, markings, kit and damage stay off them. People inside can be seen from outside.
+`window` markers on the exterior; `windows` in the interior JSON. `name.ship_and_interior.glb` puts exterior and
+interior in one file, lined up; `tools/render/windowview.mjs` looks through a window from outside and inside.
+The Shipyard has a **Windows** chip (on automatically in the Interior view). Without the option, ships are as before.
+
+In an engine, keep players inside off the exterior's convex collision pieces (use the interior's collision and a
+separate physics layer), since the convex pieces enclose the interior.
+
+![Looking through a window](docs/images/windows_v0.19.png)
+
+![Windows along a liner's hull](docs/images/windows_hull_v0.19.png)
+
+## Status (v0.19.0: windows)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

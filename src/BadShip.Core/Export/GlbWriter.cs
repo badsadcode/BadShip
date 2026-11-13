@@ -62,7 +62,7 @@ public static class GlbWriter
                 ["name"] = role,
                 ["pbrMetallicRoughness"] = new Dictionary<string, object>
                 {
-                    ["baseColorFactor"] = new[] { d.Color.X, d.Color.Y, d.Color.Z, 1f },
+                    ["baseColorFactor"] = new[] { d.Color.X, d.Color.Y, d.Color.Z, d.Alpha },
                     ["metallicFactor"] = d.Metallic,
                     ["roughnessFactor"] = d.Roughness,
                 },
@@ -74,6 +74,8 @@ public static class GlbWriter
                 textures.Add(new Dictionary<string, object> { ["sampler"] = 0, ["source"] = images.Count - 1 });
                 ((Dictionary<string, object>)mat["pbrMetallicRoughness"])["baseColorTexture"] = new Dictionary<string, object> { ["index"] = textures.Count - 1 };
             }
+            if (d.Alpha < 1f) mat["alphaMode"] = "BLEND";
+            if (d.DoubleSided) mat["doubleSided"] = true;
             if (d.Cutout)
             {
                 mat["alphaMode"] = "MASK";

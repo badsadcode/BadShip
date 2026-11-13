@@ -143,6 +143,7 @@
           <button id="deck-up" aria-label="Deck up" hidden>&#9650;</button>
         </div>
         <div class="seg" role="group" aria-label="Layers">
+          <button class="chip" id="t-windows" aria-pressed="false" title="Plan the interior and cut real windows into the hull">Windows</button>
           <button class="chip" id="t-details" aria-pressed="true">Details</button>
           <button class="chip" id="t-markers" aria-pressed="false">Markers</button>
           <button class="chip" id="t-spin" aria-pressed="false">Spin</button>
@@ -448,7 +449,7 @@ function syncHullForms() {
   fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' || kind === 'utility' ? [] : ['keel', 'gondola', 'pods', 'none']);
   fill(document.getElementById('job'), JOBS[kind] ?? []);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
@@ -479,6 +480,7 @@ function recipe() {
     faction: $('faction').value, manufacturer: $('manufacturer').value, size: $('size').value,
     ...($('livery').value === 'none' ? { livery: 'none' } : {}),
     ...($('condition').value !== 'intact' ? { condition: $('condition').value } : {}),
+    ...(state.windows ? { interior: true } : {}),
     stage_seeds: Object.keys(stageSeeds).length ? { ...stageSeeds } : null,
     overrides: Object.keys(overrides).length ? overrides : null,
   };
@@ -495,6 +497,7 @@ function cliCommand(r) {
   if (r.detail !== 'high') parts.push(`--detail ${r.detail}`);
   if (r.livery === 'none') parts.push('--livery none');
   if (r.condition) parts.push(`--condition ${r.condition}`);
+  if (r.interior) parts.push('--interior');
   if (r.overrides) parts.push('--set ' + Object.entries(r.overrides).map(([k, v]) => `${k}=${v}`).join(','));
   if (r.stage_seeds) parts.push('--stage-seed ' + Object.entries(r.stage_seeds).map(([k, v]) => `${k}=${v}`).join(','));
   return parts.join(' ');
@@ -600,6 +603,7 @@ function applyRecipe(rec) {
   $('detail').value = rec.detail ?? 'high';
   $('livery').value = rec.livery === 'none' ? 'none' : 'standard';
   $('condition').value = ['damaged', 'derelict'].includes(rec.condition) ? rec.condition : 'intact';
+  setWindows(!!rec.interior);
   syncHullForms(); $('hull_form').value = rec.overrides?.hull_form ?? '';
   $('wing_style').value = rec.overrides?.wing_style ?? '';
   $('job').value = Object.values(JOBS).flat().includes(rec.overrides?.payload) ? rec.overrides.payload : '';
@@ -689,9 +693,11 @@ function updateDeckControls(ii) {
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
   state.view = b.dataset.view;
   document.querySelectorAll('[data-view]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-  if (state.view === 'interior') { state.deck = 0; state.cam = 'quarter'; }
+  if (state.view === 'interior') { state.deck = 0; state.cam = 'quarter'; setWindows(true); }
   build(false);
 }));
+function setWindows(on) { state.windows = on; $('t-windows').setAttribute('aria-pressed', String(on)); }
+$('t-windows').addEventListener('click', () => { setWindows(!state.windows); build(); });
 $('deck-up').addEventListener('click', () => { state.deck = state.deck < 0 ? 0 : Math.min(state.deck + 1, Math.max(0, state.decks - 1)); build(false); });
 $('deck-down').addEventListener('click', () => { state.deck = Math.max(-1, state.deck - 1); build(false); });
 $('deck-label').addEventListener('click', () => { state.deck = state.deck < 0 ? 0 : -1; build(false); });

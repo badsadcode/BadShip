@@ -46,7 +46,7 @@ public static class ShipFiles
     /// rooms, doors, stairs and the validation report) and, for previews, name.interior.deck_N.glb per deck without
     /// the ceiling.
     /// </summary>
-    public static string[] SaveInterior(Interior.ShipInterior interior, ValidationReport report, string dir, string name)
+    public static string[] SaveInterior(Interior.ShipInterior interior, ValidationReport report, string dir, string name, Ship? exterior = null)
     {
         Directory.CreateDirectory(dir);
         var glb = Path.Combine(dir, name + ".interior.glb");
@@ -54,9 +54,24 @@ public static class ShipFiles
         File.WriteAllBytes(glb, GlbWriter.Write(interior.Model));
         File.WriteAllText(json, JsonSerializer.Serialize(new
         {
-            decks = interior.Decks, rooms = interior.Rooms, doors = interior.Doors, stairs = interior.Stairs, validation = report,
+            decks = interior.Decks, rooms = interior.Rooms, doors = interior.Doors, stairs = interior.Stairs, windows = interior.Windows, validation = report,
         }, Json));
         var paths = new List<string> { glb, json };
+        // Exterior and interior in one file, lined up (one scene to drop into an engine).
+        if (interior.Model.Recipe is { } && exterior is not null)
+        {
+            var both = new Ship { Recipe = exterior.Recipe, Plan = exterior.Plan };
+            both.Materials = new Dictionary<string, MaterialDef>(exterior.Materials);
+            foreach (var (k, v) in interior.Model.Materials) both.Materials.TryAdd(k, v);
+            both.Modules.AddRange(exterior.Modules);
+            both.Modules.AddRange(interior.Model.Modules);
+            both.Markers.AddRange(exterior.Markers);
+            both.Markers.AddRange(interior.Model.Markers);
+            both.Finish();
+            var bothPath = Path.Combine(dir, name + ".ship_and_interior.glb");
+            File.WriteAllBytes(bothPath, GlbWriter.Write(both));
+            paths.Add(bothPath);
+        }
         var model = interior.Model;
         foreach (var d in interior.Decks)
         {

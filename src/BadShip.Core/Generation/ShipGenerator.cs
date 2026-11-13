@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.18.0";
+    public const string Version = "0.19.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "raider", "warship"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "warship"];
@@ -33,6 +33,8 @@ public static class ShipGenerator
             case "warship": Warships.Build(c); break;
             default: throw new ArgumentException($"Unknown family '{c.Plan.Family}'.");
         }
+        // Windows first, so nothing later covers them.
+        if (recipe.Interior) HullWindows.Apply(c);
         // Fighters and citadels place their own equipment and undersides.
         var ownKit = c.Plan.Family is "fighter" or "citadel" or "utility";
         if (!ownKit) Signatures.Apply(c);

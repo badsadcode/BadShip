@@ -724,6 +724,34 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Windows_are_cut_through_the_hull_and_match_the_interior()
+    {
+        var withWindows = 0;
+        foreach (var archetype in new[] { "freighter", "research", "civilian", "warship", "ring", "industrial", "raider" })
+            for (ulong seed = 1; seed <= 4; seed++)
+            {
+                var recipe = new ShipRecipe { Seed = seed, Archetype = archetype, Interior = true };
+                var ship = ShipGenerator.Generate(recipe);
+                Assert.False(ShipValidator.Validate(ship).HasErrors, $"{archetype} {seed}");
+                if (ship.Interior is null) continue;
+                Assert.False(BadShip.Interior.InteriorValidator.Validate(ship.Interior).HasErrors, $"{archetype} {seed} interior");
+                if (ship.Interior.Windows.Count == 0) continue;
+                withWindows++;
+                // One glass pane and one marker per window, in a see-through, double-sided material.
+                Assert.Equal(ship.Interior.Windows.Count, ship.Markers.Count(m => m.Kind == "window"));
+                var glass = ship.Materials[HullWindows.Glass];
+                Assert.True(glass.Alpha < 1 && glass.DoubleSided);
+                // Windows sit in rooms people use, on the hull walls.
+                Assert.All(ship.Interior.Windows, w => Assert.DoesNotContain(ship.Interior.Rooms.First(r => r.Id == w.Room).Kind, new[] { "storage", "reactor", "cargo_hold", "stairwell" }));
+                // The ship code carries the interior option and gives back the same ship.
+                Assert.Equal(Signature(ship), Signature(ShipGenerator.Generate(ShipCode.Decode(ShipCode.Encode(recipe)))));
+            }
+        Assert.True(withWindows >= 10);
+        // Without the option, the hull is the usual one.
+        Assert.Null(ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "freighter" }).Interior);
+    }
+
+    [Fact]
     public void Fighter_family_implies_fighter_and_codes_round_trip()
     {
         var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 7, Family = "fighter" });

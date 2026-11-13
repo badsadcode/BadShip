@@ -42,6 +42,12 @@ public sealed class ShipRecipe
     /// <summary>standard (name, registration, emblems, chevrons) | none (clean, unmarked).</summary>
     public string Livery { get; set; } = "standard";
 
+    /// <summary>
+    /// Plan a walkable interior during generation and cut its windows into the hull (see-through, matching openings
+    /// in the interior's walls). The interior itself is on <see cref="Model.Ship.Interior"/>.
+    /// </summary>
+    public bool Interior { get; set; }
+
     /// <summary>intact | damaged | derelict: the same ship, with damage on top.</summary>
     public string Condition { get; set; } = "intact";
 

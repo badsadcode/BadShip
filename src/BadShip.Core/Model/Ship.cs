@@ -47,6 +47,12 @@ public sealed record MaterialDef(string Role, Vector3 Color, float Roughness, fl
 
     /// <summary>Alpha-cutout (glTF MASK): transparent parts of the texture are not drawn.</summary>
     public bool Cutout { get; init; }
+
+    /// <summary>Opacity below 1 makes a see-through material (glTF BLEND): window glass.</summary>
+    public float Alpha { get; init; } = 1f;
+
+    /// <summary>Drawn from both sides (glass seen from inside and out).</summary>
+    public bool DoubleSided { get; init; }
 }
 
 public sealed class Ship
@@ -57,6 +63,9 @@ public sealed class Ship
     public List<Marker> Markers { get; } = [];
     public List<Envelope> Envelopes { get; } = [];
     public Dictionary<string, MaterialDef> Materials { get; set; } = [];
+
+    /// <summary>The walkable interior, when the recipe asked for one (its windows are cut into this hull).</summary>
+    public Interior.ShipInterior? Interior { get; set; }
     public Aabb Bounds { get; private set; } = Aabb.Empty;
 
     public Module? Find(string id) => Modules.FirstOrDefault(m => m.Id == id);

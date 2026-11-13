@@ -21,6 +21,42 @@ public sealed class Mesh
 
     public bool IsEmpty => Positions.Count == 0;
 
+    /// <summary>
+    /// Copies the geometry added to <paramref name="src"/> after its first <paramref name="firstVertex"/> vertices
+    /// (whole triangles only): what was added to a part after its base form, kept when the base is rebuilt.
+    /// </summary>
+    public void AppendFrom(Mesh src, int firstVertex)
+    {
+        var offset = Positions.Count - firstVertex;
+        for (var i = firstVertex; i < src.Positions.Count; i++)
+        {
+            Positions.Add(src.Positions[i]);
+            Normals.Add(src.Normals[i]);
+            Uvs.Add(src.Uvs[i]);
+        }
+        foreach (var (mat, idx) in src.Groups)
+        {
+            List<int>? dst = null;
+            for (var t = 0; t + 2 < idx.Count; t += 3)
+            {
+                if (idx[t] < firstVertex || idx[t + 1] < firstVertex || idx[t + 2] < firstVertex) continue;
+                if (dst == null && !Groups.TryGetValue(mat, out dst)) Groups[mat] = dst = [];
+                dst!.Add(idx[t] + offset);
+                dst.Add(idx[t + 1] + offset);
+                dst.Add(idx[t + 2] + offset);
+            }
+        }
+    }
+
+    /// <summary>Removes everything, so a part can be rebuilt (a hull with window openings cut into it).</summary>
+    public void Clear()
+    {
+        Positions.Clear();
+        Normals.Clear();
+        Uvs.Clear();
+        Groups.Clear();
+    }
+
     public int TriangleCount
     {
         get

@@ -42,6 +42,8 @@ public static class ShipCode
         if (r.Livery is { Length: > 0 } liv && liv != "standard") Add('i', liv);
         if (r.Condition is { Length: > 0 } cond && cond != "intact") Add('c', cond);
         if (r.Length is { } len) t.Add("l" + ((int)MathF.Round(len * 10)).ToString(CultureInfo.InvariantCulture));
+        // All 26 letters are taken: digit keys from here on. 1: interior (with windows).
+        if (r.Interior) t.Add("1y");
         if (r.Overrides is { } o)
         {
             Add('h', o.HullForm);
@@ -112,6 +114,7 @@ public static class ShipCode
                     case 'o': O().HeightRatio = int.Parse(v, inv) / 1000f; break;
                     case 'r': O().WingStyle = v; break;
                     case 'j': O().WingSpan = int.Parse(v, inv) / 100f; break;
+                    case '1': r.Interior = v == "y"; break;
                     case 'q':
                         var stage = StageLetters.FirstOrDefault(kv => kv.Value == v[0]).Key ?? throw new ArgumentException($"Unknown stage letter '{v[0]}'.");
                         (r.StageSeeds ??= [])[stage] = ulong.Parse(v[1..], inv);

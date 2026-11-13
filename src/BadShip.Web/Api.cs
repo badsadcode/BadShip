@@ -34,7 +34,7 @@ public static partial class Api
     {
         var recipe = JsonSerializer.Deserialize<ShipRecipe>(recipeJson, ShipFiles.Json) ?? new ShipRecipe();
         var ship = ShipGenerator.Generate(recipe);
-        var interior = BadShip.Interior.InteriorGenerator.Build(ship);
+        var interior = ship.Interior ?? BadShip.Interior.InteriorGenerator.Build(ship);
         if (interior is null) { _interiorInfo = """{"decks":0}"""; return []; }
         var report = BadShip.Interior.InteriorValidator.Validate(interior);
         var model = interior.Model;

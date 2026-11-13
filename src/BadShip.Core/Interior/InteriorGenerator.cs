@@ -10,6 +10,9 @@ public sealed record RoomInfo(string Id, string Kind, int Deck, float[] Min, flo
 public sealed record DoorInfo(string Id, string Kind, string A, string B, int Deck, float[] Center, float[] Normal, float Width, float Height);
 public sealed record StairInfo(string Id, int FromDeck, int ToDeck, string Room, float[] Min, float[] Max);
 
+/// <summary>A window in the hull wall of a room: side +1 (port) or −1 (starboard), along Z from z0 to z1, sill to head y0–y1.</summary>
+public sealed record WindowInfo(string Id, string Room, int Deck, int Side, float Z0, float Z1, float Y0, float Y1, float WallX);
+
 /// <summary>A ship's interior: the walkable geometry (as a <see cref="Ship"/> of modules for the GLB writer) and the room graph.</summary>
 public sealed class ShipInterior
 {
@@ -18,6 +21,7 @@ public sealed class ShipInterior
     public List<RoomInfo> Rooms { get; } = [];
     public List<DoorInfo> Doors { get; } = [];
     public List<StairInfo> Stairs { get; } = [];
+    public List<WindowInfo> Windows { get; } = [];
 
     /// <summary>The hull cross-section the decks were fitted into (for the inside-the-hull check).</summary>
     public Profile Hull { get; init; }
@@ -40,23 +44,21 @@ public static class InteriorGenerator
     public const float DeckPitch = 3.4f, Slab = 0.3f, Clear = DeckPitch - Slab, Wall = 0.2f, DoorW = 1.2f, DoorH = 2.2f, HalfCorridor = 1f;
     public const string Floor = "interior_floor", WallMat = "interior_wall", Trim = "interior_trim", DoorMat = "interior_door";
 
-    public static ShipInterior? Build(Ship ship)
+    public const float WindowW = 1.4f, Sill = 1.0f, WindowH = 1.2f;
+
+    /// <summary>
+    /// Builds the interior. With <paramref name="acceptWindow"/>, rooms along the hull walls get windows: each
+    /// candidate is offered to the callback (which checks the hull can take an opening there, and reserves it) and
+    /// only accepted ones are cut into the interior's outer walls.
+    /// </summary>
+    public static ShipInterior? Build(Ship ship, Func<WindowInfo, bool>? acceptWindow = null)
     {
         var p = ship.Plan;
         if (p.Family == "fighter") return null; // a cockpit, not an interior
-        var hull = ship.Find("hull_main") ?? ship.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Lofts.Count > 0).OrderByDescending(m => m.Bounds.Size.Z).FirstOrDefault();
+        var hull = Hull(ship);
         if (hull is null || hull.Lofts.Count == 0) return null;
         var loft = hull.Lofts[0];
-        // The longest segment whose cross-section stays the same.
-        var best = -1;
-        for (var s = 0; s < loft.Segments; s++)
-        {
-            if (loft.IsStep(s)) continue;
-            var a = loft.Profiles[s];
-            var b = loft.Profiles[s + 1];
-            if (MathF.Abs(a.WBottom - b.WBottom) > 0.02f * a.WBottom || MathF.Abs(a.H - b.H) > 0.02f * a.H || MathF.Abs(a.Cy - b.Cy) > 0.05f) continue;
-            if (best < 0 || loft.Zs[s + 1] - loft.Zs[s] > loft.Zs[best + 1] - loft.Zs[best]) best = s;
-        }
+        var best = BodySegment(loft);
         if (best < 0) return null;
         var P = loft.Profiles[best];
         var z0 = MathF.Ceiling(loft.Zs[best] + 1.5f);
@@ -115,8 +117,26 @@ public static class InteriorGenerator
         if (result.Decks.Count == 0) return null;
         var plan = new Layout(ship, result, r);
         plan.Rooms();
+        if (acceptWindow != null) plan.Windows(acceptWindow);
         plan.Geometry(model, root);
         return result;
+    }
+
+    /// <summary>The hull the interior goes into, and the longest loft segment whose cross-section stays the same.</summary>
+    public static Module? Hull(Ship ship) => ship.Find("hull_main") ?? ship.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Lofts.Count > 0).OrderByDescending(m => m.Bounds.Size.Z).FirstOrDefault();
+
+    public static int BodySegment(Loft loft)
+    {
+        var best = -1;
+        for (var s = 0; s < loft.Segments; s++)
+        {
+            if (loft.IsStep(s)) continue;
+            var a = loft.Profiles[s];
+            var b = loft.Profiles[s + 1];
+            if (MathF.Abs(a.WBottom - b.WBottom) > 0.02f * a.WBottom || MathF.Abs(a.H - b.H) > 0.02f * a.H || MathF.Abs(a.Cy - b.Cy) > 0.05f) continue;
+            if (best < 0 || loft.Zs[s + 1] - loft.Zs[s] > loft.Zs[best + 1] - loft.Zs[best]) best = s;
+        }
+        return best;
     }
 
     internal static Module Add(Ship model, string id, string type, string? parent)
@@ -134,6 +154,7 @@ public static class InteriorGenerator
     private sealed class Layout(Ship ship, ShipInterior result, Rng r)
     {
         private readonly Dictionary<string, (Aabb box, int deck)> _rooms = [];
+        private List<WindowInfo> _windows => result.Windows;
         // Per deck: the hub (corridor or hold) that side rooms open onto.
         private readonly Dictionary<int, string> _hub = [];
         // Per deck: the stretch of the hub between the full-width rooms (where side rooms and the airlock go).
@@ -349,6 +370,34 @@ public static class InteriorGenerator
             }
         }
 
+        /// <summary>Window candidates along the hull walls of rooms where people are (not stores, machinery or stairs).</summary>
+        public void Windows(Func<WindowInfo, bool> accept)
+        {
+            string[] blind = ["storage", "reactor", "life_support", "cargo_hold", "engineering", "engine_room", "stairwell", "airlock", "armoury", "brig"];
+            var n = 0;
+            foreach (var room in result.Rooms)
+            {
+                if (blind.Contains(room.Kind)) continue;
+                var d = result.Decks[room.Deck];
+                foreach (var side in new[] { 1, -1 })
+                {
+                    var wallX = side * d.HalfWidth;
+                    if (MathF.Abs((side > 0 ? room.Max[0] : room.Min[0]) - wallX) > 0.05f) continue;
+                    var len = room.Max[2] - room.Min[2];
+                    var count = Math.Max(1, (int)((len - 0.6f) / 3.4f));
+                    for (var k = 0; k < count; k++)
+                    {
+                        var zc = room.Min[2] + (k + 0.5f) * len / count;
+                        if (len < WindowW + 0.8f) break;
+                        // Keep clear of doors in the same wall (the outer airlock door).
+                        if (result.Doors.Any(o => o.Deck == room.Deck && MathF.Abs(o.Center[0] - wallX) < 0.05f && MathF.Abs(o.Center[2] - zc) < (o.Width + WindowW) / 2 + 0.3f)) continue;
+                        var w = new WindowInfo($"window_{n}", room.Id, room.Deck, side, zc - WindowW / 2, zc + WindowW / 2, d.FloorY + Sill, d.FloorY + Sill + WindowH, wallX + side * Wall / 2);
+                        if (accept(w)) { result.Windows.Add(w); n++; }
+                    }
+                }
+            }
+        }
+
         // ------------------------------------------------------------------ geometry
 
         public void Geometry(Ship model, Module root)
@@ -490,43 +539,48 @@ public static class InteriorGenerator
         }
 
         /// <summary>A wall at x = <paramref name="x"/> running along Z from z0 to z1, with openings for the doors in it.</summary>
-        private static void WallAlongZ(Mesh m, float x, float z0, float z1, DeckInfo d, List<DoorInfo> doors)
+        private void WallAlongZ(Mesh m, float x, float z0, float z1, DeckInfo d, List<DoorInfo> doors)
         {
             var openings = doors.Where(o => MathF.Abs(o.Center[0] - x) < 0.05f && MathF.Abs(o.Normal[0]) > 0.5f && o.Center[2] > z0 && o.Center[2] < z1)
-                .Select(o => (c: o.Center[2], w: o.Width, h: o.Height, frame: o.Kind != "opening")).OrderBy(v => v.c).ToList();
-            Segments(z0, z1, openings, (a, b, lintel) =>
-            {
-                var y0 = lintel > 0 ? d.FloorY + lintel : d.FloorY;
-                Shapes.BoxMinMax(m, WallMat, new Vector3(x - Wall / 2, y0, a), new Vector3(x + Wall / 2, d.CeilingY, b));
-            }, (c) => Frame(m, new Vector3(x, d.FloorY, c), alongX: false));
+                .Select(o => (c: o.Center[2], w: o.Width, lo: 0f, hi: o.Height, frame: o.Kind != "opening")).ToList();
+            // Windows in the hull walls: an opening between sill and head.
+            foreach (var win in _windows.Where(v => v.Deck == d.Index && MathF.Abs(v.Side * d.HalfWidth - x) < 0.05f && v.Z0 > z0 - 0.01f && v.Z1 < z1 + 0.01f))
+                openings.Add(((win.Z0 + win.Z1) / 2, win.Z1 - win.Z0, win.Y0 - d.FloorY, win.Y1 - d.FloorY, false));
+            openings.Sort((p, q) => p.c.CompareTo(q.c));
+            Segments(z0, z1, openings, (a, b, y0, y1) =>
+                Shapes.BoxMinMax(m, WallMat, new Vector3(x - Wall / 2, d.FloorY + y0, a), new Vector3(x + Wall / 2, d.FloorY + y1, b)),
+                d.CeilingY - d.FloorY, (c) => Frame(m, new Vector3(x, d.FloorY, c), alongX: false));
         }
 
         /// <summary>A wall at z = <paramref name="z"/> running along X from x0 to x1, with openings for the doors in it.</summary>
-        private static void WallAlongX(Mesh m, float z, float x0, float x1, DeckInfo d, List<DoorInfo> doors)
+        private void WallAlongX(Mesh m, float z, float x0, float x1, DeckInfo d, List<DoorInfo> doors)
         {
             var openings = doors.Where(o => MathF.Abs(o.Center[2] - z) < 0.05f && MathF.Abs(o.Normal[2]) > 0.5f && o.Center[0] > x0 && o.Center[0] < x1)
-                .Select(o => (c: o.Center[0], w: o.Width, h: o.Height, frame: o.Kind != "opening")).OrderBy(v => v.c).ToList();
-            Segments(x0, x1, openings, (a, b, lintel) =>
-            {
-                var y0 = lintel > 0 ? d.FloorY + lintel : d.FloorY;
-                Shapes.BoxMinMax(m, WallMat, new Vector3(a, y0, z - Wall / 2), new Vector3(b, d.CeilingY, z + Wall / 2));
-            }, (c) => Frame(m, new Vector3(c, d.FloorY, z), alongX: true));
+                .Select(o => (c: o.Center[0], w: o.Width, lo: 0f, hi: o.Height, frame: o.Kind != "opening")).OrderBy(v => v.c).ToList();
+            Segments(x0, x1, openings, (a, b, y0, y1) =>
+                Shapes.BoxMinMax(m, WallMat, new Vector3(a, d.FloorY + y0, z - Wall / 2), new Vector3(b, d.FloorY + y1, z + Wall / 2)),
+                d.CeilingY - d.FloorY, (c) => Frame(m, new Vector3(c, d.FloorY, z), alongX: true));
         }
 
-        /// <summary>Wall pieces round the openings (a lintel over each), and a frame round each real door.</summary>
-        private static void Segments(float a, float b, List<(float c, float w, float h, bool frame)> openings, Action<float, float, float> piece, Action<float> frame)
+        /// <summary>
+        /// Wall pieces round the openings: full height between them, and over each opening the wall below its bottom
+        /// (a window's sill) and above its top (the lintel); a frame round each real door.
+        /// </summary>
+        private static void Segments(float a, float b, List<(float c, float w, float lo, float hi, bool frame)> openings, Action<float, float, float, float> piece, float height, Action<float> frame)
         {
             var cursor = a;
-            foreach (var (c, w, h, framed) in openings)
+            foreach (var (c, w, lo, hi, framed) in openings)
             {
-                var o0 = c - w / 2;
-                var o1 = c + w / 2;
-                if (o0 > cursor + 0.01f) piece(cursor, o0, 0);
-                piece(MathF.Max(o0, a), MathF.Min(o1, b), h);
+                var o0 = MathF.Max(c - w / 2, cursor);
+                var o1 = MathF.Min(c + w / 2, b);
+                if (o1 <= o0) continue;
+                if (o0 > cursor + 0.01f) piece(cursor, o0, 0, height);
+                if (lo > 0.01f) piece(o0, o1, 0, lo);
+                if (hi < height - 0.01f) piece(o0, o1, hi, height);
                 if (framed) frame(c);
-                cursor = MathF.Max(cursor, o1);
+                cursor = o1;
             }
-            if (b > cursor + 0.01f) piece(cursor, b, 0);
+            if (b > cursor + 0.01f) piece(cursor, b, 0, height);
         }
 
         /// <summary>The floor tint of a room kind: command, crew, work, cargo or medical (corridors keep the bare floor).</summary>
