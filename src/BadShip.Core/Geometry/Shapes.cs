@@ -134,6 +134,8 @@ public static class Shapes
     {
         var n = loft.FaceNormal(s, f);
         if (n == Vector3.Zero) return false;
+        // Glass is remembered, so an interior behind it can turn it into a real window later.
+        if (mat == "glass") loft.Panes.Add((s, f, u0, u1, v0, v1));
         Slab(m, mat, loft.FacePoint(s, f, u0, v0), loft.FacePoint(s, f, u0, v1), loft.FacePoint(s, f, u1, v1), loft.FacePoint(s, f, u1, v0), n, depth);
         return true;
     }

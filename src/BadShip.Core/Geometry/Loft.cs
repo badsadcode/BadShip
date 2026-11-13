@@ -118,6 +118,9 @@ public sealed class Loft
     public List<Profile> Profiles { get; } = [];
     public List<Vector3[]> Rings { get; } = [];
 
+    /// <summary>Every glass pane drawn on this loft's faces (segment, face, u0, u1, v0, v1): where a window can be cut.</summary>
+    public List<(int S, int F, float U0, float U1, float V0, float V1)> Panes { get; } = [];
+
     public Loft(IEnumerable<(float z, Profile p)> rings)
     {
         foreach (var (z, p) in rings)

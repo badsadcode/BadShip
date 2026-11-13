@@ -119,9 +119,10 @@ public static class Skin
 
     /// <summary>Stations along [z0, z1]: both ends, every loft ring in between, and enough between those to keep
     /// steps under <paramref name="step"/>.</summary>
-    public static List<float> Stations(Loft loft, float z0, float z1, float step = 0.75f)
+    public static List<float> Stations(Loft loft, float z0, float z1, float step = 0.75f, IEnumerable<float>? extra = null)
     {
         var marks = new SortedSet<float> { z0, z1 };
+        if (extra != null) foreach (var z in extra) if (z > z0 + 0.01f && z < z1 - 0.01f) marks.Add(z);
         foreach (var z in loft.Zs) if (z > z0 + 0.01f && z < z1 - 0.01f) marks.Add(z);
         var list = marks.ToList();
         var outList = new List<float>();
@@ -141,9 +142,10 @@ public static class Skin
     /// skin beside the deck's own floor. Faces point into the deck.
     /// </summary>
     public static void Build(Mesh walls, Mesh overhead, string wallMat, string floorMat, Loft loft, float thickness,
-        float z0, float z1, float floorY, float ceilY)
+        float z0, float z1, float floorY, float ceilY, IReadOnlyList<(int f, float z0, float z1, float v0, float v1)>? holes = null)
     {
-        var st = Stations(loft, z0, z1);
+        holes ??= [];
+        var st = Stations(loft, z0, z1, 0.75f, holes.SelectMany(h => new[] { h.z0, h.z1 }));
         Vector2[] Sec(float z) => Inset(SectionAt(loft, z), thickness);
         for (var i = 0; i + 1 < st.Count; i++)
         {
@@ -153,11 +155,22 @@ public static class Skin
             var centre = new Vector3((pa.Average(p => p.X) + pb.Average(p => p.X)) / 2, (floorY + ceilY) / 2, (za + zb) / 2);
             for (var k = 0; k < pa.Length; k++)
             {
-                var a0 = new Vector3(pa[k], za);
-                var a1 = new Vector3(pa[(k + 1) % pa.Length], za);
-                var b1 = new Vector3(pb[(k + 1) % pb.Length], zb);
-                var b0 = new Vector3(pb[k], zb);
-                foreach (var tri in new[] { new[] { a0, a1, b1 }, new[] { a0, b1, b0 } })
+                // The face between stations, in pieces round any window cut into it (v runs across the face).
+                var cuts = holes.Where(h => h.f == k && h.z0 < zb - 1e-4f && h.z1 > za + 1e-4f).ToList();
+                var vs = cuts.SelectMany(h => new[] { h.v0, h.v1 }).Append(0f).Append(1f).Select(v => Math.Clamp(v, 0, 1)).Distinct().OrderBy(v => v).ToList();
+                var tris = new List<Vector3[]>();
+                for (var j = 0; j + 1 < vs.Count; j++)
+                {
+                    float va = vs[j], vb = vs[j + 1];
+                    if (vb - va < 1e-5f) continue;
+                    var cv = (va + vb) / 2;
+                    if (cuts.Any(h => cv > h.v0 && cv < h.v1)) continue;
+                    Vector3 P(Vector2[] sec, float z, float v) => new(Vector2.Lerp(sec[k], sec[(k + 1) % sec.Length], v), z);
+                    var q0 = P(pa, za, va); var q1 = P(pa, za, vb); var q2 = P(pb, zb, vb); var q3 = P(pb, zb, va);
+                    tris.Add([q0, q1, q2]);
+                    tris.Add([q0, q2, q3]);
+                }
+                foreach (var tri in tris)
                 {
                     var poly = ClipY(ClipY(tri.ToList(), floorY, true), ceilY, false);
                     if (poly.Count < 3) continue;

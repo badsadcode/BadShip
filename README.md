@@ -495,6 +495,18 @@ door height) has to fit, so shaped decks are wider and reach further into the bl
 `Interior/Skin.cs`; the skin is a double-sided `interior_skin` material, and its overhead parts are in the deck's
 `ceiling` node (hidden when you look in from above).
 
+### Real windows in block decks (v0.25.0)
+
+Glass drawn on any loft is now remembered (`Loft.Panes`). In a shaped block deck, the block's own panes over a room
+become **real windows**: the block's loft is rebuilt with the openings, the pane's glass turns see-through
+(`window_glass`), a reveal joins the opening to a matching hole in the deck's inner skin, and the window is listed in
+the interior JSON with its block, face and rectangle (`module`, `s`, `f`, `u0`–`v1`; `side` 0 for overhead glass).
+Side windows, chamfer panes and **sloped windscreens** all work: a bridge at the front of a shaped deck opens forward
+into a low **nose nook** under the block's sloped front (too low to walk in, room to look out), so the windscreen over
+it is a window you can see the stars through.
+
+![Real windows in a bridge block](docs/images/block_windows_v0.25.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -502,7 +514,7 @@ door height) has to fit, so shaped decks are wider and reach further into the bl
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.24.0: hull-shaped block decks)
+## Status (v0.25.0: real windows in block decks)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

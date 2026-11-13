@@ -17,7 +17,10 @@ public sealed record DoorInfo(string Id, string Kind, string A, string B, int De
 public sealed record StairInfo(string Id, int FromDeck, int ToDeck, string Room, float[] Min, float[] Max, string? ToRoom = null);
 
 /// <summary>A window in the hull wall of a room: side +1 (port) or −1 (starboard), along Z from z0 to z1, sill to head y0–y1.</summary>
-public sealed record WindowInfo(string Id, string Room, int Deck, int Side, float Z0, float Z1, float Y0, float Y1, float WallX);
+/// Windows in a shaped deck are cut where the block already had glass: <c>Module</c> names the block, and S, F, U0..V1 the
+/// pane on its loft (segment, face and rectangle), which may be on a chamfer or a sloped front (Side 0: overhead).
+public sealed record WindowInfo(string Id, string Room, int Deck, int Side, float Z0, float Z1, float Y0, float Y1, float WallX,
+    string? Module = null, int S = -1, int F = -1, float U0 = 0, float U1 = 0, float V0 = 0, float V1 = 0);
 
 /// <summary>
 /// A ladder or an elevator: the decks it stops at (bottom up), the room it opens into at each stop, its shaft footprint
@@ -35,6 +38,9 @@ public sealed class ShipInterior
     public List<StairInfo> Stairs { get; } = [];
     public List<WindowInfo> Windows { get; } = [];
     public List<LiftInfo> Lifts { get; } = [];
+
+    /// <summary>Shaped decks and the block loft each one follows (with the block's module id).</summary>
+    public Dictionary<int, (Loft Loft, string Module)> DeckShells { get; } = [];
 
     /// <summary>The cross-section each deck outside the main hull was fitted into (superstructure and keel decks).</summary>
     public Dictionary<int, Profile> DeckHulls { get; } = [];
@@ -146,12 +152,13 @@ public static class InteriorGenerator
         plan.AddAnnexes();
         if (acceptWindow != null) plan.Windows(acceptWindow);
         plan.SortDecks();
+        plan.ShapedWindows();
         plan.Geometry(model, root);
         return result;
     }
 
     /// <summary>A deck that fits inside a superstructure block or the keel, before it is joined to the main decks.</summary>
-    private sealed record AnnexSpec(string Part, Profile P, float FloorY, float Ceiling, float HalfWidth, float Z0, float Z1, float Cx = 0, bool Bridge = false, Loft? Shell = null);
+    private sealed record AnnexSpec(string Part, Profile P, float FloorY, float Ceiling, float HalfWidth, float Z0, float Z1, float Cx = 0, bool Bridge = false, Loft? Shell = null, string? ShellModule = null);
 
     /// <summary>The height a shaped deck must keep clear everywhere people walk: a door's height and a little.</summary>
     private const float Walk = DoorH + 0.15f;
@@ -238,7 +245,7 @@ public static class InteriorGenerator
                 spec = spec with { Z0 = e0, Z1 = e1 };
             }
             list.Add(spec);
-            if (spec.Part == "superstructure") shapes[list.Count - 1] = Shaped(spec, blockLoft, q);
+            if (spec.Part == "superstructure") shapes[list.Count - 1] = Shaped(spec, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
         }
         // A block deck with nothing stacked on it follows the block's shape: only the band people walk in (floor to a
         // little over door height) has to fit, so it is wider and reaches further into the tapered ends.
@@ -337,6 +344,9 @@ public static class InteriorGenerator
         private readonly Dictionary<int, int> _annexDeck = [];
         // Shaped decks and the block loft each one follows.
         private readonly Dictionary<int, Loft> _shells = [];
+        private readonly Dictionary<int, string> _shellModules = [];
+        // Shaped decks whose bridge opens forward into a low nook under a sloped front: where the nook ends.
+        private readonly Dictionary<int, float> _nook = [];
         private const float SkinInset = 0.3f;
         // The elevator: its stretch along the starboard... port strip [z, z + 3.2] and shaft x range, on every main deck.
         private float? _liftZ;
@@ -862,7 +872,7 @@ public static class InteriorGenerator
                 var idx = result.Decks.Count;
                 _annexDeck[k] = idx;
                 result.Decks.Add(new DeckInfo(idx, a.FloorY, a.Ceiling, a.HalfWidth, a.Z0, a.Z1, a.HalfWidth < 3.5f, a.Part, a.Cx, a.Shell != null));
-                if (a.Shell != null) _shells[idx] = a.Shell;
+                if (a.Shell != null) { _shells[idx] = a.Shell; _shellModules[idx] = a.ShellModule!; }
                 result.DeckHulls[idx] = a.P;
                 // Rooms are laid out about the centreline, then moved across to the block's centre.
                 var nRooms = result.Rooms.Count;
@@ -1001,6 +1011,48 @@ public static class InteriorGenerator
         }
 
         /// <summary>
+        /// Real windows for shaped decks, cut where their block already has glass. A bridge at the front of a shaped deck
+        /// opens forward into a nook under the block's sloped front (too low to walk in, room to look out), so the
+        /// windscreen over it becomes a window too. A pane counts when it lies over the deck between its floor and the
+        /// skin: side panes and chamfer panes beside a room, sloped ones over the bridge and its nook.
+        /// </summary>
+        public void ShapedWindows()
+        {
+            foreach (var (deckIndex, loft) in _shells)
+            {
+                var d = result.Decks[deckIndex];
+                result.DeckShells[deckIndex] = (loft, _shellModules[deckIndex]);
+                var hw = d.HalfWidth;
+                var bridge = result.Rooms.FirstOrDefault(q => q.Deck == d.Index && q.Kind == "bridge" && MathF.Abs(q.Max[2] - d.Z1) < 0.01f);
+                var end = d.Z1;
+                if (bridge != null)
+                {
+                    // As far as a floor with a metre of headroom over its middle still fits.
+                    var z = d.Z1;
+                    while (z + 0.5f <= loft.Zs[^1] - 0.3f && BoxInsideLoft(loft, z + 0.5f, d.Cx - hw * 0.5f, d.Cx + hw * 0.5f, d.FloorY + 0.02f, d.FloorY + 1f)) z += 0.5f;
+                    if (z > d.Z1 + 0.6f) { _nook[d.Index] = z; end = z; }
+                }
+                foreach (var p in loft.Panes)
+                {
+                    var corners = new[] { loft.FacePoint(p.S, p.F, p.U0, p.V0), loft.FacePoint(p.S, p.F, p.U1, p.V0), loft.FacePoint(p.S, p.F, p.U1, p.V1), loft.FacePoint(p.S, p.F, p.U0, p.V1) };
+                    float zMin = corners.Min(c => c.Z), zMax = corners.Max(c => c.Z), yMin = corners.Min(c => c.Y), yMax = corners.Max(c => c.Y);
+                    if (zMin < d.Z0 + 0.15f || zMax > end - 0.15f) continue;
+                    // Between the floor and what the skin lets you see: sill height up to just over the flat ceiling.
+                    if (yMin < d.FloorY + 0.5f || yMax > d.CeilingY + SkinInset + 0.25f) continue;
+                    var n = loft.FaceNormal(p.S, p.F);
+                    var centre = corners.Aggregate(Vector3.Zero, (a, c) => a + c) / 4;
+                    var side = MathF.Abs(n.Y) > 0.6f ? 0 : MathF.Sign(n.X);
+                    var room = result.Rooms.Where(q => q.Deck == d.Index && centre.Z >= q.Min[2] - 0.01f && centre.Z <= q.Max[2] + 0.01f)
+                        .OrderBy(q => side == 0 ? MathF.Abs((q.Min[0] + q.Max[0]) / 2 - centre.X) : MathF.Abs((side > 0 ? q.Max[0] : q.Min[0]) - centre.X)).FirstOrDefault()
+                        ?? bridge;
+                    if (room is null) continue;
+                    result.Windows.Add(new WindowInfo($"window_{result.Windows.Count}", room.Id, d.Index, side, zMin, zMax, yMin, yMax, centre.X,
+                        _shellModules[deckIndex], p.S, p.F, p.U0, p.U1, p.V0, p.V1));
+                }
+            }
+        }
+
+        /// <summary>
         /// Numbers the decks from the bottom up (the keel deck first, superstructure decks last), and renumbers every
         /// room, door, stair, window and lift to match.
         /// </summary>
@@ -1025,6 +1077,8 @@ public static class InteriorGenerator
             result.DeckHulls.Clear(); foreach (var kv in hulls) result.DeckHulls[kv.Key] = kv.Value;
             var shells = _shells.ToDictionary(kv => map[kv.Key], kv => kv.Value);
             _shells.Clear(); foreach (var kv in shells) _shells[kv.Key] = kv.Value;
+            var shellMods = _shellModules.ToDictionary(kv => map[kv.Key], kv => kv.Value);
+            _shellModules.Clear(); foreach (var kv in shellMods) _shellModules[kv.Key] = kv.Value;
             var voids = _voids.ToDictionary(kv => map[kv.Key], kv => kv.Value);
             _voids.Clear(); foreach (var kv in voids) _voids[kv.Key] = kv.Value;
         }
@@ -1204,7 +1258,7 @@ public static class InteriorGenerator
                 var voids = _voids.GetValueOrDefault(d.Index) ?? [];
                 holes.AddRange(voids);
                 holes.AddRange(risers.Where(x => x.hi == d.Index).Select(x => (HoleX0(d, x.x0), x.x1, x.z0, x.z1)));
-                SlabWithHoles(deck.Mesh, Floor, d.Cx - hw - Wall, d.Cx + hw + Wall, d.Z0 - Wall, d.Z1 + Wall, d.FloorY - Slab, d.FloorY, holes);
+                SlabWithHoles(deck.Mesh, Floor, d.Cx - hw - Wall, d.Cx + hw + Wall, d.Z0 - Wall, _nook.TryGetValue(d.Index, out var floorEnd) ? floorEnd : d.Z1 + Wall, d.FloorY - Slab, d.FloorY, holes);
                 _shells.TryGetValue(d.Index, out var shell);
                 if (shell != null)
                 {
@@ -1212,7 +1266,12 @@ public static class InteriorGenerator
                     // where the block is taller than the deck.
                     var skinWalls = Add(model, $"skin_{d.Index}", "walls", deck.Id);
                     var skinOver = Add(model, $"ceiling_{d.Index}", "ceiling", deck.Id);
-                    Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, d.Z1 + Wall, d.FloorY, d.CeilingY);
+                    var cuts = result.Windows.Where(w => w.Deck == d.Index && w.Module != null)
+                        .Select(w => (w.F, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U0, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U1, w.V0, w.V1)).ToList();
+                    var skinEnd = _nook.TryGetValue(d.Index, out var nookEnd) ? nookEnd : d.Z1 + Wall;
+                    Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, skinEnd, d.FloorY, d.CeilingY, cuts);
+                    if (_nook.ContainsKey(d.Index))
+                        Skin.WallAcross(skinWalls.Mesh, WallMat, shell, SkinInset, nookEnd, -1e4f, 1e4f, d.FloorY, d.CeilingY, Wall);
                 }
                 else if (HasRoof(d))
                 {
@@ -1295,6 +1354,8 @@ public static class InteriorGenerator
                         {
                             // Outer walls are the skin; the rest follow it at their tops and ends.
                             if (axis == 'z' && MathF.Abs(MathF.Abs(at - d.Cx) - hw) < 0.05f) continue;
+                            // The bridge's front stays open to the nook and its windscreen.
+                            if (axis == 'x' && _nook.ContainsKey(d.Index) && MathF.Abs(at - d.Z1) < 0.05f) continue;
                             if (axis == 'z') WallAlongZ(walls.Mesh, at, a, b, d, doors, (m0, x, za, zb, y0, y1) => Skin.WallAlong(m0, WallMat, shell, SkinInset, x, za, zb, y0, y1, Wall));
                             else WallAlongX(walls.Mesh, at, a, b, d, doors, (m0, z, xa, xb, y0, y1) => Skin.WallAcross(m0, WallMat, shell, SkinInset, z,
                                 MathF.Abs(xa - (d.Cx - hw)) < 0.05f ? -1e4f : xa, MathF.Abs(xb - (d.Cx + hw)) < 0.05f ? 1e4f : xb, y0, y1, Wall));
@@ -1485,7 +1546,7 @@ public static class InteriorGenerator
             var openings = doors.Where(o => MathF.Abs(o.Center[0] - x) < 0.05f && MathF.Abs(o.Normal[0]) > 0.5f && o.Center[2] > z0 && o.Center[2] < z1)
                 .Select(o => (c: o.Center[2], w: o.Width, lo: 0f, hi: o.Height, frame: o.Kind != "opening")).ToList();
             // Windows in the hull walls: an opening between sill and head.
-            foreach (var win in _windows.Where(v => v.Deck == d.Index && MathF.Abs(d.Cx + v.Side * d.HalfWidth - x) < 0.05f && v.Z0 > z0 - 0.01f && v.Z1 < z1 + 0.01f))
+            foreach (var win in _windows.Where(v => v.Deck == d.Index && v.Module == null && MathF.Abs(d.Cx + v.Side * d.HalfWidth - x) < 0.05f && v.Z0 > z0 - 0.01f && v.Z1 < z1 + 0.01f))
                 openings.Add(((win.Z0 + win.Z1) / 2, win.Z1 - win.Z0, win.Y0 - d.FloorY, win.Y1 - d.FloorY, false));
             openings.Sort((p, q) => p.c.CompareTo(q.c));
             Segments(z0, z1, openings, (a, b, y0, y1) =>
