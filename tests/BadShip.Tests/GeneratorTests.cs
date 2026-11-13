@@ -691,6 +691,39 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Interiors_fit_the_hull_and_every_room_is_reachable()
+    {
+        var built = 0;
+        foreach (var archetype in ShipGenerator.Archetypes)
+            for (ulong seed = 1; seed <= 6; seed++)
+            {
+                var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype });
+                var interior = BadShip.Interior.InteriorGenerator.Build(ship);
+                if (archetype == "fighter") { Assert.Null(interior); continue; }
+                if (interior is null) continue;
+                built++;
+                var report = BadShip.Interior.InteriorValidator.Validate(interior);
+                Assert.False(report.HasErrors, $"{archetype} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                // Doors are nodes of their own with what an engine needs to make them work.
+                var door = interior.Model.Modules.First(m => m.Type == "door");
+                Assert.NotNull(door.Extras);
+                Assert.True(door.Extras!.ContainsKey("rooms") && door.Extras.ContainsKey("slide_axis"));
+                Assert.Contains(interior.Model.Markers, m => m.Kind == "spawn");
+                // Same ship, same interior.
+                var again = BadShip.Interior.InteriorGenerator.Build(ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype }))!;
+                Assert.Equal(interior.Rooms.Select(r => r.Id + string.Join(",", r.Min)), again.Rooms.Select(r => r.Id + string.Join(",", r.Min)));
+            }
+        Assert.True(built > 30);
+        // A big ship gets several decks with stairs, a bridge, engineering and an airlock.
+        var big = BadShip.Interior.InteriorGenerator.Build(ShipGenerator.Generate(new ShipRecipe { Seed = 7, Archetype = "freighter", Size = "medium" }))!;
+        Assert.True(big.Decks.Count >= 2);
+        Assert.Equal(big.Decks.Count - 1, big.Stairs.Count);
+        foreach (var kind in new[] { "bridge", "engineering", "airlock", "stairwell", "corridor" })
+            Assert.Contains(big.Rooms, r => r.Kind == kind);
+        Assert.Contains(big.Doors, d => d.B == "exterior");
+    }
+
+    [Fact]
     public void Fighter_family_implies_fighter_and_codes_round_trip()
     {
         var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 7, Family = "fighter" });

@@ -142,6 +142,7 @@ try
                 var warns = 0;
                 var codes = new Dictionary<string, int>();
                 long tris = 0;
+                var interiors = 0;
                 for (var i = 0; i < count; i++)
                 {
                     var ship = ShipGenerator.Generate(RecipeFrom(opts, start + (ulong)i));
@@ -150,7 +151,15 @@ try
                     if (report.Status == "error") errors++;
                     if (report.Status == "warn") warns++;
                     foreach (var issue in report.Issues) codes[issue.Code] = codes.GetValueOrDefault(issue.Code) + 1;
+                    if (opts.ContainsKey("interior") && BadShip.Interior.InteriorGenerator.Build(ship) is { } interior)
+                    {
+                        interiors++;
+                        var irep = BadShip.Interior.InteriorValidator.Validate(interior);
+                        if (irep.HasErrors) errors++;
+                        foreach (var issue in irep.Issues) codes[issue.Code] = codes.GetValueOrDefault(issue.Code) + 1;
+                    }
                 }
+                if (opts.ContainsKey("interior")) Console.WriteLine($"interiors: {interiors} of {count} ships");
                 Console.WriteLine($"{count} ships in {sw.Elapsed.TotalSeconds:0.0} s ({sw.Elapsed.TotalMilliseconds / count:0.0} ms each), avg {tris / count} triangles");
                 Console.WriteLine($"errors: {errors}, warnings: {warns}");
                 foreach (var (code, n) in codes.OrderByDescending(kv => kv.Value)) Console.WriteLine($"  {code}: {n}");
@@ -196,6 +205,19 @@ bool Emit(ShipRecipe recipe, string dir, string name)
     Console.WriteLine($"  code: {ShipCode.Encode(recipe)}");
     foreach (var issue in report.Issues) Console.WriteLine($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
     foreach (var path in paths) Console.WriteLine($"  {path}");
+    if (opts.ContainsKey("interior"))
+    {
+        var interior = BadShip.Interior.InteriorGenerator.Build(ship);
+        if (interior is null) Console.WriteLine("  interior: none (fighters and hulls too small to walk in)");
+        else
+        {
+            var irep = BadShip.Interior.InteriorValidator.Validate(interior);
+            Console.WriteLine($"  interior: {interior.Decks.Count} decks, {interior.Rooms.Count} rooms, {interior.Doors.Count} doors, {irep.Status}");
+            foreach (var issue in irep.Issues) Console.WriteLine($"  [{issue.Severity}] {issue.Code}: {issue.Message}");
+            foreach (var path in ShipFiles.SaveInterior(interior, irep, dir, name)) Console.WriteLine($"  {path}");
+            if (irep.HasErrors) return false;
+        }
+    }
     return !report.HasErrors;
 }
 

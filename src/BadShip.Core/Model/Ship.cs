@@ -24,6 +24,12 @@ public sealed class Module
     /// <summary>The lofted base forms of this module (before windows and plates): used for collision shapes.</summary>
     public List<Loft> Lofts { get; } = [];
 
+    /// <summary>Extra data written into the node's glTF extras (doors: the rooms they join, size, how they open).</summary>
+    public Dictionary<string, object>? Extras { get; set; }
+
+    /// <summary>Where the node's origin goes (otherwise the mesh's centre): a room's centre, a door's hinge line.</summary>
+    public Vector3? Pivot { get; set; }
+
     public void UpdateBounds() => Bounds = Mesh.Bounds();
 }
 

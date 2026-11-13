@@ -135,6 +135,13 @@
           <button data-mode="parts" aria-pressed="false">Parts</button>
           <button data-mode="silhouette" aria-pressed="false">Silhouette</button>
         </div>
+        <div class="seg" role="group" aria-label="View">
+          <button data-view="exterior" aria-pressed="true">Exterior</button>
+          <button data-view="interior" aria-pressed="false">Interior</button>
+          <button id="deck-down" aria-label="Deck down" hidden>&#9660;</button>
+          <button id="deck-label" hidden>deck 1</button>
+          <button id="deck-up" aria-label="Deck up" hidden>&#9650;</button>
+        </div>
         <div class="seg" role="group" aria-label="Layers">
           <button class="chip" id="t-details" aria-pressed="true">Details</button>
           <button class="chip" id="t-markers" aria-pressed="false">Markers</button>
@@ -441,7 +448,7 @@ function syncHullForms() {
   fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' || kind === 'utility' ? [] : ['keel', 'gondola', 'pods', 'none']);
   fill(document.getElementById('job'), JOBS[kind] ?? []);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
@@ -535,12 +542,25 @@ async function build(addToLog = true) {
   try {
     const r = recipe();
     const t0 = performance.now();
-    const glb = api.Generate(JSON.stringify(r));
+    let glb = api.Generate(JSON.stringify(r));
     const info = JSON.parse(api.LastInfo());
+    if (state.view === 'interior') {
+      // The interior of the same ship, one deck at a time (all decks with "all"), roof off.
+      const ib = api.Interior ? api.Interior(JSON.stringify(r), state.deck) : new Uint8Array(0);
+      const ii = api.InteriorInfo ? JSON.parse(api.InteriorInfo()) : { decks: 0 };
+      state.decks = ii.decks;
+      updateDeckControls(ii);
+      if (ib.length > 0) glb = ib;
+      else {
+        $('overlay').hidden = false;
+        $('overlay').textContent = api.Interior ? 'This ship has no interior (fighters, and hulls too small to walk in).' : 'This generator version has no interiors: switch to the newest.';
+      }
+    }
     info.ms = Math.round(performance.now() - t0);
     const root = await parseGlb(glb);
     show(root);
     readout(info, r);
+    updateDeckControls(state.view === 'interior' && api.InteriorInfo ? JSON.parse(api.InteriorInfo()) : { decks: 0 });
     showCode(api.Encode(JSON.stringify(r)));
     if (addToLog) log(root, r, info);
     $('overlay').hidden = true;
@@ -655,6 +675,26 @@ function restore(entry, card) {
   showCode(entry.code);
   markCurrent(card);
 }
+
+// ---------------------------------------------------------------- interior view
+state.view = 'exterior'; state.deck = 0; state.decks = 0;
+function updateDeckControls(ii) {
+  const show = state.view === 'interior' && ii.decks > 0;
+  for (const id of ['deck-down', 'deck-label', 'deck-up']) $(id).hidden = !show;
+  if (!show) return;
+  $('deck-label').textContent = state.deck < 0 ? `all ${ii.decks} decks` : `deck ${state.deck + 1} of ${ii.decks}`;
+  const kinds = Object.entries(ii.deck_rooms ?? {}).slice(0, 5).map(([k, n]) => `${n} ${k.replaceAll('_', ' ')}`).join(', ');
+  $('stat').textContent = `${ii.rooms} rooms, ${ii.doors} doors · this view: ${kinds} · ${ii.status}`;
+}
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+  state.view = b.dataset.view;
+  document.querySelectorAll('[data-view]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  if (state.view === 'interior') { state.deck = 0; state.cam = 'quarter'; }
+  build(false);
+}));
+$('deck-up').addEventListener('click', () => { state.deck = state.deck < 0 ? 0 : Math.min(state.deck + 1, Math.max(0, state.decks - 1)); build(false); });
+$('deck-down').addEventListener('click', () => { state.deck = Math.max(-1, state.deck - 1); build(false); });
+$('deck-label').addEventListener('click', () => { state.deck = state.deck < 0 ? 0 : -1; build(false); });
 
 // ---------------------------------------------------------------- controls
 const rand = () => 1 + Math.floor(Math.random() * 999999);

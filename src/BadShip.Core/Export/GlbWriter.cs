@@ -182,7 +182,7 @@ public static class GlbWriter
             if (include != null && !include(m)) continue;
             var parentNode = m.ParentId != null && nodeOf.TryGetValue(m.ParentId, out var pn) ? pn : root;
             var parentOrigin = m.ParentId != null && originOf.TryGetValue(m.ParentId, out var po) ? po : Vector3.Zero;
-            var origin = m.Mesh.IsEmpty ? parentOrigin : Snap(m.Bounds.Center);
+            var origin = m.Pivot is { } pv ? Snap(pv) : m.Mesh.IsEmpty ? parentOrigin : Snap(m.Bounds.Center);
             var t = origin - parentOrigin;
             var node = new Dictionary<string, object>
             {
@@ -196,6 +196,8 @@ public static class GlbWriter
                     ["detachable"] = m.Detachable,
                 },
             };
+            if (m.Extras != null)
+                foreach (var (k, v) in m.Extras) ((Dictionary<string, object?>)node["extras"])[k] = v;
             if (t != Vector3.Zero) node["translation"] = new[] { t.X, t.Y, t.Z };
             if (!m.Mesh.IsEmpty) node["mesh"] = WriteMesh(m.Mesh, origin, m.Id);
             var idx = AddNode(node);

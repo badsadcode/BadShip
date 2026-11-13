@@ -355,7 +355,45 @@ island bridge on the starboard edge. Warships mostly wear the military scheme; t
 
 ![A carrier](docs/images/carrier_v0.17.png)
 
-## Status (v0.17.0: the warship ladder)
+### Interiors (v0.18.0)
+
+`generate --interior` also writes a walkable interior that fits inside the hull:
+
+- `name.interior.glb`: the geometry, in the ship's coordinates so it lines up with the exterior. One node per deck
+  (floor, walls, stairs), a roof over the top deck, **one node per door** (type `door`, with its rooms, size,
+  `slide_axis` and `opens: slide` in the extras), and **one empty node per room** at its centre (type `room`, with
+  its kind, deck and box in the extras). Markers: `door`, `airlock`, `room`, `spawn`.
+- `name.interior.json`: decks, rooms, doors, stairs and the interior validation report.
+- `name.interior.deck_N.glb`: each deck without the roof, for previews.
+
+The longest constant section of the main hull is filled with a stack of decks (3.4 m apart, 3.1 m clear), each as
+wide as the hull allows at both its floor and ceiling. A deck has a central corridor with rooms on both sides and
+cross-corridors every 24–32 m; the bridge spans the front of the top deck and engineering the back of the lowest; a
+freighter's lowest deck is one big cargo hold; a stairwell at the same place on every deck carries ship's stairs
+(open above the flight, landings at both ends, a walkway beside it); airlocks open in the hull wall. Rooms come from
+the ship type (crew quarters, mess, medbay, labs, armoury, brig, passenger cabins, lounges, workshops, reactor...)
+with command rooms up top and machinery low, and floors tinted by zone (command, crew, work, cargo, medical).
+Narrow small craft get one deck of rooms in a row. No furniture: rooms, walls, doors, stairs and lights.
+
+The interior validator checks that every room is reachable from the airlock through doors and stairs, that rooms sit
+inside the hull, that doors join real rooms and that rooms do not overlap; `stress --interior` runs it (0 errors over
+1000 ships). **In Godot:** `tools/godot-interior/` has `door.gd` (a sliding door that reads its size and axis from the
+extras and opens when someone walks up; outer airlock doors wait for `open()`), `interior_setup.gd` (gives every
+`door` node the script and walls, floors and stairs collision; also usable as an import script via `post_import.gd`)
+and `run.sh`, which loads an interior headless, opens and closes a door, bakes a navigation mesh and walks from the
+spawn point to every room: 7 of 8 test ships reach every room (a 255 m citadel reaches 570 of 571; the miss looks like
+a precision limit of baking that much interior as one navigation tile). The Shipyard has an **Exterior / Interior**
+switch with deck buttons.
+
+Not yet: real window openings (to see people inside from outside), furniture, and a BadLevel export.
+
+![Deck plans](docs/images/interior_plans_v0.18.png)
+
+![One deck in 3D](docs/images/interior_deck_v0.18.png)
+
+![The interior view in the Shipyard](docs/images/interior_shipyard_v0.18.png)
+
+## Status (v0.18.0: interiors)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

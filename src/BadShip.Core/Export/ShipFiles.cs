@@ -41,6 +41,40 @@ public static class ShipFiles
         return paths;
     }
 
+    /// <summary>
+    /// Writes an interior: name.interior.glb (walkable geometry, door and room nodes), name.interior.json (decks,
+    /// rooms, doors, stairs and the validation report) and, for previews, name.interior.deck_N.glb per deck without
+    /// the ceiling.
+    /// </summary>
+    public static string[] SaveInterior(Interior.ShipInterior interior, ValidationReport report, string dir, string name)
+    {
+        Directory.CreateDirectory(dir);
+        var glb = Path.Combine(dir, name + ".interior.glb");
+        var json = Path.Combine(dir, name + ".interior.json");
+        File.WriteAllBytes(glb, GlbWriter.Write(interior.Model));
+        File.WriteAllText(json, JsonSerializer.Serialize(new
+        {
+            decks = interior.Decks, rooms = interior.Rooms, doors = interior.Doors, stairs = interior.Stairs, validation = report,
+        }, Json));
+        var paths = new List<string> { glb, json };
+        var model = interior.Model;
+        foreach (var d in interior.Decks)
+        {
+            var deckId = $"deck_{d.Index}";
+            bool OnDeck(Module m)
+            {
+                if (m.Type == "ceiling") return false;
+                for (var cur = m; cur != null; cur = cur.ParentId == null ? null : model.Find(cur.ParentId))
+                    if (cur.Id == deckId) return true;
+                return m.ParentId == null;
+            }
+            var path = Path.Combine(dir, $"{name}.interior.deck_{d.Index}.glb");
+            File.WriteAllBytes(path, GlbWriter.Write(model, OnDeck, markers: false));
+            paths.Add(path);
+        }
+        return [.. paths];
+    }
+
     public static string RecipeJson(Ship ship) =>
         JsonSerializer.Serialize(new { recipe = ship.Recipe, resolved = ship.Plan }, Json);
 

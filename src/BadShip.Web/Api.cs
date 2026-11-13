@@ -24,6 +24,42 @@ public static partial class Api
         return glb;
     }
 
+    /// <summary>
+    /// The interior of the ship a recipe makes: one deck (or all of them with <paramref name="deck"/> = -1) as GLB
+    /// bytes, without the roof so it can be seen from above; empty when the ship has no interior. Interior info
+    /// (decks, rooms by kind, validation) is in <see cref="InteriorInfo"/>.
+    /// </summary>
+    [JSExport]
+    public static byte[] Interior(string recipeJson, int deck)
+    {
+        var recipe = JsonSerializer.Deserialize<ShipRecipe>(recipeJson, ShipFiles.Json) ?? new ShipRecipe();
+        var ship = ShipGenerator.Generate(recipe);
+        var interior = BadShip.Interior.InteriorGenerator.Build(ship);
+        if (interior is null) { _interiorInfo = """{"decks":0}"""; return []; }
+        var report = BadShip.Interior.InteriorValidator.Validate(interior);
+        var model = interior.Model;
+        var d = Math.Clamp(deck, -1, interior.Decks.Count - 1);
+        bool Keep(BadShip.Model.Module m)
+        {
+            if (m.Type == "ceiling") return false;
+            if (d < 0) return true;
+            for (var cur = m; cur != null; cur = cur.ParentId == null ? null : model.Find(cur.ParentId))
+                if (cur.Id == $"deck_{d}") return true;
+            return m.ParentId == null;
+        }
+        // A plain dictionary: the trimmed browser build cannot serialize anonymous types.
+        var kinds = interior.Rooms.Where(r => d < 0 || r.Deck == d).GroupBy(r => r.Kind).OrderByDescending(g => g.Count())
+            .Select(g => $"\"{g.Key}\":{g.Count()}");
+        _interiorInfo = $"{{\"decks\":{interior.Decks.Count},\"deck\":{d},\"rooms\":{interior.Rooms.Count}," +
+            $"\"doors\":{interior.Doors.Count(x => x.Kind != "opening")},\"deck_rooms\":{{{string.Join(",", kinds)}}},\"status\":\"{report.Status}\"}}";
+        return GlbWriter.Write(model, Keep, markers: false);
+    }
+
+    private static string _interiorInfo = "{}";
+
+    [JSExport]
+    public static string InteriorInfo() => _interiorInfo;
+
     /// <summary>Recipe, metadata, validation and timing of the last generated ship, as JSON.</summary>
     [JSExport]
     public static string LastInfo() => _info;
