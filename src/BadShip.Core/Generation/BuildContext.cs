@@ -180,10 +180,11 @@ public sealed class BuildContext
     }
 
     public (Module module, Loft loft) AddLoft(string id, string type, ModuleTier tier, string? parentId,
-        IEnumerable<(float z, Profile p)> rings, string material, string? partKind = "hull")
+        IEnumerable<(float z, Profile p)> rings, string material, string? partKind = "hull", Action<Loft>? setup = null)
     {
         var m = Add(id, type, tier, parentId);
         var loft = new Loft(rings);
+        setup?.Invoke(loft);
         loft.Build(m.Mesh, material);
         m.Lofts.Add(loft);
         if (partKind != null) Lofts.Add(new LoftPart(m, loft, partKind));

@@ -140,6 +140,17 @@ public sealed class Loft
     public float ZMin => Zs[0];
     public float ZMax => Zs[^1];
 
+    /// <summary>Whether the ends are closed. An end buried inside another part stays open, so the two insides join.</summary>
+    public bool CapStart { get; set; } = true;
+    public bool CapEnd { get; set; } = true;
+
+    /// <summary>
+    /// A hole in an end cap where another part passes through it (a spine entering a command section): a ring with as
+    /// many corners as this loft's, lying inside its end ring. The cap becomes the band between the two.
+    /// </summary>
+    public Vector3[]? StartHole { get; set; }
+    public Vector3[]? EndHole { get; set; }
+
     public void Build(Mesh m, string material, bool capStart = true, bool capEnd = true)
     {
         for (var s = 0; s < Segments; s++)
@@ -148,8 +159,23 @@ public sealed class Loft
                 var q = Face(s, f);
                 m.AddQuad(material, q[0], q[1], q[2], q[3], OutwardHint(s, f));
             }
-        if (capStart) m.AddPolygon(material, Rings[0], -Vector3.UnitZ);
-        if (capEnd) m.AddPolygon(material, Rings[^1], Vector3.UnitZ);
+        if (capStart) Cap(m, material, false);
+        if (capEnd) Cap(m, material, true);
+    }
+
+    private void Cap(Mesh m, string material, bool end)
+    {
+        if (!(end ? CapEnd : CapStart)) return;
+        var ring = end ? Rings[^1] : Rings[0];
+        var hole = end ? EndHole : StartHole;
+        var n = end ? Vector3.UnitZ : -Vector3.UnitZ;
+        if (hole is null || hole.Length != ring.Length) { m.AddPolygon(material, ring, n); return; }
+        for (var i = 0; i < ring.Length; i++)
+        {
+            var j = (i + 1) % ring.Length;
+            if (Vector3.DistanceSquared(ring[i], ring[j]) < 1e-8f && Vector3.DistanceSquared(hole[i], hole[j]) < 1e-8f) continue;
+            m.AddQuad(material, ring[i], ring[j], hole[j], hole[i], n);
+        }
     }
 
     /// <summary>
@@ -183,8 +209,8 @@ public sealed class Loft
                         m.AddQuad(material, FacePoint(s, f, ua, va), FacePoint(s, f, ua, vb), FacePoint(s, f, ub, vb), FacePoint(s, f, ub, va), hint);
                     }
             }
-        m.AddPolygon(material, Rings[0], -Vector3.UnitZ);
-        if (frontCapHoles is not { Count: > 0 }) { m.AddPolygon(material, Rings[^1], Vector3.UnitZ); return; }
+        Cap(m, material, false);
+        if (frontCapHoles is not { Count: > 0 }) { Cap(m, material, true); return; }
         // The front cap with openings: in bands between the holes' and the cap's corners' heights, the cap's span at
         // each band minus the holes crossing it.
         var ring = Rings[^1];

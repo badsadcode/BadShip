@@ -863,6 +863,35 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Command_sections_get_decks_joined_to_the_spine()
+    {
+        // A spine ship's command section is a big block at the front with the spine running into it: it gets decks at the
+        // spine's deck heights, the first joined to its spine deck through a doorway on the level, and its faces are open
+        // where the spine passes through.
+        var joined = 0;
+        foreach (var (archetype, seed) in new[] { ("freighter", 1UL), ("research", 1UL), ("freighter", 2UL) })
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "large", Interior = true });
+            if (ship.Plan.Family != "spine") continue;
+            var interior = ship.Interior!;
+            Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors, $"{archetype} {seed}");
+            var cmd = ship.Find("command")!;
+            Assert.False(cmd.Lofts[0].StartHole is null);
+            Assert.False(ship.Find("spine")!.Lofts[0].CapEnd);
+            var inside = interior.Decks.Where(d => d.Part == "superstructure" && d.Z0 >= cmd.Bounds.Min.Z - 1 && d.FloorY < cmd.Bounds.Max.Y - 2).ToList();
+            Assert.True(inside.Count >= 2, $"{archetype} {seed}: {inside.Count} decks in the command section");
+            // The doorway: one opening on the spine deck and one on the command deck, at the same place.
+            var deckOf = interior.Rooms.ToDictionary(r => r.Id, r => r.Deck);
+            var across = interior.Doors.Where(d => deckOf.TryGetValue(d.A, out var da) && deckOf.TryGetValue(d.B, out var db)
+                && interior.Decks[da].Part == "hull" && inside.Any(x => x.Index == db)).ToList();
+            Assert.Contains(across, d => interior.Decks[d.Deck].Part == "hull");
+            Assert.Contains(across, d => inside.Any(x => x.Index == d.Deck));
+            joined++;
+        }
+        Assert.True(joined >= 2, $"{joined} spine ships");
+    }
+
+    [Fact]
     public void Bridges_in_tall_blocks_sit_at_their_front_glass()
     {
         // Overhanging and blunt bridge blocks can be many decks tall, with their glass far above the block's floor. The

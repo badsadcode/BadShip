@@ -69,15 +69,19 @@ public static class HullFamilies
         var sw = B * r.Range(0.24f, 0.34f);
         var sh = H * r.Range(0.38f, 0.55f);
         var spineP = Profile.Box(0, 0, sw, sh, MathF.Min(sw, sh) * 0.18f);
+        // The spine runs into the engineering block and the command section: its ends are open inside them, and their
+        // faces have a hole where it passes through, so the insides join (a deck can walk on through).
         var (spine, _) = c.AddLoft("spine", "spine", ModuleTier.Primary, null,
-            [(zEngFront - 2, spineP), (zCmdRear + 2, spineP)], Roles.HullSecondary, "spine");
+            [(zEngFront - 2, spineP), (zCmdRear + 2, spineP)], Roles.HullSecondary, "spine", l => { l.CapStart = false; l.CapEnd = false; });
+        Vector3[] SpineRing(float z) => [.. spineP.Points().Select(q => new Vector3(q.X, q.Y, z))];
 
         // Rear mass: engineering block.
         var ew = B * r.Range(0.7f, 0.95f);
         var eh = H * r.Range(0.95f, 1.25f);
         var engP = new Profile(0, H * r.Range(-0.05f, 0.1f), ew * 0.9f, ew, eh, ew * r.Range(0.05f, 0.12f), eh * r.Range(0.12f, 0.3f));
         var (eng, engLoft) = c.AddLoft("engine_block", "engineering_block", ModuleTier.Primary, spine.Id,
-            [(zEngFace, engP.Scaled(0.94f, 0.94f)), (zEngFace + 1.2f, engP), (zEngFront - 1.2f, engP), (zEngFront, engP.Scaled(0.9f, 0.9f))], Roles.HullMain);
+            [(zEngFace, engP.Scaled(0.94f, 0.94f)), (zEngFace + 1.2f, engP), (zEngFront - 1.2f, engP), (zEngFront, engP.Scaled(0.9f, 0.9f))], Roles.HullMain,
+            setup: l => l.EndHole = SpineRing(zEngFront));
         c.AddDeck(eng, engP.Top, -engP.TopFlatHalf, engP.TopFlatHalf, zEngFace + 1.5f, zEngFront - 1.5f, 0);
         c.AddSides(eng, engLoft, 1, Profile.FacePosX, Profile.FaceNegX);
         c.AddBelly(eng, engP, zEngFace + 1.5f, zEngFront - 1.5f, main: false);
@@ -92,7 +96,8 @@ public static class HullFamilies
         var zProw = L / 2 - prowLen;
         List<(float, Profile)> rings = [(zCmdRear, cmdP.Scaled(0.92f, 0.92f)), (zCmdRear + 1.5f, cmdP), (zProw, cmdP)];
         rings.AddRange(Parts.Prow(cmdP, zProw, L / 2, p.ProwStyle));
-        var (cmd, cmdLoft) = c.AddLoft("command", "command_section", ModuleTier.Primary, spine.Id, rings, Roles.HullMain);
+        var (cmd, cmdLoft) = c.AddLoft("command", "command_section", ModuleTier.Primary, spine.Id, rings, Roles.HullMain,
+            setup: l => l.StartHole = SpineRing(zCmdRear));
         var cmdDeck = c.AddDeck(cmd, cmdP.Top, -cmdP.TopFlatHalf, cmdP.TopFlatHalf, zCmdRear + 2, zProw - 0.5f, 0);
         if (p.ProwStyle == "stepped")
         {

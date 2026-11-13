@@ -89,22 +89,9 @@ public static class InteriorGenerator
         var hull = Hull(ship);
         if (hull is null || hull.Lofts.Count == 0) return null;
         var loft = hull.Lofts[0];
-        var best = BodySegment(loft);
-        if (best < 0) return null;
-        var P = loft.Profiles[best];
-        var z0 = MathF.Ceiling(loft.Zs[best] + 1.5f);
-        var z1 = MathF.Floor(loft.Zs[best + 1] - 1.5f);
-        if (z1 - z0 < 8) return null;
-
+        var decks = MainDecks(ship);
+        if (decks is null) return null;
         var r = Rng.Stream(ship.Recipe.Seed, "interior");
-        var yLo = P.Bottom + MathF.Min(1.2f, P.H * 0.08f);
-        var yHi = P.Top - MathF.Min(1f, P.H * 0.06f);
-        var usable = yHi - yLo;
-        if (usable < Clear + Slab) return null;
-        var n = Math.Clamp((int)((usable - Slab) / DeckPitch), 1, 6);
-        var stack = n * DeckPitch;
-        var floor0 = yLo + (usable - stack) / 2 + Slab;
-
         var model = new Ship { Recipe = ship.Recipe, Plan = ship.Plan };
         model.Materials = new Dictionary<string, MaterialDef>(ship.Materials);
         model.Materials[Floor] = new MaterialDef(Floor, Palettes.Linear("#3b4046"), 0.85f, 0.3f, Vector3.Zero, 1);
@@ -114,52 +101,10 @@ public static class InteriorGenerator
         model.Materials[SkinMat] = new MaterialDef(SkinMat, Palettes.Linear("#9aa1a8"), 0.7f, 0.2f, Vector3.Zero, 1) { DoubleSided = true };
         foreach (var (zone, hex) in new[] { ("command", "#3f5670"), ("crew", "#4d5747"), ("work", "#6a5434"), ("cargo", "#56493a"), ("medical", "#2f6b66"), ("plaza", "#5b4a6e") })
             model.Materials["zone_" + zone] = new MaterialDef("zone_" + zone, Palettes.Linear(hex), 0.8f, 0.2f, Vector3.Zero, 1);
-        var result = new ShipInterior { Model = model, Hull = P };
+        var result = new ShipInterior { Model = model, Hull = loft.Profiles[BodySegment(loft)] };
         var root = Add(model, "interior", "interior", null);
 
-        // Decks that are wide enough; narrow hulls get one deck of rooms in a row.
-        for (var d = 0; d < n; d++)
-        {
-            var fy = floor0 + d * DeckPitch;
-            // Hull decks follow the hull's shape (see Skin): only the band people walk in has to fit.
-            var walkHw = float.MaxValue;
-            for (var y = fy - Slab; y <= fy + Walk + 0.01f; y += 0.25f) walkHw = MathF.Min(walkHw, P.HalfWidthAt(y));
-            var hw = walkHw - 0.6f;
-            hw = MathF.Floor(hw * 2) / 2;
-            if (hw < 1.5f) continue;
-            var narrow = hw < 3.5f;
-            if (narrow && result.Decks.Count > 0) continue;
-            result.Decks.Add(new DeckInfo(result.Decks.Count, fy, fy + Clear, hw, z0, z1, narrow));
-            if (narrow) break;
-        }
-        // A stack needs room for a proper stairwell on every deck (a flight, a walkway beside it and the corridor):
-        // decks narrower than that at the bottom or top of a tapering hull are left out, keeping the longest run of
-        // consecutive decks.
-        if (result.Decks.Count > 1)
-        {
-            var best2 = new List<DeckInfo>();
-            var run = new List<DeckInfo>();
-            foreach (var d in result.Decks)
-            {
-                if (d.HalfWidth >= 4.5f && (run.Count == 0 || MathF.Abs(d.FloorY - run[^1].FloorY - DeckPitch) < 0.01f)) run.Add(d);
-                else run = d.HalfWidth >= 4.5f ? [d] : [];
-                if (run.Count > best2.Count) best2 = [.. run];
-            }
-            if (best2.Count == 0) best2 = [result.Decks.OrderByDescending(d => d.HalfWidth).First()];
-            result.Decks.Clear();
-            for (var i = 0; i < best2.Count; i++) result.Decks.Add(best2[i] with { Index = i });
-        }
-        if (result.Decks.Count == 0) return null;
-        // Each deck reaches on into the hull's nose and tail as far as its walking band still fits.
-        for (var i = 0; i < result.Decks.Count; i++)
-        {
-            var d = result.Decks[i];
-            bool Fits(float z) => BoxInsideLoft(loft, z, -d.HalfWidth - 0.6f, d.HalfWidth + 0.6f, d.FloorY - Slab, d.FloorY + Walk);
-            var (e0, e1) = (d.Z0, d.Z1);
-            while (e1 + 0.5f <= loft.Zs[^1] - 0.5f && Fits(e1 + 0.5f)) e1 += 0.5f;
-            while (e0 - 0.5f >= loft.Zs[0] + 0.5f && Fits(e0 - 0.5f)) e0 -= 0.5f;
-            result.Decks[i] = d with { Z0 = MathF.Floor(e0), Z1 = MathF.Floor(e1), Shaped = true };
-        }
+        result.Decks.AddRange(decks);
         var plan = new Layout(ship, result, r, Annexes(ship, result));
         plan.HullShell(loft, hull.Id);
         plan.Rooms();
@@ -171,8 +116,80 @@ public static class InteriorGenerator
         return result;
     }
 
+    /// <summary>
+    /// The decks of the main hull, before any rooms: the longest constant section of the hull filled with a stack of
+    /// decks (3.4 m apart, 3.1 m clear), each reaching on into the hull's nose and tail as far as its walking band
+    /// still fits. Null when the hull has no room for one.
+    /// </summary>
+    public static List<DeckInfo>? MainDecks(Ship ship)
+    {
+        if (ship.Plan.Family == "fighter") return null;
+        var hull = Hull(ship);
+        if (hull is null || hull.Lofts.Count == 0) return null;
+        var loft = hull.Lofts[0];
+        var best = BodySegment(loft);
+        if (best < 0) return null;
+        var P = loft.Profiles[best];
+        var z0 = MathF.Ceiling(loft.Zs[best] + 1.5f);
+        var z1 = MathF.Floor(loft.Zs[best + 1] - 1.5f);
+        if (z1 - z0 < 8) return null;
+        var yLo = P.Bottom + MathF.Min(1.2f, P.H * 0.08f);
+        var yHi = P.Top - MathF.Min(1f, P.H * 0.06f);
+        var usable = yHi - yLo;
+        if (usable < Clear + Slab) return null;
+        var n = Math.Clamp((int)((usable - Slab) / DeckPitch), 1, 6);
+        var stack = n * DeckPitch;
+        var floor0 = yLo + (usable - stack) / 2 + Slab;
+
+        var decks = new List<DeckInfo>();
+        // Decks that are wide enough; narrow hulls get one deck of rooms in a row.
+        for (var d = 0; d < n; d++)
+        {
+            var fy = floor0 + d * DeckPitch;
+            // Hull decks follow the hull's shape (see Skin): only the band people walk in has to fit.
+            var walkHw = float.MaxValue;
+            for (var y = fy - Slab; y <= fy + Walk + 0.01f; y += 0.25f) walkHw = MathF.Min(walkHw, P.HalfWidthAt(y));
+            var hw = walkHw - 0.6f;
+            hw = MathF.Floor(hw * 2) / 2;
+            if (hw < 1.5f) continue;
+            var narrow = hw < 3.5f;
+            if (narrow && decks.Count > 0) continue;
+            decks.Add(new DeckInfo(decks.Count, fy, fy + Clear, hw, z0, z1, narrow));
+            if (narrow) break;
+        }
+        // A stack needs room for a proper stairwell on every deck (a flight, a walkway beside it and the corridor):
+        // decks narrower than that at the bottom or top of a tapering hull are left out, keeping the longest run of
+        // consecutive decks.
+        if (decks.Count > 1)
+        {
+            var best2 = new List<DeckInfo>();
+            var run = new List<DeckInfo>();
+            foreach (var d in decks)
+            {
+                if (d.HalfWidth >= 4.5f && (run.Count == 0 || MathF.Abs(d.FloorY - run[^1].FloorY - DeckPitch) < 0.01f)) run.Add(d);
+                else run = d.HalfWidth >= 4.5f ? [d] : [];
+                if (run.Count > best2.Count) best2 = [.. run];
+            }
+            if (best2.Count == 0) best2 = [decks.OrderByDescending(d => d.HalfWidth).First()];
+            decks.Clear();
+            for (var i = 0; i < best2.Count; i++) decks.Add(best2[i] with { Index = i });
+        }
+        if (decks.Count == 0) return null;
+        // Each deck reaches on into the hull's nose and tail as far as its walking band still fits.
+        for (var i = 0; i < decks.Count; i++)
+        {
+            var d = decks[i];
+            bool Fits(float z) => BoxInsideLoft(loft, z, -d.HalfWidth - 0.6f, d.HalfWidth + 0.6f, d.FloorY - Slab, d.FloorY + Walk);
+            var (e0, e1) = (d.Z0, d.Z1);
+            while (e1 + 0.5f <= loft.Zs[^1] - 0.5f && Fits(e1 + 0.5f)) e1 += 0.5f;
+            while (e0 - 0.5f >= loft.Zs[0] + 0.5f && Fits(e0 - 0.5f)) e0 -= 0.5f;
+            decks[i] = d with { Z0 = MathF.Floor(e0), Z1 = MathF.Floor(e1), Shaped = true };
+        }
+        return decks;
+    }
+
     /// <summary>A deck that fits inside a superstructure block or the keel, before it is joined to the main decks.</summary>
-    private sealed record AnnexSpec(string Part, Profile P, float FloorY, float Ceiling, float HalfWidth, float Z0, float Z1, float Cx = 0, bool Bridge = false, Loft? Shell = null, string? ShellModule = null);
+    private sealed record AnnexSpec(string Part, Profile P, float FloorY, float Ceiling, float HalfWidth, float Z0, float Z1, float Cx = 0, bool Bridge = false, Loft? Shell = null, string? ShellModule = null, bool Entry = false);
 
     /// <summary>The height a shaped deck must keep clear everywhere people walk: a door's height and a little.</summary>
     private const float Walk = DoorH + 0.15f;
@@ -188,7 +205,7 @@ public static class InteriorGenerator
         var list = new List<AnnexSpec>();
         var shapes = new Dictionary<int, AnnexSpec?>();
         var decks = result.Decks;
-        var blocks = ship.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Lofts.Count > 0 && (m.Type is "bridge_block" or "superstructure" or "keel" || m.Type == "gondola" && ship.Recipe.Interior))
+        var blocks = ship.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Lofts.Count > 0 && (m.Type is "bridge_block" or "superstructure" or "keel" or "command_section" || m.Type == "gondola" && ship.Recipe.Interior))
             .Select(m => (m, s: BodySegment(m.Lofts[0]))).Where(x => x.s >= 0)
             .Select(x => (x.m, loft: x.m.Lofts[0], P: x.m.Lofts[0].Profiles[x.s], za: x.m.Lofts[0].Zs[x.s], zb: x.m.Lofts[0].Zs[x.s + 1]))
             .Where(x => MathF.Abs(x.P.Cx) < 3f).OrderBy(x => x.P.Bottom).ToList();
@@ -228,6 +245,27 @@ public static class InteriorGenerator
             {
                 list.Add(sp);
                 if (sp.Part is "superstructure" or "gondola" or "keel") shapes[list.Count - 1] = Shaped(sp, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
+            }
+            // A command section at the end of a spine (the spine runs into it, open): decks at the spine's deck heights,
+            // from the deck under the spine's top one upwards, one deck apart. The first meets its spine deck end to end
+            // (a doorway between them, on the level); the others climb from it by stairs, and whatever stands on top of
+            // the command section climbs on from the highest.
+            if (m.Type == "command_section")
+            {
+                var junction = decks.Count >= 2 ? decks[^2] : decks[^1];
+                var meet = decks.Max(d => d.Z1);
+                // Joined only where the spine's decks reach its back.
+                if (blockLoft.Zs[0] > junction.Z1 - 0.5f || blockLoft.Zs[0] < junction.Z1 - 4f) continue;
+                var first = true;
+                for (var fy = junction.FloorY; fy + Clear <= q.Top - 0.3f; fy += DeckPitch)
+                {
+                    if (Make(fy, Clear, false) is not { } sp) break;
+                    sp = sp with { Z0 = first ? junction.Z1 : MathF.Max(sp.Z0, meet), Entry = first };
+                    if (sp.Z1 - sp.Z0 < 6) break;
+                    Add(sp);
+                    first = false;
+                }
+                continue;
             }
             // A bridge block: the bridge deck goes where its crew can see out, with the bottom of the front glass at
             // about sill height over the floor, however tall the block is; the space under it fills with decks one
@@ -412,7 +450,7 @@ public static class InteriorGenerator
         // both decks. Decks are given as indices into the main stack, or (−1 − k) for the k-th annex.
         private sealed record Link(int Annex, int Other, bool Up, string Kind, float Z, float Len, float X0, float W, float Run, bool Section = true, float Foot = float.NaN);
         // A ladder takes 3.6 m of deck: its rungs from z + 1.3 to z + 2.3, with room to step on and off either side.
-        private const float LadderLen = 3.6f, LadderFrom = 1.3f;
+        private const float LadderLen = 3.6f, LadderFrom = 1.3f, CompactLadder = 3f;
         // Where engineering ends on the lowest deck and the bridge starts on the top one (ladders may stand in them).
         private float _engEnd = float.NaN, _bridgeStart = float.NaN;
         private readonly List<Link> _links = [];
@@ -826,6 +864,8 @@ public static class InteriorGenerator
             for (var k = 0; k < annexSpecs.Count; k++)
             {
                 var a = annexSpecs[k];
+                // A command section's first deck is joined to its spine deck through a doorway (see AddAnnexes).
+                if (a.Entry) { _annexDeck[k] = -1; continue; }
                 // The deck it joins: the keel joins the lowest deck; a superstructure block the highest deck under it.
                 int other;
                 float otherFloor, otherHw, otherCx = 0;
@@ -906,20 +946,40 @@ public static class InteriorGenerator
                     foreach (var l in _links.Where(l => l.Annex == k || l.Other == -1 - k)) Claim(full, l.Z, l.Z + l.Len);
                     link = Search(full);
                 }
-                // Stacked block decks whose only overlap is the landing the lower one's own ladder arrives in: a ladder
-                // tower, the next ladder up standing beside the first in the same landing room.
-                if (link is null && other < 0 && right - left >= 5f)
+                // Stacked block decks whose only overlap is where the lower one's own stairs or ladder arrive: a ladder
+                // tower, the next ladder up standing beside them in the same landing room; as a last resort a compact
+                // ladder landing (3 m) wherever the two decks still overlap.
+                var heres = new List<List<(float a, float b)>> { here };
+                if (a.Bridge && BridgeLen(a) > 0)
+                {
+                    var full = new List<(float a, float b)> { (a.Z0 + 0.4f, a.Z1 - MathF.Min(2.5f, (a.Z1 - a.Z0) * 0.15f)) };
+                    foreach (var l in _links.Where(l => l.Annex == k || l.Other == -1 - k)) Claim(full, l.Z, l.Z + l.Len);
+                    heres.Add(full);
+                }
+                if (link is null && other < 0)
                 {
                     var j = -1 - other;
-                    foreach (var l in _links.Where(l => l.Kind == "ladder" && (l.Annex == j || l.Other == -1 - j)))
+                    foreach (var h in heres)
                     {
-                        var x0 = l.X0 + 2f;
-                        if (x0 + 1f + 0.9f > right - Wall / 2) continue;
-                        if (!here.Any(h => h.a <= l.Z + 0.001f && l.Z + LadderLen <= h.b + 0.001f)) continue;
-                        link = new Link(k, other, a.Part == "superstructure", "ladder", l.Z, LadderLen, x0, 1f, 1f);
-                        break;
+                        foreach (var l in _links.Where(l => l.Annex == j || l.Other == -1 - j))
+                        {
+                            var x0 = l.X0 + l.W + 1f;
+                            if (x0 < left + Wall / 2 || x0 + 1f + 0.9f > right - Wall / 2) continue;
+                            for (var z = l.Z; z + LadderLen <= l.Z + l.Len + 0.001f && link is null; z += 0.5f)
+                                if (h.Any(f => f.a <= z + 0.001f && z + LadderLen <= f.b + 0.001f))
+                                    link = new Link(k, other, a.Part == "superstructure", "ladder", z, LadderLen, x0, 1f, 1f);
+                            if (link != null) break;
+                        }
+                        if (link != null) break;
                     }
                 }
+                if (link is null && other < 0)
+                    foreach (var h in heres)
+                    {
+                        if (Both(h, there).Where(x => x.b - x.a >= CompactLadder).OrderBy(x => x.a).Cast<(float a, float b)?>().FirstOrDefault() is not { } f) continue;
+                        link = new Link(k, other, a.Part == "superstructure", "ladder", f.a, CompactLadder, left + Wall / 2, 1f, 1f);
+                        break;
+                    }
                 if (link is null) continue;
                 _links.Add(link);
                 _annexDeck[k] = -1;
@@ -974,6 +1034,8 @@ public static class InteriorGenerator
                 (landings.TryGetValue(l.Annex, out var x) ? x : landings[l.Annex] = []).Add((l.Z, l.Z + l.Len, l.Kind));
                 if (l.Other < 0) (landings.TryGetValue(-1 - l.Other, out var y) ? y : landings[-1 - l.Other] = []).Add((l.Z, l.Z + l.Len, l.Kind));
             }
+            for (var k = 0; k < annexSpecs.Count; k++)
+                if (annexSpecs[k].Entry) (landings.TryGetValue(k, out var x) ? x : landings[k] = []).Add((annexSpecs[k].Z0, annexSpecs[k].Z0 + 3f, "entry"));
             foreach (var k in landings.Keys.OrderBy(k => k))
             {
                 var a = annexSpecs[k];
@@ -1000,6 +1062,21 @@ public static class InteriorGenerator
                     }
                 }
             }
+            // Doorways from the spine's decks into the command sections they run into: in the spine deck's end wall and in
+            // the command deck's back wall, which meet.
+            for (var k = 0; k < annexSpecs.Count; k++)
+            {
+                var a = annexSpecs[k];
+                if (!a.Entry || !_annexDeck.TryGetValue(k, out var ci)) continue;
+                var cd = result.Decks[ci];
+                var sd = result.Decks.Take(mainCount).First(d => MathF.Abs(d.FloorY - a.FloorY) < 0.01f);
+                string? At(DeckInfo d, float x, float z) => result.Rooms.Where(q => q.Deck == d.Index && x > q.Min[0] && x < q.Max[0] && z > q.Min[2] && z < q.Max[2])
+                    .OrderBy(q => (q.Max[0] - q.Min[0]) * (q.Max[2] - q.Min[2])).FirstOrDefault()?.Id;
+                if (At(sd, 0, sd.Z1 - 0.3f) is not { } back || At(cd, a.Cx, cd.Z0 + 0.3f) is not { } front) continue;
+                var c = new Vector3(0, a.FloorY, a.Z0);
+                Door("opening", back, front, sd.Index, c, Vector3.UnitZ, 2f);
+                Door("opening", back, front, cd.Index, c, Vector3.UnitZ, 2f);
+            }
             int DeckOf(int i) => i >= 0 ? i : _annexDeck[-1 - i];
             var n = 0;
             foreach (var l in _links)
@@ -1009,7 +1086,8 @@ public static class InteriorGenerator
                 var (lo, hi) = l.Up ? (other, annex) : (annex, other);
                 string RoomAt(DeckInfo d, float x, float z) =>
                     result.Rooms.Where(q => q.Deck == d.Index && q.Kind != "stairwell" && x > q.Min[0] && x < q.Max[0] && z > q.Min[2] && z < q.Max[2])
-                        .OrderBy(q => (q.Max[0] - q.Min[0]) * (q.Max[2] - q.Min[2])).First().Id;
+                        .OrderBy(q => (q.Max[0] - q.Min[0]) * (q.Max[2] - q.Min[2])).FirstOrDefault()?.Id
+                        ?? throw new InvalidOperationException($"No room at x {x:0.00} z {z:0.00} on deck {d.Index} ({d.Part}, cx {d.Cx}, hw {d.HalfWidth}, z {d.Z0}..{d.Z1}); link {l}; rooms there: {string.Join(" ", result.Rooms.Where(q => q.Deck == d.Index).Select(q => $"{q.Id}[{q.Min[0]:0.0},{q.Max[0]:0.0}]x[{q.Min[2]:0.0},{q.Max[2]:0.0}]"))}");
                 var cx = l.X0 + l.W / 2;
                 if (l.Kind == "stairs")
                 {
@@ -1022,7 +1100,7 @@ public static class InteriorGenerator
                     var foot = float.IsNaN(l.Foot) ? l.Z + LadderFrom : l.Foot;
                     var (z0, z1) = (foot, foot + 1f);
                     var zc = (z0 + z1) / 2;
-                    result.Lifts.Add(new LiftInfo($"ladder_{n++}", "ladder", [lo.Index, hi.Index], [RoomAt(lo, cx, zc), RoomAt(hi, l.X0 + 1.6f, zc)],
+                    result.Lifts.Add(new LiftInfo($"ladder_{n++}", "ladder", [lo.Index, hi.Index], [RoomAt(lo, cx, zc), RoomAt(hi, l.X0 + l.W + 0.55f, zc)],
                         [l.X0, l.X0 + l.W, z0, z1], [A(new Vector3(l.X0 + l.W + 0.55f, lo.FloorY, zc)), A(new Vector3(l.X0 + l.W + 0.55f, hi.FloorY, zc))], []));
                 }
             }
@@ -1096,7 +1174,7 @@ public static class InteriorGenerator
             var ids = new List<(float a, float b, string id)>();
             foreach (var (a, b, kind) in marks)
             {
-                var kindName = kind == "stairs" ? "stair_hall" : kind == "bridge" ? "bridge" : "ladder_room";
+                var kindName = kind switch { "stairs" => "stair_hall", "bridge" => "bridge", "entry" => "lobby", _ => "ladder_room" };
                 var id = $"{kindName}_{d.Part}{d.Index}_{ids.Count}";
                 Room(id, kindName, d.Index, -hw, hw, a, b);
                 if (ids.Count > 0 && MathF.Abs(ids[^1].b - a) < 0.01f)
