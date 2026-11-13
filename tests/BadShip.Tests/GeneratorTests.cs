@@ -748,6 +748,25 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Bridge_block_decks_follow_the_block_shape()
+    {
+        // Seed 1's bridge block sits off the centreline, is low, and has chamfered top edges and a sloped front.
+        var ship = ShipGenerator.Generate(ShipCode.Decode("v0p24p0-s1-1y"));
+        var interior = ship.Interior!;
+        Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors);
+        var deck = interior.Decks.Single(d => d.Part == "superstructure");
+        Assert.True(deck.Shaped);
+        Assert.True(MathF.Abs(deck.Cx) > 0.3f);
+        Assert.Contains(interior.Rooms, r => r.Deck == deck.Index && r.Kind == "bridge");
+        // The skin is there, and walls under the chamfers have slanted tops: some wall corners sit between the
+        // floor and the flat ceiling, off any box.
+        var skin = interior.Model.Find($"skin_{deck.Index}")!;
+        Assert.True(skin.Mesh.TriangleCount > 20);
+        var walls = interior.Model.Find($"walls_{deck.Index}")!;
+        Assert.Contains(walls.Mesh.Positions, p => p.Y > deck.FloorY + BadShip.Interior.InteriorGenerator.DoorH + 0.1f && p.Y < deck.CeilingY - 0.1f);
+    }
+
+    [Fact]
     public void Gondolas_get_a_deck_and_a_ladder_up_an_access_trunk()
     {
         var decks = 0;
