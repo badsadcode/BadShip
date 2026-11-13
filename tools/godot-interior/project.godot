@@ -1,0 +1,8 @@
+; Godot project for testing BadShip interiors: tools/godot-interior/run.sh <name.interior.glb>
+config_version=5
+
+[application]
+config/name="BadShip interior test"
+
+[navigation]
+3d/merge_rasterizer_cell_scale=0.001

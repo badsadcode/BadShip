@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BadShip.Cli/BadShip.Cli.csproj" />
+    <Project Path="src/BadShip.Core/BadShip.Core.csproj" />
+    <Project Path="src/BadShip.Web/BadShip.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BadShip.Tests/BadShip.Tests.csproj" />
+  </Folder>
+</Solution>

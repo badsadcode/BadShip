@@ -1,0 +1,7 @@
+bin/
+obj/
+out/
+node_modules/
+*.user
+.vs/
+tools/godot-interior/.godot/
