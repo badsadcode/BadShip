@@ -251,7 +251,9 @@ public class GeneratorTests
         var fleet = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Faction = "patrol" })).ToList();
         var paint = Palettes.Linear(Factions.Presets["patrol"].HullMain);
         // Fighters wear the same paint pushed dark (the stealth look).
-        Assert.All(fleet.Where(s => s.Plan.Family != "fighter"), s => Assert.Equal(paint, s.Materials[Roles.HullMain].Color));
+        // Ship types with a preferred scheme (military warships, ...) may wear it instead; the rest wear the faction's paint.
+        Assert.All(fleet.Where(s => s.Plan.Family != "fighter" && s.Plan.Palette == "faction"), s => Assert.Equal(paint, s.Materials[Roles.HullMain].Color));
+        Assert.True(fleet.Count(s => s.Plan.Palette == "faction") >= 12);
         Assert.All(fleet.Where(s => s.Plan.Family == "fighter"), s => Assert.True(s.Materials[Roles.HullMain].Color.Length() < paint.Length()));
         Assert.True(fleet.Count(s => s.Plan.Archetype is "patrol" or "fighter") >= 15);
         Assert.Contains(fleet, s => s.Plan.Archetype == "fighter");
@@ -659,6 +661,33 @@ public class GeneratorTests
         Assert.True(fleet.Count(s => s.Plan.Archetype == "raider") >= 8);
         Assert.All(fleet.Where(s => s.Plan.Archetype == "raider"), s => Assert.StartsWith("RDR-", s.Plan.Registration));
         Assert.True(fleet.Count(s => s.Plan.Palette == "pirate") >= 5);
+    }
+
+    [Theory]
+    [InlineData("corvette", 60, 90)]
+    [InlineData("frigate", 90, 150)]
+    [InlineData("destroyer", 150, 220)]
+    [InlineData("cruiser", 220, 320)]
+    [InlineData("carrier", 300, 450)]
+    public void The_warship_ladder_validates_and_scales(string cls, float min, float max)
+    {
+        foreach (var condition in new[] { "intact", "damaged", "derelict" })
+            for (ulong seed = 1; seed <= 6; seed++)
+            {
+                var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = "warship", Condition = condition, Overrides = new PlanOverrides { Payload = cls } });
+                var report = ShipValidator.Validate(ship);
+                Assert.False(report.HasErrors, $"{cls} {condition} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                Assert.InRange(ship.Plan.Length, min, max);
+                Assert.Contains(ship.Markers, m => m.Kind == "bridge");
+                if (condition != "intact") continue;
+                if (cls == "carrier")
+                {
+                    Assert.Contains(ship.Modules, m => m.Type == "flight_deck");
+                    Assert.Contains(ship.Markers, m => m.Kind == "launch_lane");
+                    Assert.Contains(ship.Markers, m => m.Kind == "hangar");
+                }
+                else Assert.Contains(ship.Modules, m => m.Id.StartsWith("turret"));
+            }
     }
 
     [Fact]

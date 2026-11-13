@@ -43,6 +43,12 @@ public static partial class Equipment
                 Repeat(c.Count(0, 2), () => Sensor(0.8f));
                 Repeat(c.Count(1, 3), () => Antenna(c));
                 break;
+            case "warship":
+                Repeat(c.Count(2, 4), () => PointDefence(c));
+                Repeat(c.Count(1, 2), () => Sensor(0.8f));
+                Repeat(c.Count(1, 3), () => Antenna(c));
+                if (r.Chance(0.3)) DockingCollar(c);
+                break;
             case "raider":
                 Repeat(c.Count(2, 4), () => Hardpoint(c));
                 Repeat(c.Count(1, 2), () => Antenna(c));

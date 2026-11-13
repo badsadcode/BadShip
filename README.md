@@ -341,7 +341,21 @@ wear the pirate scheme (mismatched plates). A new faction, `raiders` (Free Raide
 
 ![A raider](docs/images/raider_closeup_v0.16.png)
 
-## Status (v0.16.0: raiders)
+### The warship ladder (v0.17.0)
+
+`--archetype warship` (`--set payload=...`): `corvette` (60–90 m, one turret), `frigate` (90–150 m, two),
+`destroyer` (150–220 m, three, raised ones firing over the others), `cruiser` (220–320 m, four or five) and
+`carrier` (300–450 m). Combatants carry gun turrets (two or three barrels, facing bow or stern) sitting down into
+the hull's shoulders, missile cell grids (`missile_cells` markers), the bridge amidships, point defence, sensors and
+antennas. The carrier has an overhanging flight deck on struts with a dashed centre line, edge lines, an angled
+landing lane and an elevator, a lit hangar mouth at the bow (`hangar`, `launch_lane` and `elevator` markers), and its
+island bridge on the starboard edge. Warships mostly wear the military scheme; the Frontier Patrol fields them.
+
+![The warship ladder at true scale](docs/images/warship_ladder_v0.17.png)
+
+![A carrier](docs/images/carrier_v0.17.png)
+
+## Status (v0.17.0: the warship ladder)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
