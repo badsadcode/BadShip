@@ -134,7 +134,7 @@ footer b { color: var(--orange); font-weight: 500; }
     <span class="tag"><b>Sage</b> · welder, writes the C#</span>
   </div>
   <div class="board">
-    <div><strong>21</strong><span>launches</span></div>
+    <div><strong>22</strong><span>launches</span></div>
     <div><strong>2</strong><span>days in the yard</span></div>
     <div><strong>11</strong><span>kinds of ship</span></div>
     <div><strong>12</strong><span>paint schemes</span></div>
@@ -283,6 +283,14 @@ footer b { color: var(--orange); font-weight: 500; }
     <figure><img src="../images/decks_ladders_elevators_v0.21.png" alt="A small freighter's three decks from the side, a ladder through a hatch, an elevator shaft cut open, and a warship with seven decks" loading="lazy"><figcaption>BadSad's freighter now has three decks. The elevator is shown cut open; in a game, the doors keep you out of the shaft.</figcaption></figure>
     <div class="bug"><b>Bug of the day</b>The test robot said a tiny freighter had zero reachable rooms, not even the one it was standing in. The ship was fine. The robot was checking the map before the map was finished loading. On big ships, the elevator ride gave it just enough time, so nobody noticed until a ship had no elevator.</div>
     <div class="who"><span class="tag">BadSad: "ladders, stairs, and elevators 😛"</span></div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.22.0</span>
+    <h3>The gondola gets a ladder</h3>
+    <p>Some ships carry a pod under the hull, hanging on struts with open space between. Now that pod gets a deck too: an observation lounge on a liner, a lab on a research ship, cargo on a freighter. A ladder goes up to the main deck through a ribbed access tube that the yard welds on outside, right where the ladder needs it. Mind the gap. Actually, you can't, it's enclosed now.</p>
+    <figure><img src="../images/gondola_deck_v0.22.png" alt="A liner's gondola deck under two hull decks, the ladder up through a hatch, and the gondola with its pylons and access trunk from outside" loading="lazy"><figcaption>An observation lounge with a view of the stars below. The commute is one ladder.</figcaption></figure>
+    <div class="bug"><b>Bug of the day</b>The first gondola ladders stood right in the middle of the room, like a pole in a dance hall. On narrow ships that blocked the whole room, and Godot's robot could not get past. Now ladders stand against the wall, like sensible ladders do.</div>
   </article>
 </div>
 

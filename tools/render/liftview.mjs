@@ -32,7 +32,11 @@ const ladder = info.lifts.find(l => l.kind === 'ladder');
 if (ladder) {
   const [x0, x1, z0, z1] = ladder.shaft;
   const lo = info.decks[ladder.decks[0]];
-  const eye = [x1 + 1.6, lo.floor_y + 1.2, (z0 + z1) / 2 - 2.2];
+  // Standing in the ladder's room, in the corner farthest from it (inside even a narrow pod).
+  const room = info.rooms.find(r => r.id === ladder.rooms[0]);
+  const zc = (z0 + z1) / 2;
+  const far = zc - room.min[2] > room.max[2] - zc ? room.min[2] + 0.3 : room.max[2] - 0.3;
+  const eye = [room.max[0] - 0.3, lo.floor_y + 1.3, far];
   const target = [x0, lo.floor_y + 3.2, (z0 + z1) / 2];
   shots.push({ label: 'a ladder up through the hatch', img: await page.evaluate(([u, e, t]) => window.renderShip(u, { w: 720, h: 460, eye: e, target: t, fov: 75 }), [glb, eye, target]) });
 }
@@ -47,6 +51,20 @@ if (lift) {
   const target = [xc - 2, ym, zc];
   shots.push({ label: `the elevator, cut open: ${lift.decks.length} stops, car at the bottom`, img: await page.evaluate(([u, e, t, c]) => window.renderShip(u, { w: 720, h: 460, eye: e, target: t, fov: 55, clip: c }), [glb, eye, target, [-1, 0, 0, xc]]) });
 }
+// A gondola and its access trunk, close up from below and to the side.
+const metaPath = join(dir, `${name}.metadata.json`);
+if (existsSync(metaPath)) {
+  const g = JSON.parse(readFileSync(metaPath, 'utf8')).modules.find(m => m.type === 'gondola');
+  if (g && info.decks.some(d => d.part === 'gondola')) {
+    const c = [0, 1, 2].map(i => (g.bounds.min[i] + g.bounds.max[i]) / 2);
+    const size = g.bounds.max[2] - g.bounds.min[2];
+    const eye = [c[0] + size * 1.0, c[1] + size * 0.12, c[2] - size * 0.55];
+    shots.push({ label: 'the gondola and its access trunk', img: await page.evaluate(([u, e, t]) => window.renderShip(u, { w: 720, h: 460, eye: e, target: t, fov: 45 }), [`/data/${name}.glb`, eye, [c[0], c[1] + 1.5, c[2]]]) });
+  }
+}
+// The ship from outside and below (the access trunk up to a gondola shows here).
+if (existsSync(join(dir, `${name}.glb`)))
+  shots.push({ label: 'outside, from below', img: await page.evaluate(u => window.renderShip(u, { w: 720, h: 460, view: 'low' }), `/data/${name}.glb`) });
 const html = `<body style="margin:0;background:#0b0f14;font:14px sans-serif;color:#cfd6de;display:grid;grid-template-columns:720px 720px;gap:8px;padding:8px">${shots.map(s => `<div><img src="${s.img}" width="720" height="460"><div>${s.label}</div></div>`).join('')}</body>`;
 const sheet = await browser.newPage({ viewport: { width: 1460, height: 980 } });
 await sheet.setContent(html);
