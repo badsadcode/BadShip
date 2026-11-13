@@ -312,9 +312,12 @@ public static class InteriorGenerator
                 // deck; stacking them exactly in a narrow shaft trips up navigation-mesh builders.)
                 var hw = -MathF.Max(StairX(d), StairX(decks[i + 1]));
                 var w = Num.Clamp((hw - HalfCorridor) * 0.45f, 1.4f, 1.8f);
-                // Flush against the wall: no gap beside the flight where the floor below shows through.
-                var min = new Vector3(-hw + Wall / 2, d.FloorY, _stairZ0 + StairFoot);
-                var max = new Vector3(-hw + Wall / 2 + w, decks[i + 1].FloorY, _stairZ0 + StairFoot + StairRun);
+                // Where the stairwell has room for two flights and the walkway, every other flight takes the inner
+                // lane, so no flight stands right over the one below (as in a real stair tower).
+                var lane = i % 2 == 1 && hw - HalfCorridor >= 2 * w + 1.6f ? w + 0.3f : 0f;
+                // The outer lane is flush against the wall: no gap beside the flight where the floor below shows.
+                var min = new Vector3(-hw + Wall / 2 + lane, d.FloorY, _stairZ0 + StairFoot);
+                var max = new Vector3(-hw + Wall / 2 + lane + w, decks[i + 1].FloorY, _stairZ0 + StairFoot + StairRun);
                 result.Stairs.Add(new StairInfo($"stair_{i}", i, i + 1, $"stairs_{i}", A(min), A(max)));
             }
             // Airlocks in the hull wall of the middle deck.
@@ -642,7 +645,7 @@ public static class InteriorGenerator
                 // The floor above a flight is open over its whole length, so nobody bumps their head on the way up.
                 // The hole is exactly the flight's footprint (running under the wall on the hull side): slivers of
                 // the floor below showing beside a landing make navigation meshes join the two decks wrongly.
-                var holes = result.Stairs.Where(s => s.ToDeck == d.Index && s.ToRoom is null).Select(s => (s.Min[0] - Wall / 2, s.Max[0], s.Min[2], s.Max[2])).ToList();
+                var holes = result.Stairs.Where(s => s.ToDeck == d.Index && s.ToRoom is null).Select(s => (MathF.Abs(s.Min[0] - Wall / 2 - StairX(d)) < 0.05f ? s.Min[0] - Wall / 2 : s.Min[0], s.Max[0], s.Min[2], s.Max[2])).ToList();
                 var voids = _voids.GetValueOrDefault(d.Index) ?? [];
                 holes.AddRange(voids);
                 SlabWithHoles(deck.Mesh, Floor, -hw - Wall, hw + Wall, d.Z0 - Wall, d.Z1 + Wall, d.FloorY - Slab, d.FloorY, holes);
