@@ -249,7 +249,23 @@ guns), `broadside`, `hangar`, `engine_exhaust`, `sensor`. About 15–21k triangl
 
 ![A citadel from four sides](docs/images/citadel_closeup_v0.10.png)
 
-## Status (v0.10.0: citadels)
+### Colour schemes and the kit pass (v0.11.0)
+
+`--palette` now also takes the schemes from the hull concept sheets: `industrial` (dark grey, hazard yellow),
+`military` (charcoal, red), `civilian` (clean white-grey, blue), `research` (white, strong blue), `stealth`
+(near-black, cyan glow), `pirate` (rust and scavenged mismatched plates) and `luxury` (glossy white, gold). These fix
+their own accent and finish; industrial, military, civilian, research and luxury wear it in wide bands across the
+hull masses, pods and superstructure.
+
+The kit pass adds original parts in the categories of a hard-surface kit to every ship (not fighters or citadels,
+which carry their own): stern winglets at the chine, ribbed heat-radiator panels standing off the flanks, point-defence
+turrets with twin barrels, long tanks strapped along the flanks, pipe runs with brackets and elbows, and clusters of
+machinery blocks on the decks. Silhouette parts check their clearances and are dropped from exhaust and docking
+corridors; surface parts respect windows, bays and markings.
+
+![Colour schemes on one hull](docs/images/palettes_v0.11.png)
+
+## Status (v0.11.0: colour schemes and kit)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

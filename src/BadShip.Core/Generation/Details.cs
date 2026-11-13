@@ -18,6 +18,7 @@ public static class Details
         // Fighters: the same passes at their own scale (a 12 m craft gets hand-sized panels, not 8 m plates).
         var fighter = c.Plan.Family == "fighter";
         var k = c.DetailScale;
+        if (Palettes.Banded(c.Plan.Palette)) SchemeBands(c);
         var plateDepth = (c.Plan.Archetype is "patrol" or "fighter" ? 0.38f : 0.18f) * k;
         foreach (var part in c.Lofts)
         {
@@ -43,6 +44,7 @@ public static class Details
         }
         if (full || c.Lang.Signature == "accent_bands") AccentStripes(c, r);
         if (!fighter) Thrusters(c, r);
+        if (c.Plan.Family is not ("fighter" or "citadel")) Kit.Surface(c);
     }
 
     /// <summary>Raised panels on a grid with random gaps: the layered armour look, kept off anything already placed.</summary>
@@ -66,6 +68,8 @@ public static class Details
                 var v1 = (float)(j + 1) / nv - mv;
                 if (!c.TryUseSurface(key, u0, u1, v0, v1)) continue;
                 var mat = r.Chance(0.75) ? Roles.HullSecondary : Roles.HullMain;
+                // Pirates bolt on whatever plating they found.
+                if (c.Plan.Palette == "pirate" && r.Chance(0.45)) mat = r.Pick(Roles.Cargo);
                 Shapes.Patch(m, mat, loft, s, f, u0, u1, v0, v1, depth * r.Range(0.7f, 1.3f));
             }
     }
@@ -105,11 +109,44 @@ public static class Details
         }
     }
 
+    /// <summary>
+    /// The banded colour schemes (industrial, military, civilian, research, luxury) wear their accent in wide bands
+    /// across the hull masses, pods and superstructure, like the concept sheets. They go on before the plates, so the
+    /// plates work round them, and use their own random stream.
+    /// </summary>
+    private static void SchemeBands(BuildContext c)
+    {
+        var r = Rng.Stream(c.Recipe.StageSeeds?.GetValueOrDefault("details") is { } ds and > 0 ? ds : c.Recipe.Seed, "bands");
+        var k = c.DetailScale;
+        foreach (var part in c.Lofts.Where(l => l.Kind is "hull" or "pod" or "tier").Take(8).ToList())
+        {
+            var loft = part.Loft;
+            var s = Enumerable.Range(0, loft.Segments).Where(i => !loft.IsStep(i)).OrderByDescending(i => loft.FaceSize(i, Profile.FacePosX).along).FirstOrDefault(-1);
+            if (s < 0) continue;
+            var (along, _) = loft.FaceSize(s, Profile.FacePosX);
+            if (along < 4 * k) continue;
+            var d = c.DetailsOf(part.Module);
+            var bands = part.Kind == "hull" && along > 30 * k ? r.Int(1, 2) : 1;
+            var w = Num.Clamp(r.Range(2.5f, 6f) * k / along, 0.03f, 0.2f);
+            var u = r.Range(0.12f, 0.88f - w * bands * 2.5f);
+            for (var b = 0; b < bands; b++)
+            {
+                var ub = u + b * w * 2.5f;
+                foreach (var f in new[] { Profile.FacePosX, Profile.FaceNegX, Profile.FaceTopPosX, Profile.FaceTopNegX, Profile.FaceTop })
+                {
+                    var key = BuildContext.FaceKey(part.Module, s, f);
+                    if (!c.TryUseSurface(key, ub, ub + w, 0.02f, 0.98f)) continue;
+                    Shapes.Patch(d.Mesh, Roles.Accent, loft, s, f, ub, ub + w, 0.02f, 0.98f, 0.08f * k);
+                }
+            }
+        }
+    }
+
     /// <summary>A bold diagonal-free colour band across the prow or the side (orange / yellow blocks in the references).</summary>
     private static void AccentStripes(BuildContext c, Rng r)
     {
         var signature = c.Lang.Signature == "accent_bands";
-        if (!signature && !r.Chance(0.4)) return;
+        if (!signature && !r.Chance(Palettes.Banded(c.Plan.Palette) ? 0.9 : 0.4)) return;
         var hull = c.Lofts.FirstOrDefault(l => l.Kind == "hull");
         if (hull is null) return;
         var loft = hull.Loft;

@@ -59,7 +59,7 @@ public static partial class Equipment
     /// Removes equipment that ended up inside an engine's exhaust or a docking corridor (a crane boom swung aft,
     /// a mast beside a collar): a bounded fix instead of an invalid ship.
     /// </summary>
-    private static void DropBlocking(BuildContext c, int firstNew)
+    internal static void DropBlocking(BuildContext c, int firstNew)
     {
         var ship = c.Ship;
         var volumes = ship.Markers.Where(k => k.Kind == "engine_exhaust").Select(Validation.ShipValidator.ExhaustVolume)
@@ -469,6 +469,26 @@ public static partial class Equipment
             return true;
         }
         return false;
+    }
+
+    /// <summary>A point-defence turret: a low ring, a faceted swivel housing and twin short barrels angled up and forward.</summary>
+    public static void PointDefence(BuildContext c)
+    {
+        var r = c.Equip;
+        var R = Num.Clamp(c.Plan.Length * 0.009f, 0.7f, 1.8f);
+        if (Spot(c, R * 2.6f, R * 2.6f, high: r.Chance(0.5), 0.8f) is not var (deck, x, z)) return;
+        var m = c.Add("point_defence", "turret", ModuleTier.Secondary, deck.ModuleId);
+        var y = deck.Y;
+        Shapes.Prism(m.Mesh, Roles.DarkMechanics, new Vector3(x, y - 0.1f, z), new Vector3(x, y + R * 0.35f, z), R, R * 0.92f, 8, MathF.PI / 8);
+        var hy = y + R * 0.35f;
+        Shapes.Prism(m.Mesh, Roles.HullSecondary, new Vector3(x, hy, z), new Vector3(x, hy + R * 0.7f, z), R * 0.85f, R * 0.55f, 6, 0);
+        var dir = Vector3.Normalize(new Vector3(0, 0.35f, 1));
+        foreach (var s in new[] { 1f, -1f })
+        {
+            var a = new Vector3(x + s * R * 0.28f, hy + R * 0.38f, z + R * 0.3f);
+            Shapes.Prism(m.Mesh, Roles.DarkMechanics, a, a + dir * R * 1.8f, R * 0.11f, R * 0.09f, 6, 0);
+        }
+        c.AddMarker("hardpoint", m, new Vector3(x, hy + R * 0.4f, z) + dir * R * 1.8f, dir, R);
     }
 
     /// <summary>A weapon hardpoint placeholder: a mounting ring and cap. No weapon systems.</summary>

@@ -519,6 +519,30 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Colour_schemes_and_kit_parts_work_on_every_ship()
+    {
+        foreach (var palette in Palettes.Names)
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 21, Archetype = "freighter", Palette = palette });
+            Assert.False(ShipValidator.Validate(ship).HasErrors, palette);
+            Assert.Equal(palette, ship.Plan.Palette);
+        }
+        // Schemes with their own accent keep it, whatever the operator's accent.
+        var mil = ShipGenerator.Generate(new ShipRecipe { Seed = 3, Faction = "haulers", Palette = "military" });
+        Assert.Equal(Palettes.Linear("#a8221c"), mil.Materials[Roles.Accent].Color);
+        // Banded schemes paint accent bands; pirates bolt on mismatched plates.
+        var ind = ShipGenerator.Generate(new ShipRecipe { Seed = 3, Archetype = "freighter", Palette = "industrial" });
+        Assert.Contains(ind.Modules, m => m.Type == "details" && m.Mesh.Groups.ContainsKey(Roles.Accent));
+        var pirate = ShipGenerator.Generate(new ShipRecipe { Seed = 3, Archetype = "freighter", Palette = "pirate" });
+        Assert.Contains(pirate.Modules, m => m.Type == "details" && Roles.Cargo.Any(cr => m.Mesh.Groups.ContainsKey(cr)));
+        // Kit parts show up across a fleet, and every ship with them still validates.
+        var ships = Enumerable.Range(1, 40).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Archetype = i % 2 == 0 ? "research" : "freighter" })).ToList();
+        Assert.All(ships, s => Assert.False(ShipValidator.Validate(s).HasErrors));
+        foreach (var kit in new[] { "point_defence", "radiators", "winglets" })
+            Assert.Contains(ships, s => s.Modules.Any(m => m.Id.StartsWith(kit)));
+    }
+
+    [Fact]
     public void Fighter_family_implies_fighter_and_codes_round_trip()
     {
         var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 7, Family = "fighter" });

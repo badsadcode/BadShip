@@ -191,7 +191,7 @@
           <select id="ventral"><option value="">Auto</option><option>keel</option><option>gondola</option><option>pods</option><option>none</option></select>
         </label>
         <label>Palette
-          <select id="palette"><option value="auto">Faction paint</option><option>gunmetal</option><option>naval</option><option>offwhite</option><option>slate</option></select>
+          <select id="palette"><option value="auto">Faction paint</option><option>gunmetal</option><option>naval</option><option>offwhite</option><option>slate</option><option>industrial</option><option>military</option><option>civilian</option><option>research</option><option>stealth</option><option>pirate</option><option>luxury</option></select>
         </label>
         <label>Detail
           <select id="detail"><option>high</option><option>medium</option><option>low</option></select>
@@ -436,7 +436,7 @@ function syncHullForms() {
   fill(document.getElementById('hull_form'), kind === 'fighter' ? ['dart', 'wedge', 'brick', 'fork', 'hammer', 'twinboom', 'brawler'] : ['slab', 'faceted']);
   fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' ? [] : ['keel', 'gondola', 'pods', 'none']);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
