@@ -239,6 +239,7 @@ public static class Parts
                 {
                     var x0 = cx - bw / 2 + i * (pw + gap);
                     Shapes.BoxMinMax(m.Mesh, Roles.Glass, new Vector3(x0, ya, z1 - 0.1f), new Vector3(x0 + pw, yb, z1 + 0.1f));
+                    loft.CapPanes.Add((x0, x0 + pw, ya, yb));
                 }
                 center = new Vector3(cx, (ya + yb) / 2, z1);
             }

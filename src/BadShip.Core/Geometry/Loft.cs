@@ -121,6 +121,9 @@ public sealed class Loft
     /// <summary>Every glass pane drawn on this loft's faces (segment, face, u0, u1, v0, v1): where a window can be cut.</summary>
     public List<(int S, int F, float U0, float U1, float V0, float V1)> Panes { get; } = [];
 
+    /// <summary>Glass panes on the front end cap (x0, x1, y0, y1): a flat front's window band.</summary>
+    public List<(float X0, float X1, float Y0, float Y1)> CapPanes { get; } = [];
+
     public Loft(IEnumerable<(float z, Profile p)> rings)
     {
         foreach (var (z, p) in rings)
@@ -154,7 +157,8 @@ public sealed class Loft
     /// rectangle in the face's own coordinates. A face with holes is rebuilt from the grid its hole edges make,
     /// leaving out the cells inside a hole; every other face is built as usual.
     /// </summary>
-    public void BuildWithHoles(Mesh m, string material, IReadOnlyDictionary<(int s, int f), List<(float u0, float u1, float v0, float v1)>> holes)
+    public void BuildWithHoles(Mesh m, string material, IReadOnlyDictionary<(int s, int f), List<(float u0, float u1, float v0, float v1)>> holes,
+        IReadOnlyList<(float x0, float x1, float y0, float y1)>? frontCapHoles = null)
     {
         for (var s = 0; s < Segments; s++)
             for (var f = 0; f < 8; f++)
@@ -180,7 +184,43 @@ public sealed class Loft
                     }
             }
         m.AddPolygon(material, Rings[0], -Vector3.UnitZ);
-        m.AddPolygon(material, Rings[^1], Vector3.UnitZ);
+        if (frontCapHoles is not { Count: > 0 }) { m.AddPolygon(material, Rings[^1], Vector3.UnitZ); return; }
+        // The front cap with openings: in bands between the holes' and the cap's corners' heights, the cap's span at
+        // each band minus the holes crossing it.
+        var ring = Rings[^1];
+        var z = ring[0].Z;
+        var ys = ring.Select(p => p.Y).Concat(frontCapHoles.SelectMany(h => new[] { h.y0, h.y1 })).Distinct().OrderBy(y => y).ToList();
+        (float a, float b)? Span(float y)
+        {
+            float lo = float.MaxValue, hi = float.MinValue;
+            for (var i = 0; i < ring.Length; i++)
+            {
+                var p = ring[i];
+                var q = ring[(i + 1) % ring.Length];
+                if (y < MathF.Min(p.Y, q.Y) - 1e-5f || y > MathF.Max(p.Y, q.Y) + 1e-5f) continue;
+                if (MathF.Abs(q.Y - p.Y) < 1e-6f) { lo = MathF.Min(lo, MathF.Min(p.X, q.X)); hi = MathF.Max(hi, MathF.Max(p.X, q.X)); continue; }
+                var x = p.X + (q.X - p.X) * (y - p.Y) / (q.Y - p.Y);
+                lo = MathF.Min(lo, x); hi = MathF.Max(hi, x);
+            }
+            return lo < hi ? (lo, hi) : null;
+        }
+        for (var i = 0; i + 1 < ys.Count; i++)
+        {
+            float ya = ys[i], yb = ys[i + 1];
+            if (yb - ya < 1e-5f || Span(ya + 1e-4f) is not { } sa || Span(yb - 1e-4f) is not { } sb) continue;
+            var ym = (ya + yb) / 2;
+            var cuts = frontCapHoles.Where(h => ym > h.y0 && ym < h.y1).OrderBy(h => h.x0).ToList();
+            var cursor = float.MinValue;
+            var pieces = new List<(float a, float b)>();
+            foreach (var h in cuts) { pieces.Add((cursor, h.x0)); cursor = h.x1; }
+            pieces.Add((cursor, float.MaxValue));
+            foreach (var (p0, p1) in pieces)
+            {
+                float a0 = MathF.Max(sa.a, p0), a1 = MathF.Min(sa.b, p1), b0 = MathF.Max(sb.a, p0), b1 = MathF.Min(sb.b, p1);
+                if (a1 - a0 < 1e-4f && b1 - b0 < 1e-4f) continue;
+                m.AddQuad(material, new Vector3(a0, ya, z), new Vector3(a1, ya, z), new Vector3(b1, yb, z), new Vector3(b0, yb, z), Vector3.UnitZ);
+            }
+        }
     }
 
     /// <summary>The quad of face <paramref name="f"/> in segment <paramref name="s"/>: a, b on the rear ring, c, d on the front.</summary>

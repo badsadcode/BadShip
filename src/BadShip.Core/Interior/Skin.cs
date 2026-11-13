@@ -269,8 +269,28 @@ public static class Skin
     /// A wall across the ship at station z (from x0 to x1, y0 to y1), cut to the inset section: its upper corners
     /// follow the skin. Ends at ±∞ reach out to the skin. Extruded ±thickness/2 along z.
     /// </summary>
-    public static void WallAcross(Mesh m, string mat, Loft loft, float inset, float z, float x0, float x1, float y0, float y1, float thickness)
+    public static void WallAcross(Mesh m, string mat, Loft loft, float inset, float z, float x0, float x1, float y0, float y1, float thickness,
+        IReadOnlyList<(float x0, float x1, float y0, float y1)>? holes = null)
     {
+        // With openings (windows in a front wall): the wall in rectangles round them, each cut to the section.
+        if (holes is { Count: > 0 })
+        {
+            var ys = holes.SelectMany(h => new[] { h.y0, h.y1 }).Append(y0).Append(y1).Where(y => y >= y0 && y <= y1).Distinct().OrderBy(y => y).ToList();
+            for (var i = 0; i + 1 < ys.Count; i++)
+            {
+                float ya = ys[i], yb = ys[i + 1];
+                if (yb - ya < 1e-4f) continue;
+                var ym = (ya + yb) / 2;
+                var cursor = x0;
+                foreach (var h in holes.Where(h => ym > h.y0 && ym < h.y1).OrderBy(h => h.x0))
+                {
+                    if (h.x0 > cursor) WallAcross(m, mat, loft, inset, z, cursor, h.x0, ya, yb, thickness);
+                    cursor = MathF.Max(cursor, h.x1);
+                }
+                if (x1 > cursor) WallAcross(m, mat, loft, inset, z, cursor, x1, ya, yb, thickness);
+            }
+            return;
+        }
         var sec = Inset(SectionAt(loft, z), inset);
         List<Vector2> poly = [new(MathF.Max(x0, -1e4f), y0), new(MathF.Min(x1, 1e4f), y0), new(MathF.Min(x1, 1e4f), y1), new(MathF.Max(x0, -1e4f), y1)];
         // Clip the rectangle by every edge of the (convex) section.

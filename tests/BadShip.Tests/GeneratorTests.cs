@@ -808,6 +808,34 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Keels_are_shaped_and_flat_front_glass_becomes_windows()
+    {
+        int keels = 0, fronts = 0;
+        for (ulong seed = 1; seed <= 40; seed++)
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Interior = true });
+            var interior = ship.Interior;
+            if (interior is null) continue;
+            Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors, $"seed {seed}");
+            foreach (var k in interior.Decks.Where(d => d.Part == "keel"))
+            {
+                keels++;
+                Assert.True(k.Shaped, $"seed {seed} keel");
+            }
+            foreach (var w in interior.Windows.Where(w => w.F == 8))
+            {
+                fronts++;
+                // A front window: an opening in the block's front cap, with its glass turned see-through.
+                var block = ship.Find(w.Module!)!;
+                Assert.True(block.Mesh.Groups.ContainsKey(HullWindows.Glass));
+                Assert.True(w.U1 > w.U0 + 0.3f && w.V1 > w.V0 + 0.3f);
+            }
+        }
+        Assert.True(keels >= 5, $"keels {keels}");
+        Assert.True(fronts >= 5, $"front windows {fronts}");
+    }
+
+    [Fact]
     public void Gondolas_get_a_deck_and_a_ladder_up_an_access_trunk()
     {
         var decks = 0;
