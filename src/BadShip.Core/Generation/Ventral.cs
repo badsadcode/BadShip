@@ -74,11 +74,19 @@ public static class Ventral
         var a = c.Plan.Archetype;
         var spanLen = span.Z1 - span.Z0;
         var len = spanLen * (spanLen < 30 ? r.Range(0.6f, 0.9f) : r.Range(0.35f, 0.6f));
+        // A gondola people walk into needs a few rooms' length between its tapered ends.
+        if (c.Recipe.Interior) len = MathF.Max(len, MathF.Min(spanLen * 0.95f, 16f));
         if (len < 5) return;
         var zc = r.Range(span.Z0 + len / 2, span.Z1 - len / 2);
         var usable = MathF.Max(p.BottomFlatHalf, p.WBottom * 0.3f);
         var gw = Num.Clamp(usable * 2 * r.Range(0.7f, 1.1f), 4f, p.WBottom * 0.9f);
         var gh = c.Plan.Height * r.Range(0.3f, 0.48f);
+        // With an interior, the gondola is a room people walk into: tall and wide enough for a deck.
+        if (c.Recipe.Interior)
+        {
+            gh = MathF.Max(gh, 4.8f);
+            gw = MathF.Max(gw, MathF.Min(7f, p.WBottom * 0.95f));
+        }
         var gap = c.Plan.Height * r.Range(0.16f, 0.3f);
         var gTop = p.Bottom - gap;
         var gp = new Profile(p.Cx, gTop - gh / 2, gw * 0.72f, gw, gh, gh * r.Range(0.12f, 0.22f), gh * r.Range(0.35f, 0.5f));

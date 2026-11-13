@@ -64,6 +64,7 @@ public static class HullWindows
         });
         if (interior is null) return;
         ship.Interior = interior;
+        AccessTrunks(c, interior);
         if (placed.Count == 0) return;
 
         // Rebuild the hull: the loft with openings, then everything that had been added to its mesh after the loft.
@@ -98,4 +99,28 @@ public static class HullWindows
         }
         hull.UpdateBounds();
     }
+
+    /// <summary>
+    /// A gondola hangs under the hull with open space between: the ladder up to it climbs inside an access trunk, a
+    /// boxed tube from inside the gondola to inside the hull, built where the interior put the ladder.
+    /// </summary>
+    private static void AccessTrunks(BuildContext c, ShipInterior interior)
+    {
+        foreach (var l in interior.Lifts.Where(l => l.Kind == "ladder" && interior.Decks[l.Decks[0]].Part == "gondola"))
+        {
+            var gondola = c.Ship.Find("gondola");
+            if (gondola is null) continue;
+            var lo = interior.Decks[l.Decks[0]];
+            var hi = interior.Decks[l.Decks[^1]];
+            var (x0, x1, z0, z1) = (l.Shaft[0], l.Shaft[1], l.Shaft[2], l.Shaft[3]);
+            var m = c.Add("access_trunk", "access_trunk", ModuleTier.Secondary, gondola.Id);
+            const float skin = 0.45f;
+            Shapes.BoxMinMax(m.Mesh, Roles.HullSecondary, new Vector3(x0 - skin, lo.CeilingY, z0 - skin), new Vector3(x1 + skin, hi.FloorY - Slab, z1 + skin));
+            // Ribs round the trunk, so it reads as a pressurised tube.
+            for (var y = lo.CeilingY + 0.8f; y < hi.FloorY - Slab - 0.3f; y += 1.2f)
+                Shapes.BoxMinMax(m.Mesh, Roles.DarkMechanics, new Vector3(x0 - skin - 0.08f, y, z0 - skin - 0.08f), new Vector3(x1 + skin + 0.08f, y + 0.2f, z1 + skin + 0.08f));
+        }
+    }
+
+    private const float Slab = InteriorGenerator.Slab;
 }

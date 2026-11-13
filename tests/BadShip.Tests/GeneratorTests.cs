@@ -748,6 +748,36 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Gondolas_get_a_deck_and_a_ladder_up_an_access_trunk()
+    {
+        var decks = 0;
+        foreach (var archetype in new[] { "research", "civilian", "freighter", "ring" })
+            for (ulong seed = 1; seed <= 4; seed++)
+            {
+                var recipe = new ShipRecipe { Seed = seed, Archetype = archetype, Interior = true, Overrides = new PlanOverrides { Ventral = "gondola" } };
+                var ship = ShipGenerator.Generate(recipe);
+                var interior = ship.Interior;
+                if (interior is null || ship.Find("gondola") is null) continue;
+                Assert.False(BadShip.Interior.InteriorValidator.Validate(interior).HasErrors, $"{archetype} {seed}");
+                var gondola = interior.Decks.FirstOrDefault(d => d.Part == "gondola");
+                if (gondola is null) continue;
+                decks++;
+                // The gondola deck is the lowest, joined to the lowest hull deck by a ladder...
+                Assert.Equal(0, gondola.Index);
+                var ladder = interior.Lifts.Single(l => l.Kind == "ladder" && l.Decks[0] == gondola.Index);
+                Assert.Equal("hull", interior.Decks[ladder.Decks[1]].Part);
+                // ...that climbs inside a trunk on the outside, from the gondola up into the hull.
+                var trunk = ship.Find("access_trunk")!;
+                Assert.True(trunk.Bounds.Min.X <= ladder.Shaft[0] && trunk.Bounds.Max.X >= ladder.Shaft[1]);
+                Assert.True(trunk.Bounds.Min.Y <= gondola.CeilingY + 0.01f && trunk.Bounds.Max.Y >= interior.Decks[ladder.Decks[1]].FloorY - 0.5f);
+            }
+        Assert.True(decks >= 8, $"gondola decks {decks}");
+        // Without an interior, gondolas are as before and get no trunk.
+        var plain = ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "research", Overrides = new PlanOverrides { Ventral = "gondola" } });
+        Assert.Null(plain.Find("access_trunk"));
+    }
+
+    [Fact]
     public void Elevators_stop_at_every_hull_deck_behind_their_own_doors()
     {
         var elevators = 0;

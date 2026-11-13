@@ -465,6 +465,18 @@ elevator (cut open with the renderer's new `clip` option). `badship stress --int
 
 ![Decks, ladders and elevators](docs/images/decks_ladders_elevators_v0.21.png)
 
+### Gondola decks (v0.22.0)
+
+With an interior, a **gondola** (the pod hanging on pylons under the hull) gets a deck too, where the pod is widest:
+observation rooms and labs on research and ring ships, lounges on liners, cargo on freighters. A **ladder** climbs
+from it into the lowest hull deck inside an **access trunk**: a ribbed, boxed tube on the outside, from inside the
+gondola up into the hull, built where the interior puts the ladder. Gondolas on interior ships are made big enough to
+stand in (at least 4.8 m tall, up to 7 m wide and 16 m long, as the hull allows); ships without an interior keep
+their gondolas as before, with no trunk. On a hull deck, a ladder may also stand inside engineering, the bridge or one
+of a small craft's rooms, clear of their doors, instead of in a ladder room of its own.
+
+![A gondola deck](docs/images/gondola_deck_v0.22.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -472,7 +484,7 @@ elevator (cut open with the renderer's new `clip` option). `badship stress --int
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.21.0: superstructure and keel decks, ladders and elevators)
+## Status (v0.22.0: gondola decks)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

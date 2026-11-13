@@ -157,7 +157,7 @@ public static class InteriorGenerator
     {
         var list = new List<AnnexSpec>();
         var decks = result.Decks;
-        var blocks = ship.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Lofts.Count > 0 && m.Type is "bridge_block" or "superstructure" or "keel")
+        var blocks = ship.Modules.Where(m => m.Tier == ModuleTier.Primary && m.Lofts.Count > 0 && (m.Type is "bridge_block" or "superstructure" or "keel" || m.Type == "gondola" && ship.Recipe.Interior))
             .Select(m => (m, s: BodySegment(m.Lofts[0]))).Where(x => x.s >= 0)
             .Select(x => (x.m, loft: x.m.Lofts[0], P: x.m.Lofts[0].Profiles[x.s], za: x.m.Lofts[0].Zs[x.s], zb: x.m.Lofts[0].Zs[x.s + 1]))
             .Where(x => MathF.Abs(x.P.Cx) < 0.5f).OrderBy(x => x.P.Bottom).ToList();
@@ -171,6 +171,25 @@ public static class InteriorGenerator
             for (var clear = Clear; clear > 2.55f && spec is null; clear -= 0.1f)
             {
                 float fy;
+                if (m.Type == "gondola")
+                {
+                    // A pod hanging under the hull: the deck goes where the pod is widest (it tapers at both ends).
+                    // Only with an interior recipe, which also builds the access trunk the ladder climbs through.
+                    if (list.Any(a => a.Part == "gondola")) break;
+                    var best = (fy: 0f, hw: 0f);
+                    for (var y = q.Bottom + Slab + 0.25f; y + clear <= q.Top - 0.2f; y += 0.1f)
+                    {
+                        var w = float.MaxValue;
+                        for (var yy = y - Slab; yy <= y + clear + 0.01f; yy += 0.25f) w = MathF.Min(w, q.HalfWidthAt(yy));
+                        w = MathF.Min(w, q.HalfWidthAt(y + clear));
+                        if (w > best.hw + 0.01f) best = (y, w);
+                    }
+                    if (best.hw <= 0) continue;
+                    var ghw = MathF.Floor((best.hw - 0.4f) * 2) / 2;
+                    if (ghw < 1.5f) continue;
+                    spec = new AnnexSpec("gondola", q, best.fy, best.fy + clear, ghw, z0, z1);
+                    continue;
+                }
                 if (m.Type == "keel")
                 {
                     if (list.Any(a => a.Part == "keel")) break;
@@ -237,7 +256,11 @@ public static class InteriorGenerator
     {
         // Links from annex decks to the deck they join: stairs or a ladder, with the stretch [Z, Z + Len] they take on
         // both decks. Decks are given as indices into the main stack, or (−1 − k) for the k-th annex.
-        private sealed record Link(int Annex, int Other, bool Up, string Kind, float Z, float Len, float X0, float W, float Run);
+        private sealed record Link(int Annex, int Other, bool Up, string Kind, float Z, float Len, float X0, float W, float Run, bool Section = true, float Foot = float.NaN);
+        // A ladder takes 3.6 m of deck: its rungs from z + 1.3 to z + 2.3, with room to step on and off either side.
+        private const float LadderLen = 3.6f, LadderFrom = 1.3f;
+        // Where engineering ends on the lowest deck and the bridge starts on the top one (ladders may stand in them).
+        private float _engEnd = float.NaN, _bridgeStart = float.NaN;
         private readonly List<Link> _links = [];
         private readonly Dictionary<int, int> _annexDeck = [];
         // The elevator: its stretch along the starboard... port strip [z, z + 3.2] and shaft x range, on every main deck.
@@ -313,6 +336,8 @@ public static class InteriorGenerator
                 bridgeLen = MathF.Max(3, MathF.Floor((len - need) / 2));
                 engLen = MathF.Max(3, MathF.Floor((len - need) / 2));
             }
+            _engEnd = dz0 + engLen;
+            _bridgeStart = dz1 - bridgeLen;
             _stairZ0 = Num.Clamp(MathF.Round(dz0 + len * 0.45f), dz0 + engLen + 0.5f, dz1 - bridgeLen - StairLen - 0.5f);
             var hold = Kind is "freighter" or "industrial" or "raider" && decks.Count >= 3;
             var program = new Program(Kind, r);
@@ -636,7 +661,7 @@ public static class InteriorGenerator
                 int other;
                 float otherFloor, otherHw;
                 bool otherNarrow;
-                if (a.Part == "keel") { other = 0; otherFloor = main[0].FloorY; otherHw = main[0].HalfWidth; otherNarrow = false; }
+                if (a.Part is "keel" or "gondola") { other = 0; otherFloor = main[0].FloorY; otherHw = main[0].HalfWidth; otherNarrow = false; }
                 else
                 {
                     var lower = Enumerable.Range(0, k).Where(j => annexSpecs[j].Part == "superstructure" && _annexDeck.ContainsKey(j)
@@ -655,16 +680,46 @@ public static class InteriorGenerator
                 else there = Free(main[other], 1.5f);
                 var here = annexFree[k];
                 Link? link = null;
-                foreach (var kind in hw >= 2.5f && !otherNarrow && rise <= 6.2f ? new[] { "stairs", "ladder" } : new[] { "ladder" })
+                // A gondola hangs clear of the hull: always a ladder, up an access trunk through the gap.
+                foreach (var kind in a.Part != "gondola" && hw >= 2.5f && !otherNarrow && rise <= 6.2f ? new[] { "stairs", "ladder" } : new[] { "ladder" })
                 {
                     var run = kind == "stairs" ? MathF.Ceiling(MathF.Max(StairRun, rise) * 10) / 10 : 1f;
-                    var len = kind == "stairs" ? StairFoot + run + 1.6f : 4f;
+                    var len = kind == "stairs" ? StairFoot + run + 1.6f : LadderLen;
+                    var section = true;
+                    // Inside a room (a narrow deck's rooms, or engineering or the bridge, which need no hall of their own)
+                    // only the ladder itself has to fit, 0.6 m clear of the room's ends, anywhere along its landing.
+                    if (other >= 0 && kind == "ladder")
+                    {
+                        var rooms = new List<(float a, float b)>();
+                        if (main[other].Narrow) rooms.AddRange(result.Rooms.Where(q => q.Deck == other).Select(q => (q.Min[2], q.Max[2])));
+                        else
+                        {
+                            if (other == 0 && !float.IsNaN(_engEnd)) rooms.Add((main[0].Z0, _engEnd));
+                            if (other == top && !float.IsNaN(_bridgeStart)) rooms.Add((_bridgeStart, main[top].Z1));
+                        }
+                        var sectioned = main[other].Narrow ? null : Both(here, there).Where(x => x.b - x.a >= len).OrderBy(x => x.a).Cast<(float a, float b)?>().FirstOrDefault();
+                        if (sectioned is null)
+                        {
+                            (float z, float foot)? pick = null;
+                            foreach (var (ha, hb) in here)
+                                foreach (var (ra, rb) in rooms)
+                                    for (var zz = MathF.Ceiling(ha * 2) / 2; zz + len <= hb + 0.001f && pick is null; zz += 0.5f)
+                                    {
+                                        // Clear of the room's end walls and the doors in them.
+                                        var foot = MathF.Max(zz + 0.3f, ra + 0.6f);
+                                        if (foot + 1 <= MathF.Min(zz + len - 0.3f, rb - 0.6f)) pick = (zz, foot);
+                                    }
+                            if (pick is not { } p) continue;
+                            link = new Link(k, other, a.Part == "superstructure", kind, p.z, len, -hw + Wall / 2, 1f, run, false, p.foot);
+                            break;
+                        }
+                    }
                     var fit = Both(here, there).Where(x => x.b - x.a >= len).OrderBy(x => x.a).Cast<(float a, float b)?>().FirstOrDefault();
                     if (fit is not { } f) continue;
                     var z = MathF.Ceiling(f.a * 2) / 2;
                     if (z + len > f.b) z = f.a;
                     var w = kind == "stairs" ? Num.Clamp((hw - 1) * 0.6f, 1.4f, 1.8f) : 1f;
-                    link = new Link(k, other, a.Part != "keel", kind, z, len, -hw + Wall / 2, w, run);
+                    link = new Link(k, other, a.Part == "superstructure", kind, z, len, -hw + Wall / 2, w, run, section);
                     break;
                 }
                 if (link is null) continue;
@@ -672,7 +727,7 @@ public static class InteriorGenerator
                 _annexDeck[k] = -1;
                 Claim(here, link.Z, link.Z + link.Len);
                 if (other < 0) Claim(there, link.Z, link.Z + link.Len);
-                else if (!(hold && other == 0) && !main[other].Narrow) AddSection(_sections, other, new Section("riser", link.Z, link.Z + link.Len, 0, link.Kind == "stairs" ? "stair_hall" : "ladder_room"));
+                else if (link.Section && !(hold && other == 0) && !main[other].Narrow) AddSection(_sections, other, new Section("riser", link.Z, link.Z + link.Len, 0, link.Kind == "stairs" ? "stair_hall" : "ladder_room"));
             }
         }
 
@@ -749,7 +804,8 @@ public static class InteriorGenerator
                 }
                 else
                 {
-                    var (z0, z1) = (l.Z + 1.5f, l.Z + 2.5f);
+                    var foot = float.IsNaN(l.Foot) ? l.Z + LadderFrom : l.Foot;
+                    var (z0, z1) = (foot, foot + 1f);
                     var zc = (z0 + z1) / 2;
                     result.Lifts.Add(new LiftInfo($"ladder_{n++}", "ladder", [lo.Index, hi.Index], [RoomAt(lo, cx, zc), RoomAt(hi, l.X0 + 1.6f, zc)],
                         [l.X0, l.X0 + l.W, z0, z1], [A(new Vector3(l.X0 + l.W + 0.55f, lo.FloorY, zc)), A(new Vector3(l.X0 + l.W + 0.55f, hi.FloorY, zc))], []));
@@ -1249,6 +1305,12 @@ public static class InteriorGenerator
         private static void Lights(Mesh m, Aabb box, string kind)
         {
             var y = box.Max.Y - 0.06f;
+            // A ladder room's hatch may be in the middle of the ceiling: its light goes beside it.
+            if (kind == "ladder_room")
+            {
+                Shapes.Box(m, Roles.Light, new Vector3(box.Max.X - 0.45f, y, box.Center.Z), new Vector3(0.3f, 0.06f, MathF.Min(1.6f, box.Size.Z * 0.5f)));
+                return;
+            }
             if (box.Size.Z >= box.Size.X)
             {
                 var n = Math.Max(1, (int)(box.Size.Z / 4.5f));
@@ -1365,7 +1427,15 @@ public static class InteriorGenerator
             // Decks outside the hull: command and crew rooms up in the superstructure, stores and workshops in the keel.
             if (part != "hull")
             {
-                (string, double)[] annex = part == "keel"
+                (string, double)[] annex = part == "gondola"
+                    ? archetype switch
+                    {
+                        "research" or "ring" => [("observation", 3), ("lab", 2), ("comms", 1)],
+                        "freighter" or "industrial" => [("cargo_hold", 3), ("storage", 2), ("workshop", 1)],
+                        "civilian" => [("lounge", 3), ("observation", 2), ("galley", 1)],
+                        _ => [("observation", 2), ("storage", 2), ("workshop", 1), ("comms", 1)],
+                    }
+                    : part == "keel"
                     ? [("storage", 3), ("workshop", 2), ("cargo_hold", 1.5), ("life_support", 1), ("armoury", archetype is "warship" or "patrol" or "citadel" or "raider" ? 1.5 : 0.2)]
                     : [("observation", 2), ("comms", 1.5), ("captain_cabin", 1), ("briefing", 1), ("crew_quarters", 2), (archetype == "civilian" ? "lounge" : "lab", archetype is "civilian" or "research" or "ring" ? 2 : 0.3)];
                 var pick = r.Weighted(annex);
