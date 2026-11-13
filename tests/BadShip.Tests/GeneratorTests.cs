@@ -762,6 +762,10 @@ public class GeneratorTests
         // floor and the flat ceiling, off any box.
         var skin = interior.Model.Find($"skin_{deck.Index}")!;
         Assert.True(skin.Mesh.TriangleCount > 20);
+        // Stacked blocks are shaped too, the lower one with an opening in its ceiling for the way up.
+        var stack = ShipGenerator.Generate(new ShipRecipe { Seed = 2, Archetype = "civilian", Interior = true }).Interior!;
+        Assert.True(stack.Decks.Count(d => d.Part == "superstructure" && d.Shaped) >= 2);
+        Assert.False(BadShip.Interior.InteriorValidator.Validate(stack).HasErrors);
         var walls = interior.Model.Find($"walls_{deck.Index}")!;
         Assert.Contains(walls.Mesh.Positions, p => p.Y > deck.FloorY + BadShip.Interior.InteriorGenerator.DoorH + 0.1f && p.Y < deck.CeilingY - 0.1f);
     }
@@ -812,6 +816,10 @@ public class GeneratorTests
                 Assert.True(trunk.Bounds.Min.Y <= gondola.CeilingY + 0.01f && trunk.Bounds.Max.Y >= interior.Decks[ladder.Decks[1]].FloorY - 0.5f);
             }
         Assert.True(decks >= 8, $"gondola decks {decks}");
+        // A research ship's observation gondola is shaped and looks out through real windows.
+        var research = ShipGenerator.Generate(new ShipRecipe { Seed = 3, Archetype = "research", Interior = true, Overrides = new PlanOverrides { Ventral = "gondola" } });
+        Assert.True(research.Interior!.Decks.Single(d => d.Part == "gondola").Shaped);
+        Assert.Contains(research.Interior.Windows, w => w.Module == "gondola");
         // Without an interior, gondolas are as before and get no trunk.
         var plain = ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "research", Overrides = new PlanOverrides { Ventral = "gondola" } });
         Assert.Null(plain.Find("access_trunk"));

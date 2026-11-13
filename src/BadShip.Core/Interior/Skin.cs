@@ -142,10 +142,15 @@ public static class Skin
     /// skin beside the deck's own floor. Faces point into the deck.
     /// </summary>
     public static void Build(Mesh walls, Mesh overhead, string wallMat, string floorMat, Loft loft, float thickness,
-        float z0, float z1, float floorY, float ceilY, IReadOnlyList<(int f, float z0, float z1, float v0, float v1)>? holes = null)
+        float z0, float z1, float floorY, float ceilY, IReadOnlyList<(int f, float z0, float z1, float v0, float v1)>? holes = null,
+        IReadOnlyList<(float x0, float x1, float z0, float z1)>? ceilingHoles = null,
+        IReadOnlyList<(float x0, float x1, float z0, float z1)>? floorHoles = null)
     {
         holes ??= [];
-        var st = Stations(loft, z0, z1, 0.75f, holes.SelectMany(h => new[] { h.z0, h.z1 }));
+        ceilingHoles ??= [];
+        floorHoles ??= [];
+        var st = Stations(loft, z0, z1, 0.75f, holes.SelectMany(h => new[] { h.z0, h.z1 })
+            .Concat(ceilingHoles.SelectMany(h => new[] { h.z0, h.z1 })).Concat(floorHoles.SelectMany(h => new[] { h.z0, h.z1 })));
         Vector2[] Sec(float z) => Inset(SectionAt(loft, z), thickness);
         for (var i = 0; i + 1 < st.Count; i++)
         {
@@ -172,7 +177,10 @@ public static class Skin
                 }
                 foreach (var tri in tris)
                 {
-                    var poly = ClipY(ClipY(tri.ToList(), floorY, true), ceilY, false);
+                    // A hair inside the band, so a face lying exactly on the floor or ceiling plane (a block's bottom
+                    // face, inset, can land right on the floor) drops out: the floor strip and the flat ceiling, which
+                    // have the openings for stairs and ladders, cover those.
+                    var poly = ClipY(ClipY(tri.ToList(), floorY + 0.005f, true), ceilY - 0.005f, false);
                     if (poly.Count < 3) continue;
                     var c = poly.Aggregate(Vector3.Zero, (s, v) => s + v) / poly.Count;
                     var inward = centre - c;
@@ -184,12 +192,49 @@ public static class Skin
                 }
             }
             // The flat ceiling, where the block is taller than the deck.
+            // Open where a ladder or stairs go up through it (stations line up with the openings' ends).
             if (SpanAt(pa, ceilY) is { } ca && SpanAt(pb, ceilY) is { } cb)
-                overhead.AddQuad(wallMat, new Vector3(ca.a, ceilY, za), new Vector3(ca.b, ceilY, za), new Vector3(cb.b, ceilY, zb), new Vector3(cb.a, ceilY, zb), -Vector3.UnitY);
+            {
+                var zm = (za + zb) / 2;
+                var open = ceilingHoles.Where(h => zm > h.z0 && zm < h.z1).OrderBy(h => h.x0).ToList();
+                var lo = MathF.Min(ca.a, cb.a);
+                var pieces = new List<(float a, float b)>();
+                var cursor = float.MinValue;
+                foreach (var h in open)
+                {
+                    pieces.Add((cursor, h.x0));
+                    cursor = h.x1;
+                }
+                pieces.Add((cursor, float.MaxValue));
+                foreach (var (pa0, pb0) in pieces)
+                {
+                    float xa0 = MathF.Max(ca.a, pa0), xa1 = MathF.Min(ca.b, pb0), xb0 = MathF.Max(cb.a, pa0), xb1 = MathF.Min(cb.b, pb0);
+                    if (xa1 - xa0 < 0.01f || xb1 - xb0 < 0.01f) continue;
+                    overhead.AddQuad(wallMat, new Vector3(xa0, ceilY, za), new Vector3(xa1, ceilY, za), new Vector3(xb1, ceilY, zb), new Vector3(xb0, ceilY, zb), -Vector3.UnitY);
+                }
+                _ = lo;
+            }
             // The floor out to the skin, a hair under the deck's own floor slab.
             var fy = floorY - 0.006f;
+            // ...open, like the slab, wherever stairs or a ladder come up through it.
             if (SpanAt(pa, floorY) is { } fa && SpanAt(pb, floorY) is { } fb)
-                walls.AddQuad(floorMat, new Vector3(fa.a, fy, za), new Vector3(fa.b, fy, za), new Vector3(fb.b, fy, zb), new Vector3(fb.a, fy, zb), Vector3.UnitY);
+            {
+                var zm = (za + zb) / 2;
+                var cursor = float.MinValue;
+                var pieces = new List<(float a, float b)>();
+                foreach (var h in floorHoles.Where(h => zm > h.z0 && zm < h.z1).OrderBy(h => h.x0))
+                {
+                    pieces.Add((cursor, h.x0));
+                    cursor = h.x1;
+                }
+                pieces.Add((cursor, float.MaxValue));
+                foreach (var (p0, p1) in pieces)
+                {
+                    float xa0 = MathF.Max(fa.a, p0), xa1 = MathF.Min(fa.b, p1), xb0 = MathF.Max(fb.a, p0), xb1 = MathF.Min(fb.b, p1);
+                    if (xa1 - xa0 < 0.01f || xb1 - xb0 < 0.01f) continue;
+                    walls.AddQuad(floorMat, new Vector3(xa0, fy, za), new Vector3(xa1, fy, za), new Vector3(xb1, fy, zb), new Vector3(xb0, fy, zb), Vector3.UnitY);
+                }
+            }
         }
     }
 

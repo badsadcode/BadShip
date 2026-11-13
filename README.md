@@ -510,6 +510,13 @@ outward (it used to be the same diagonal every time, so mirrored faces dented in
 
 ![Real windows in a bridge block](docs/images/block_windows_v0.25.png)
 
+### Shaped stacked blocks and gondolas (v0.26.0)
+
+Every block deck is shaped now, lower tiers in a stack included: the skin's flat ceiling has openings where a ladder
+or stairs go up, with a shaft through any gap to the deck above. A **gondola** deck is shaped to its pod too, and
+its glass becomes real windows; on interior ships a research gondola's observation band runs round its sides at eye
+level (instead of its lower facets), so the lounge inside looks out through it.
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -517,7 +524,7 @@ outward (it used to be the same diagonal every time, so mirrored faces dented in
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.25.1: real windows in block decks; no more dented faces)
+## Status (v0.26.0: shaped stacked blocks and gondolas)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

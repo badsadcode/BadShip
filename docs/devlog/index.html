@@ -134,7 +134,7 @@ footer b { color: var(--orange); font-weight: 500; }
     <span class="tag"><b>Sage</b> · welder, writes the C#</span>
   </div>
   <div class="board">
-    <div><strong>25</strong><span>launches</span></div>
+    <div><strong>26</strong><span>launches</span></div>
     <div><strong>2</strong><span>days in the yard</span></div>
     <div><strong>11</strong><span>kinds of ship</span></div>
     <div><strong>12</strong><span>paint schemes</span></div>
@@ -308,6 +308,14 @@ footer b { color: var(--orange); font-weight: 500; }
     <figure><img src="../images/block_windows_v0.25.png" alt="Inside a bridge looking up through a sloped windscreen, a side window from inside, and the same windows from outside showing the rooms behind them" loading="lazy"><figcaption>Seed 1, the freighter that started it all. The view from the helm is finally real.</figcaption></figure>
     <div class="bug"><b>Bug of the day</b>BadSad noticed that one front corner of the bridge block was dented inward while its twin on the other side was nicely bulged. A slanted face that is not quite flat gets split into two triangles, and the yard always cut along the same diagonal, which bulges on one side and dents on the mirrored side. Now it picks whichever diagonal bulges outward. Every ship got a little smoother.</div>
     <div class="who"><span class="tag">BadSad: spotted the fake windows</span><span class="tag">BadSad: spotted the dent</span></div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.26.0</span>
+    <h3>Every block, every pod</h3>
+    <p>BadSad said: let's make it all consistent. Fair. So the shaped rooms and real windows now reach every block in a stack, not just the top one, with hatches cut through the shaped ceilings for the ladders. The gondola got the same treatment: its lounge follows the shape of the pod, and a research ship's observation glass moved up to eye level, so the scientists can finally see what they are observing.</p>
+    <div class="bug"><b>Bug of the day</b>Two of them, both invisible floors. The shaped rooms laid a thin floor out to the walls and forgot to leave holes for the stairs. And on blocks sitting right on the hull, the block's own bottom face landed exactly at floor height and quietly covered the stairwell. Godot's robot walked up the stairs and bonked its head on a floor nobody could see.</div>
+    <div class="who"><span class="tag">BadSad: "make it all consistent"</span></div>
   </article>
 </div>
 

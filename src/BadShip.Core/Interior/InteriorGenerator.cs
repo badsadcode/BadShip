@@ -245,7 +245,7 @@ public static class InteriorGenerator
                 spec = spec with { Z0 = e0, Z1 = e1 };
             }
             list.Add(spec);
-            if (spec.Part == "superstructure") shapes[list.Count - 1] = Shaped(spec, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
+            if (spec.Part is "superstructure" or "gondola") shapes[list.Count - 1] = Shaped(spec, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
         }
         // A block deck with nothing stacked on it follows the block's shape: only the band people walk in (floor to a
         // little over door height) has to fit, so it is wider and reaches further into the tapered ends.
@@ -253,8 +253,7 @@ public static class InteriorGenerator
         {
             if (!shapes.TryGetValue(i, out var shaped) || shaped is null) continue;
             var a = list[i];
-            var stacked = list.Skip(i + 1).Any(b => b.Part == "superstructure" && b.FloorY > a.FloorY + 1 && b.Z1 > a.Z0 + 4 && b.Z0 < a.Z1 - 4);
-            if (!stacked) list[i] = shaped;
+            list[i] = shaped;
         }
         return list;
     }
@@ -1045,7 +1044,8 @@ public static class InteriorGenerator
                     var room = result.Rooms.Where(q => q.Deck == d.Index && centre.Z >= q.Min[2] - 0.01f && centre.Z <= q.Max[2] + 0.01f)
                         .OrderBy(q => side == 0 ? MathF.Abs((q.Min[0] + q.Max[0]) / 2 - centre.X) : MathF.Abs((side > 0 ? q.Max[0] : q.Min[0]) - centre.X)).FirstOrDefault()
                         ?? bridge;
-                    if (room is null) continue;
+                    // Glass over a store or machinery stays painted, as on the hull.
+                    if (room is null || Blind.Contains(room.Kind)) continue;
                     result.Windows.Add(new WindowInfo($"window_{result.Windows.Count}", room.Id, d.Index, side, zMin, zMax, yMin, yMax, centre.X,
                         _shellModules[deckIndex], p.S, p.F, p.U0, p.U1, p.V0, p.V1));
                 }
@@ -1201,10 +1201,13 @@ public static class InteriorGenerator
             }
         }
 
+        /// <summary>Rooms that get no windows: stores, holds, machinery, stairs, lifts, the armoury and the brig.</summary>
+        private static readonly string[] Blind = ["storage", "reactor", "life_support", "cargo_hold", "engineering", "engine_room", "stairwell", "airlock", "armoury", "brig", "elevator", "workshop"];
+
         /// <summary>Window candidates along the hull walls of rooms where people are (not stores, machinery or stairs).</summary>
         public void Windows(Func<WindowInfo, bool> accept)
         {
-            string[] blind = ["storage", "reactor", "life_support", "cargo_hold", "engineering", "engine_room", "stairwell", "airlock", "armoury", "brig", "elevator", "workshop"];
+            var blind = Blind;
             var n = 0;
             foreach (var room in result.Rooms)
             {
@@ -1245,6 +1248,22 @@ public static class InteriorGenerator
                 for (var i = 0; i + 1 < l.Decks.Length; i++)
                     risers.Add((l.Decks[i], l.Decks[i + 1], l.Shaft[0], l.Shaft[1], l.Shaft[2], l.Shaft[3]));
             float HoleX0(DeckInfo x, float x0) => MathF.Abs(x0 - Wall / 2 - (x.Cx - x.HalfWidth)) < 0.05f || MathF.Abs(x0 - Wall / 2 - StairX(x)) < 0.05f ? x0 - Wall / 2 : x0;
+            // Between a deck's roof and the floor of the deck above (on top of the hull, or a gondola's trunk), a
+            // shaft round each opening going up.
+            void Shafts(DeckInfo d, Module deck)
+            {
+                foreach (var x in risers.Where(x => x.lo == d.Index))
+                {
+                    var hi = result.Decks[x.hi];
+                    if (hi.FloorY - Slab - (d.CeilingY + Slab) < 0.05f) continue;
+                    var shaft = Add(model, $"shaft_{d.Index}_{x.hi}_{x.z0:0}", "walls", deck.Id);
+                    var (ya, yb) = (d.CeilingY, hi.FloorY - Slab);
+                    Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x0 - Wall, ya, x.z0 - Wall), new Vector3(x.x0, yb, x.z1 + Wall));
+                    Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x1, ya, x.z0 - Wall), new Vector3(x.x1 + Wall, yb, x.z1 + Wall));
+                    Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x0, ya, x.z0 - Wall), new Vector3(x.x1, yb, x.z0));
+                    Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x0, ya, x.z1), new Vector3(x.x1, yb, x.z1 + Wall));
+                }
+            }
             foreach (var d in result.Decks)
             {
                 var deck = Add(model, $"deck_{d.Index}", "deck", root.Id);
@@ -1269,7 +1288,9 @@ public static class InteriorGenerator
                     var cuts = result.Windows.Where(w => w.Deck == d.Index && w.Module != null)
                         .Select(w => (w.F, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U0, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U1, w.V0, w.V1)).ToList();
                     var skinEnd = _nook.TryGetValue(d.Index, out var nookEnd) ? nookEnd : d.Z1 + Wall;
-                    Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, skinEnd, d.FloorY, d.CeilingY, cuts);
+                    var up = risers.Where(x => x.lo == d.Index).Select(x => (HoleX0(d, x.x0), x.x1, x.z0, x.z1)).ToList();
+                    Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, skinEnd, d.FloorY, d.CeilingY, cuts, up, holes);
+                    Shafts(d, deck);
                     if (_nook.ContainsKey(d.Index))
                         Skin.WallAcross(skinWalls.Mesh, WallMat, shell, SkinInset, nookEnd, -1e4f, 1e4f, d.FloorY, d.CeilingY, Wall);
                 }
@@ -1279,20 +1300,7 @@ public static class InteriorGenerator
                     var roof = Add(model, $"ceiling_{d.Index}", "ceiling", deck.Id);
                     var up = risers.Where(x => x.lo == d.Index).Select(x => (HoleX0(d, x.x0), x.x1, x.z0, x.z1)).ToList();
                     SlabWithHoles(roof.Mesh, WallMat, d.Cx - hw - Wall, d.Cx + hw + Wall, d.Z0 - Wall, d.Z1 + Wall, d.CeilingY, d.CeilingY + Slab, up);
-                    // Between this roof and the floor of the deck above (on top of the hull), a shaft round the opening.
-                    foreach (var x in risers.Where(x => x.lo == d.Index))
-                    {
-                        var hi = result.Decks[x.hi];
-                        if (hi.FloorY - Slab - (d.CeilingY + Slab) < 0.05f) continue;
-                        var shaft = Add(model, $"shaft_{d.Index}_{x.hi}_{x.z0:0}", "walls", deck.Id);
-                        var (ya, yb) = (d.CeilingY, hi.FloorY - Slab);
-                        var t = Wall / 2;
-                        Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x0 - Wall, ya, x.z0 - Wall), new Vector3(x.x0, yb, x.z1 + Wall));
-                        Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x1, ya, x.z0 - Wall), new Vector3(x.x1 + Wall, yb, x.z1 + Wall));
-                        Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x0, ya, x.z0 - Wall), new Vector3(x.x1, yb, x.z0));
-                        Shapes.BoxMinMax(shaft.Mesh, WallMat, new Vector3(x.x0, ya, x.z1), new Vector3(x.x1, yb, x.z1 + Wall));
-                        _ = t;
-                    }
+                    Shafts(d, deck);
                 }
                 // Railings round the voids over the halls, open where the grand staircase arrives.
                 if (voids.Count > 0)
