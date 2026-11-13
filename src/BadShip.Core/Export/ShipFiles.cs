@@ -54,7 +54,7 @@ public static class ShipFiles
         File.WriteAllBytes(glb, GlbWriter.Write(interior.Model));
         File.WriteAllText(json, JsonSerializer.Serialize(new
         {
-            decks = interior.Decks, rooms = interior.Rooms, doors = interior.Doors, stairs = interior.Stairs, windows = interior.Windows, validation = report,
+            decks = interior.Decks, rooms = interior.Rooms, doors = interior.Doors, stairs = interior.Stairs, lifts = interior.Lifts, windows = interior.Windows, validation = report,
         }, Json));
         var paths = new List<string> { glb, json };
         // Exterior and interior in one file, lined up (one scene to drop into an engine).

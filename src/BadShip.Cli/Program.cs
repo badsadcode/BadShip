@@ -156,6 +156,8 @@ try
                         interiors++;
                         var irep = BadShip.Interior.InteriorValidator.Validate(interior);
                         if (irep.HasErrors) errors++;
+                        if (irep.HasErrors && opts.ContainsKey("verbose"))
+                            Console.WriteLine($"  seed {start + (ulong)i} ({ship.Plan.Archetype}/{ship.Plan.Family}): {string.Join("; ", irep.Issues.Take(3).Select(x => x.Message))}");
                         foreach (var issue in irep.Issues) codes[issue.Code] = codes.GetValueOrDefault(issue.Code) + 1;
                     }
                 }

@@ -134,7 +134,7 @@ footer b { color: var(--orange); font-weight: 500; }
     <span class="tag"><b>Sage</b> · welder, writes the C#</span>
   </div>
   <div class="board">
-    <div><strong>20</strong><span>launches</span></div>
+    <div><strong>21</strong><span>launches</span></div>
     <div><strong>2</strong><span>days in the yard</span></div>
     <div><strong>11</strong><span>kinds of ship</span></div>
     <div><strong>12</strong><span>paint schemes</span></div>
@@ -275,6 +275,15 @@ footer b { color: var(--orange); font-weight: 500; }
     <figure><img src="../images/interiors_halls_v0.20.png" alt="A two-deck atrium with a grand staircase and a gallery, and a ring corridor seen from above" loading="lazy"><figcaption>The atrium from its floor and from the gallery, the gallery deck, and a ring corridor.</figcaption></figure>
     <div class="bug"><b>Bug of the day</b>Godot's walking robot kept missing exactly one room per ship. The doors were 1.2 m wide, and after Godot kept a safe distance from both door frames, only half a metre was left. Sometimes that rounded down to nothing. Doors are 1.4 m now. Turns out spaceships need wide doors too.</div>
   </article>
+
+  <article class="entry">
+    <span class="ver">v0.21.0</span>
+    <h3>Up the ladder, down to the keel</h3>
+    <p>BadSad looked at a little freighter and said: that ship has a top part and a part underneath, so why does it have only one deck? Fair point. Now the blocks on top of the hull get their own decks (comms, briefing, the captain's cabin), and the keel underneath gets one too (stores and workshops). Where it is roomy, stairs join them to the main deck. Where it is tight, a ladder goes up through a hatch. Big ships also get an elevator through all their main decks, with a door on every deck that only opens when the car is there, so nobody steps into an empty shaft.</p>
+    <figure><img src="../images/decks_ladders_elevators_v0.21.png" alt="A small freighter's three decks from the side, a ladder through a hatch, an elevator shaft cut open, and a warship with seven decks" loading="lazy"><figcaption>BadSad's freighter now has three decks. The elevator is shown cut open; in a game, the doors keep you out of the shaft.</figcaption></figure>
+    <div class="bug"><b>Bug of the day</b>The test robot said a tiny freighter had zero reachable rooms, not even the one it was standing in. The ship was fine. The robot was checking the map before the map was finished loading. On big ships, the elevator ride gave it just enough time, so nobody noticed until a ship had no elevator.</div>
+    <div class="who"><span class="tag">BadSad: "ladders, stairs, and elevators 😛"</span></div>
+  </article>
 </div>
 
 <section class="next">
@@ -283,10 +292,10 @@ footer b { color: var(--orange); font-weight: 500; }
 </section>
 
 <section class="studio">
-  <img src="../images/bad_ideas_works_logo.webp" width="1448" height="1086" alt="The Bad Ideas Works logo: two dogs and six rats, all wearing sunglasses, above the words Bad Ideas Works.">
+  <img src="../images/bad_ideas_works_logo.webp" width="1448" height="1086" alt="The Bad Ideas Works logo: two dogs and five rats, all wearing sunglasses, above the words Bad Ideas Works.">
   <div>
     <h2>Bad Ideas Works</h2>
-    <p>The studio behind BadShip, named after how most of our best features start. The crew on the logo are BadSad's animals: two dogs and six rats, all in sunglasses. Some of them are not with us anymore, but they are still here, keeping an eye on the yard.</p>
+    <p>The studio behind BadShip, named after how most of our best features start. The crew on the logo are BadSad's animals, all in sunglasses. The dogs are Melon, the smaller one, still on duty in the yard, and Kiwi, who waits on the other side of the Rainbow Bridge. The five rats are named after figures of speech: Alegoria, Dygresja, Metafora, Hiperbola and Elipsa, or Ali, Digi, Metka, Hipka and Elipka for short.</p>
   </div>
 </section>
 

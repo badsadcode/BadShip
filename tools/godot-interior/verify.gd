@@ -56,20 +56,37 @@ func _run(scene: Node, counts: Dictionary) -> void:
 	var map := get_root().get_world_3d().navigation_map
 	NavigationServer3D.map_set_cell_size(map, nav.cell_size)
 	NavigationServer3D.map_set_cell_height(map, nav.cell_height)
+	var before_sync := NavigationServer3D.map_get_iteration_id(map)
 	var region := NavigationServer3D.region_create()
 	NavigationServer3D.region_set_map(region, map)
 	NavigationServer3D.region_set_navigation_mesh(region, nav)
-	# Big interiors take a while to sync: wait for the map's first iteration.
+	# Ladders and elevators: the links InteriorSetup made, registered on this map.
+	for n in all:
+		if n is NavigationLink3D:
+			var l := NavigationServer3D.link_create()
+			NavigationServer3D.link_set_map(l, map)
+			NavigationServer3D.link_set_start_position(l, (n as NavigationLink3D).global_transform * (n as NavigationLink3D).start_position)
+			NavigationServer3D.link_set_end_position(l, (n as NavigationLink3D).global_transform * (n as NavigationLink3D).end_position)
+			NavigationServer3D.link_set_bidirectional(l, true)
+	# An elevator rides to its top stop and opens the door there.
+	for n in all:
+		if n.get_script() != null and str(n.get_meta("extras", {}).get("type", "")) == "elevator":
+			var y0: float = n.position.y
+			n.call_to(n.stops_y.size() - 1)
+			var ride: float = absf(float(n.stops_y[-1]) - float(n.stops_y[0])) / n.speed + n.dwell + 0.5
+			await create_timer(ride).timeout
+			print("elevator rides %.1f m up, stop %d, top door open: %s" % [n.position.y - y0, n.stop, str(n._doors[-1] != null and n._doors[-1].is_open)])
+	# Big interiors take a while to sync: wait until the map has synced since the region and links were added.
 	for i in 600:
 		await process_frame
-		if NavigationServer3D.map_get_iteration_id(map) > 0: break
+		if NavigationServer3D.map_get_iteration_id(map) > before_sync: break
 	# Spawn and room markers.
 	var spawn := Vector3.ZERO
 	var rooms := []
 	for n in all:
 		var x: Dictionary = n.get_meta("extras", {})
 		if str(x.get("kind", "")) == "spawn": spawn = (n as Node3D).global_position
-		if str(x.get("type", "")) == "room" and str(x.get("kind", "")) != "stairwell": rooms.append(n)
+		if str(x.get("type", "")) == "room" and str(x.get("kind", "")) not in ["stairwell", "elevator"]: rooms.append(n)
 	var reached := 0
 	var failed := []
 	for room in rooms:

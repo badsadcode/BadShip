@@ -449,7 +449,7 @@ function syncHullForms() {
   fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' || kind === 'utility' ? [] : ['keel', 'gondola', 'pods', 'none']);
   fill(document.getElementById('job'), JOBS[kind] ?? []);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0', '0.21.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
@@ -686,9 +686,12 @@ function updateDeckControls(ii) {
   const show = state.view === 'interior' && ii.decks > 0;
   for (const id of ['deck-down', 'deck-label', 'deck-up']) $(id).hidden = !show;
   if (!show) return;
-  $('deck-label').textContent = state.deck < 0 ? `all ${ii.decks} decks` : `deck ${state.deck + 1} of ${ii.decks}`;
+  // Decks outside the hull say where they are: up in the superstructure or down in the keel.
+  const part = state.deck >= 0 && ii.parts && ii.parts[state.deck] !== 'hull' ? ` · ${ii.parts[state.deck]}` : '';
+  $('deck-label').textContent = state.deck < 0 ? `all ${ii.decks} decks` : `deck ${state.deck + 1} of ${ii.decks}${part}`;
   const kinds = Object.entries(ii.deck_rooms ?? {}).slice(0, 5).map(([k, n]) => `${n} ${k.replaceAll('_', ' ')}`).join(', ');
-  $('stat').textContent = `${ii.rooms} rooms, ${ii.doors} doors · this view: ${kinds} · ${ii.status}`;
+  const lifts = [ii.ladders ? `${ii.ladders} ladder${ii.ladders > 1 ? 's' : ''}` : '', ii.elevators ? `${ii.elevators} elevator` : ''].filter(Boolean).join(', ');
+  $('stat').textContent = `${ii.rooms} rooms, ${ii.doors} doors${lifts ? ', ' + lifts : ''} · this view: ${kinds} · ${ii.status}`;
 }
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
   state.view = b.dataset.view;

@@ -437,6 +437,34 @@ with 1,600 rooms included.
 
 ![A two-deck atrium, its gallery and a ring corridor](docs/images/interiors_halls_v0.20.png)
 
+### Superstructure and keel decks, ladders and elevators (v0.21.0)
+
+Interiors now go beyond the main hull:
+
+- **Superstructure decks**: every centred block on top of the hull (the bridge block and superstructure tiers) gets
+  a deck in its longest constant section, with command and crew rooms (observation, comms, briefing, the captain's
+  cabin...). A tier stacked on another gets its own deck, above the one below.
+- **Keel decks**: a keel under the hull gets a deck right under the lowest hull deck, with stores and workshops. It
+  reaches up into the bottom of the hull, so the keel's width counts below its top and the hull's above it.
+- Decks outside the hull may have a lower ceiling (2.6–3.1 m) to fit a smaller block. Decks are numbered from the
+  bottom up, and each says which part it is in (`part`: `hull`, `superstructure` or `keel`).
+- **Stairs or ladders** join each of those decks to the deck under (or over) it: stairs where both decks are wide
+  enough and the rise is about a storey, otherwise a **ladder** through a hatch with a rail round it. On a hull deck
+  the link gets its own stair hall or ladder room across the deck; a shaft closes the gap between the two decks.
+- **Elevators**: ships with three or more hull decks (half of the three-deck ones) get an elevator: a shaft against
+  the hull beside a lobby off the corridor on every deck (on a freighter's hold deck it opens into the hold), a car at
+  the lowest stop, and an **elevator door** at every stop.
+
+The interior JSON has `lifts` (ladders and elevators: decks, rooms, shaft, access points, doors). In the GLB, ladders
+and elevator cars are nodes of type `ladder` and `elevator` with the same in their extras (`stops_y`, `access`,
+`doors`, `top`, `bottom`). **In Godot**, `interior_setup.gd` now gives elevator cars `elevator.gd` (call `call_to(i)`:
+it closes the door, rides, and opens the door at the new stop; elevator doors never open by themselves) and adds
+`NavigationLink3D` nodes over every ladder and between elevator stops, so navigation agents path across them; how a
+character climbs or rides is up to the game. `tools/render/liftview.mjs` shows the deck stack, a ladder and the
+elevator (cut open with the renderer's new `clip` option). `badship stress --interior --verbose` names failing seeds.
+
+![Decks, ladders and elevators](docs/images/decks_ladders_elevators_v0.21.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -444,7 +472,7 @@ with 1,600 rooms included.
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.20.0: complex interiors)
+## Status (v0.21.0: superstructure and keel decks, ladders and elevators)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
