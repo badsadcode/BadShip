@@ -100,6 +100,9 @@ public sealed class BuildContext
         _ => 1f,
     };
 
+    /// <summary>Industrial ships: wear the industrial colour scheme when no palette is asked for.</summary>
+    public bool PreferIndustrialPaint { get; set; }
+
     /// <summary>Fighters: how blocky the cross-section is (0 knife-edged stealth … 1 armoured chamfered block).</summary>
     public float Bulk { get; set; }
 

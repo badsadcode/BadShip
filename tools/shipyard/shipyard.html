@@ -173,13 +173,16 @@
           <select id="size"><option value="auto">Auto</option><option>small</option><option>medium</option><option>large</option></select>
         </label>
         <label>Archetype
-          <select id="archetype"><option value="auto">Auto</option><option>freighter</option><option>research</option><option>patrol</option><option>fighter</option><option>citadel</option></select>
+          <select id="archetype"><option value="auto">Auto</option><option>freighter</option><option>research</option><option>patrol</option><option>fighter</option><option>citadel</option><option>industrial</option></select>
         </label>
         <label>Hull family
-          <select id="family"><option value="auto">Auto</option><option>barge</option><option>spine</option><option>twin</option><option>block</option><option>fighter</option><option>citadel</option></select>
+          <select id="family"><option value="auto">Auto</option><option>barge</option><option>spine</option><option>twin</option><option>block</option><option>fighter</option><option>citadel</option><option>industrial</option></select>
         </label>
         <label>Hull form
           <select id="hull_form"><option value="">Auto</option><option>slab</option><option>faceted</option></select>
+        </label>
+        <label>Job (industrial)
+          <select id="job"><option value="">Auto</option><option>drill</option><option>refinery</option><option>crane</option><option>salvage</option></select>
         </label>
         <label>Wings (fighters)
           <select id="wing_style"><option value="">Auto</option><option value="form">Body's own</option><option>swept</option><option>forward</option><option>x</option><option>gull</option><option>layered</option><option>pods</option><option>asym</option></select>
@@ -436,7 +439,7 @@ function syncHullForms() {
   fill(document.getElementById('hull_form'), kind === 'fighter' ? ['dart', 'wedge', 'brick', 'fork', 'hammer', 'twinboom', 'brawler'] : ['slab', 'faceted']);
   fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' ? [] : ['keel', 'gondola', 'pods', 'none']);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
@@ -452,6 +455,8 @@ function recipe() {
   const overrides = { ...(extras.overrides ?? {}) };
   syncHullForms();
   delete overrides.hull_form; delete overrides.ventral; delete overrides.wing_style; delete overrides.wing_span;
+  if (($('archetype').value === 'industrial' || $('family').value === 'industrial') && $('job').value) overrides.payload = $('job').value;
+  else if (['drill', 'refinery', 'crane', 'salvage'].includes(overrides.payload)) delete overrides.payload;
   if ($('wing_style').value) overrides.wing_style = $('wing_style').value;
   if ($('wing_span').value) overrides.wing_span = +$('wing_span').value;
   if ($('hull_form').value) overrides.hull_form = $('hull_form').value;
@@ -573,6 +578,7 @@ function applyRecipe(rec) {
   $('condition').value = ['damaged', 'derelict'].includes(rec.condition) ? rec.condition : 'intact';
   syncHullForms(); $('hull_form').value = rec.overrides?.hull_form ?? '';
   $('wing_style').value = rec.overrides?.wing_style ?? '';
+  $('job').value = ['drill', 'refinery', 'crane', 'salvage'].includes(rec.overrides?.payload) ? rec.overrides.payload : '';
   $('wing_span').value = rec.overrides?.wing_span != null ? String(rec.overrides.wing_span) : '';
   if (!$('wing_span').value && rec.overrides?.wing_span != null) { const o = document.createElement('option'); o.value = o.textContent = String(rec.overrides.wing_span); $('wing_span').append(o); $('wing_span').value = o.value; }
   $('ventral').value = rec.overrides?.ventral ?? '';
@@ -654,7 +660,7 @@ $('random').addEventListener('click', () => { extras = {}; $('seed').value = ran
 $('reset').addEventListener('click', () => { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); });
 document.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { stageSeeds[b.dataset.stage] = rand(); build(); }));
 $('seed').addEventListener('keydown', e => { if (e.key === 'Enter') { for (const k of Object.keys(stageSeeds)) delete stageSeeds[k]; build(); } });
-for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'hull_form', 'wing_style', 'wing_span', 'ventral', 'palette', 'detail', 'livery', 'condition']) $(id).addEventListener('change', () => build());
+for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'hull_form', 'job', 'wing_style', 'wing_span', 'ventral', 'palette', 'detail', 'livery', 'condition']) $(id).addEventListener('change', () => build());
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
   state.mode = b.dataset.mode;
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));

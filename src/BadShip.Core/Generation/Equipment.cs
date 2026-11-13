@@ -43,6 +43,12 @@ public static partial class Equipment
                 Repeat(c.Count(0, 2), () => Sensor(0.8f));
                 Repeat(c.Count(1, 3), () => Antenna(c));
                 break;
+            case "industrial":
+                Repeat(c.Count(1, 3), () => Antenna(c));
+                Repeat(c.Count(0, 2), () => Sensor(0.7f));
+                Repeat(c.Count(1, 2), () => DockingCollar(c));
+                if (r.Chance(0.4)) CargoBay(c);
+                break;
             default: // patrol
                 Repeat(c.Count(3, 6), () => Hardpoint(c));
                 Repeat(c.Count(1, 2), () => Sensor(0.75f));

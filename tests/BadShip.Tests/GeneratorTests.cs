@@ -234,11 +234,11 @@ public class GeneratorTests
         var ships = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "halvorsen" })).ToList();
         Assert.All(ships, s => Assert.Equal("Halvorsen Heavy Works", s.Plan.ManufacturerName));
         // (Fighters have their own engines and forms.)
-        ships = ships.Where(s => s.Plan.Family != "fighter").ToList();
-        Assert.True(ships.Count >= 25);
+        ships = ships.Where(s => s.Plan.Family is not ("fighter" or "citadel" or "industrial")).ToList();
+        Assert.True(ships.Count >= 18);
         Assert.All(ships, s => Assert.Equal("pod", s.Plan.EngineStyle));
-        Assert.True(ships.Count(s => s.Plan.HullForm == "slab") >= 24);
-        Assert.True(ships.Count(s => s.Plan.ProwStyle is "blunt" or "stepped") >= 18);
+        Assert.True(ships.Count(s => s.Plan.HullForm == "slab") >= ships.Count * 0.8);
+        Assert.True(ships.Count(s => s.Plan.ProwStyle is "blunt" or "stepped") >= ships.Count * 0.6);
         // Meridian builds faceted survey hulls with nacelles.
         var meridian = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "meridian", Archetype = "research" })).ToList();
         Assert.True(meridian.Count(s => s.Plan.HullForm == "faceted") >= 25);
@@ -540,6 +540,33 @@ public class GeneratorTests
         Assert.All(ships, s => Assert.False(ShipValidator.Validate(s).HasErrors));
         foreach (var kit in new[] { "point_defence", "radiators", "winglets" })
             Assert.Contains(ships, s => s.Modules.Any(m => m.Id.StartsWith(kit)));
+    }
+
+    [Theory]
+    [InlineData("drill", "drill")]
+    [InlineData("refinery", "scoop")]
+    [InlineData("crane", "crane")]
+    [InlineData("salvage", "claw")]
+    public void Industrial_ships_carry_their_tool_and_validate(string job, string toolType)
+    {
+        foreach (var size in Planner.Sizes)
+            foreach (var condition in new[] { "intact", "damaged", "derelict" })
+                for (ulong seed = 1; seed <= 4; seed++)
+                {
+                    var recipe = new ShipRecipe { Seed = seed, Archetype = "industrial", Size = size, Condition = condition, Overrides = new PlanOverrides { Payload = job } };
+                    var ship = ShipGenerator.Generate(recipe);
+                    var report = ShipValidator.Validate(ship);
+                    Assert.False(report.HasErrors, $"{job} {size} {condition} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                    Assert.Equal("industrial", ship.Plan.Family);
+                    Assert.Equal(job, ship.Plan.Payload);
+                    if (condition == "intact") Assert.Contains(ship.Modules, m => m.Type == toolType);
+                    Assert.Contains(ship.Markers, m => m.Kind == "bridge");
+                    Assert.Equal(Signature(ship), Signature(ShipGenerator.Generate(ShipCode.Decode(ShipCode.Encode(recipe)))));
+                }
+        // Most wear the industrial scheme unless a palette is asked for.
+        var auto = Enumerable.Range(1, 20).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Archetype = "industrial" })).ToList();
+        Assert.True(auto.Count(s => s.Plan.Palette == "industrial") >= 10);
+        Assert.Equal("slate", ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "industrial", Palette = "slate" }).Plan.Palette);
     }
 
     [Fact]

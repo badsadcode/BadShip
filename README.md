@@ -265,7 +265,28 @@ corridors; surface parts respect windows, bays and markings.
 
 ![Colour schemes on one hull](docs/images/palettes_v0.11.png)
 
-## Status (v0.11.0: colour schemes and kit)
+### Industrial ships (v0.12.0)
+
+`--archetype industrial` builds work ships, 60–360 m: a chunky hull with a blunt work face (hazard bands and
+floodlights), the shared engines, bridge tiers, equipment and kit, and the tool that tells you the job
+(`--set payload=...`, the **Job** menu in the Shipyard):
+
+- `drill`: a stepped drill head with spiral rings of teeth on a collar, ore hoppers on deck fed by a conveyor.
+- `refinery`: a tank farm, spheres, chimney stacks with a hot glow and a pipe rack on deck; a gas scoop at the bow.
+- `crane`: a lattice crane boom over the bow with an A-frame, backstay and hook, a gantry over the deck, girder
+  stacks, and a work cradle at the bow.
+- `salvage`: hydraulic claw arms (one or two pairs) reaching from the bow, scrap bins heaped with junk.
+
+Tools carry `tool` markers (and `crane_hook`, `vent`, `floodlight`). Most industrial ships wear the industrial
+scheme unless a palette is asked for; the Kessler Belt Mining Union fields them most.
+
+![Industrial ships, two of each job](docs/images/industrial_v0.12.png)
+
+![A drill miner](docs/images/industrial_drill_v0.12.png)
+
+![A salvager](docs/images/industrial_salvage_v0.12.png)
+
+## Status (v0.12.0: industrial ships)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
