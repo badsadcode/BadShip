@@ -61,7 +61,8 @@ public static class InteriorValidator
             var keel = interior.Decks[r.Deck].Part == "keel";
             float W(float y) => keel ? InteriorGenerator.KeelHalfWidth(P, interior.Hull, y) : P.HalfWidthAt(y);
             var top = keel ? interior.Hull.Top : P.Top;
-            var halfX = Math.Max(Math.Abs(r.Min[0]), Math.Abs(r.Max[0]));
+            var cx = interior.Decks[r.Deck].Cx;
+            var halfX = Math.Max(Math.Abs(r.Min[0] - cx), Math.Abs(r.Max[0] - cx));
             if (r.Max[1] - r.Min[1] < InteriorGenerator.DoorH + 0.3f)
                 rep.Add("error", "interior.height", $"Room {r.Id} is too low to walk in.", [r.Id]);
             if (r.Min[1] < P.Bottom || r.Max[1] > top || halfX > W(r.Min[1]) || halfX > W(r.Max[1]))

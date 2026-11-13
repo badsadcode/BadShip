@@ -477,6 +477,13 @@ of a small craft's rooms, clear of their doors, instead of in a ladder room of i
 
 ![A gondola deck](docs/images/gondola_deck_v0.22.png)
 
+### Bridge block decks (v0.23.0)
+
+Superstructure and bridge blocks off the centreline get decks too (a deck has a `cx`, its centre across the ship),
+a block's deck may be as low as 2.5 m clear, and it reaches on into the block's tapered ends as far as it still fits
+(`Loft`-section test), so a **bridge block's deck ends in a bridge** across the front. Ladders and stairs stand where
+the two decks overlap across the ship.
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -484,7 +491,7 @@ of a small craft's rooms, clear of their doors, instead of in a ladder room of i
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.22.0: gondola decks)
+## Status (v0.23.0: bridge block decks)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
