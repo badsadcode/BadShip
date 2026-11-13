@@ -185,7 +185,7 @@ public sealed class Faction
     public string HullMain { get; set; } = "";
     public string HullSecondary { get; set; } = "";
     public string Accent { get; set; } = "";
-    public Dictionary<string, double> Roles { get; set; } = new() { ["freighter"] = 1, ["research"] = 1, ["patrol"] = 1, ["fighter"] = 0.8, ["industrial"] = 0.6 };
+    public Dictionary<string, double> Roles { get; set; } = new() { ["freighter"] = 1, ["research"] = 1, ["patrol"] = 1, ["fighter"] = 0.8, ["industrial"] = 0.6, ["utility"] = 1 };
     public Dictionary<string, double> Sizes { get; set; } = new() { ["small"] = 1, ["medium"] = 2, ["large"] = 1 };
     public Dictionary<string, double> Suppliers { get; set; } = Manufacturers.Presets.Keys.ToDictionary(k => k, _ => 1.0);
 }
@@ -197,14 +197,14 @@ public static class Factions
         ["haulers"] = new Faction
         {
             Name = "Free Haulers Guild", HullMain = "#4a5058", HullSecondary = "#6b7179", Accent = "#b85a22",
-            Roles = new() { ["freighter"] = 4, ["research"] = 0.5, ["patrol"] = 1, ["fighter"] = 0.5, ["industrial"] = 0.8 },
+            Roles = new() { ["freighter"] = 4, ["research"] = 0.5, ["patrol"] = 1, ["fighter"] = 0.5, ["industrial"] = 0.8, ["utility"] = 1.5 },
             Sizes = new() { ["small"] = 1.2, ["medium"] = 2, ["large"] = 1.5 },
             Suppliers = new() { ["halvorsen"] = 2, ["tanaka"] = 2, ["brightwater"] = 0.5 },
         },
         ["survey"] = new Faction
         {
             Name = "Oceanic Survey Directorate", HullMain = "#a7a59d", HullSecondary = "#7d7f80", Accent = "#c7902a",
-            Roles = new() { ["research"] = 4, ["freighter"] = 1, ["patrol"] = 0.3 },
+            Roles = new() { ["research"] = 4, ["freighter"] = 1, ["patrol"] = 0.3, ["utility"] = 1.2 },
             Sizes = new() { ["small"] = 1.5, ["medium"] = 2, ["large"] = 1 },
             Suppliers = new() { ["meridian"] = 3, ["brightwater"] = 1.5, ["halvorsen"] = 0.5 },
         },
@@ -218,7 +218,7 @@ public static class Factions
         ["miners"] = new Faction
         {
             Name = "Kessler Belt Mining Union", HullMain = "#6c7378", HullSecondary = "#8b9297", Accent = "#d9b21c",
-            Roles = new() { ["freighter"] = 3, ["research"] = 1, ["patrol"] = 0.5, ["fighter"] = 0.3, ["industrial"] = 3 },
+            Roles = new() { ["freighter"] = 3, ["research"] = 1, ["patrol"] = 0.5, ["fighter"] = 0.3, ["industrial"] = 3, ["utility"] = 1.2 },
             Sizes = new() { ["small"] = 1.5, ["medium"] = 2, ["large"] = 1 },
             Suppliers = new() { ["halvorsen"] = 2, ["tanaka"] = 1, ["korsak"] = 0.5 },
         },

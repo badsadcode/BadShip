@@ -43,8 +43,8 @@ public static class Details
             }
         }
         if (full || c.Lang.Signature == "accent_bands") AccentStripes(c, r);
-        if (!fighter) Thrusters(c, r);
-        if (c.Plan.Family is not ("fighter" or "citadel")) Kit.Surface(c);
+        if (c.Plan.Family is not ("fighter" or "utility")) Thrusters(c, r);
+        if (c.Plan.Family is not ("fighter" or "citadel" or "utility")) Kit.Surface(c);
     }
 
     /// <summary>Raised panels on a grid with random gaps: the layered armour look, kept off anything already placed.</summary>

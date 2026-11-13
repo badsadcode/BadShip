@@ -26,6 +26,7 @@ public static class Industrials
         var lang = c.Lang;
         p.Family = "industrial";
         p.Payload = r.Weighted<string>([("drill", 0.3), ("refinery", 0.25), ("crane", 0.25), ("salvage", 0.2)]);
+        if (c.Recipe.Overrides?.Payload is { } pinned && Jobs.Contains(pinned)) p.Payload = pinned;
         var (lmin, lmax) = p.Size switch { "small" => (60f, 110f), "large" => (200f, 360f), _ => (110f, 200f) };
         p.Length = c.Recipe.Length ?? r.Range(lmin, lmax);
         var L = p.Length;
@@ -42,7 +43,7 @@ public static class Industrials
         p.Asymmetric = false;
         p.Ventral = r.Weighted<string>([("keel", 0.35), ("gondola", 0.2), ("pods", 0.2), ("none", 0.25)]);
         // Most industrial ships wear the industrial scheme (hazard yellow) unless a palette is asked for.
-        c.PreferIndustrialPaint = r.Chance(0.7);
+        c.PreferredPalette = r.Chance(0.7) ? "industrial" : null;
     }
 
     public static void Build(BuildContext c)

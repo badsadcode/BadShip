@@ -286,7 +286,24 @@ scheme unless a palette is asked for; the Kessler Belt Mining Union fields them 
 
 ![A salvager](docs/images/industrial_salvage_v0.12.png)
 
-## Status (v0.12.0: industrial ships)
+### Utility craft (v0.13.0)
+
+`--archetype utility` builds the vans and pickups of space, 14–36 m: a boxy chamfered cab with big wraparound
+windows on a sloped windscreen, a body behind it, four landing legs with pads (`landing_pad` markers), headlights, a
+roof mast, and a job (`--set payload=...`, the **Job** menu):
+
+- `runabout`: compact, engine pods on short pylons, a roof light bar.
+- `mule`: a low open cargo bed with rails, a tailgate and strapped containers; an engine block at the back.
+- `shuttle`: a long passenger cabin with a row of windows, side doors (`hatch` markers) and a roof docking hatch.
+- `pioneer`: bolt-on side modules, a roof rack with crates, a small dish, engine pods and sturdier legs.
+
+Shuttles often wear the civilian scheme, mules and pioneers the industrial one. About 1.2–1.5k triangles.
+
+![Utility craft, two of each job](docs/images/utility_v0.13.png)
+
+![A runabout](docs/images/utility_runabout_v0.13.png)
+
+## Status (v0.13.0: utility craft)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

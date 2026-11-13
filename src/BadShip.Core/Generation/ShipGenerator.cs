@@ -9,10 +9,10 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.12.0";
+    public const string Version = "0.13.0";
 
-    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial"];
-    public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial"];
+    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility"];
+    public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility"];
 
     public static Ship Generate(ShipRecipe recipe)
     {
@@ -27,10 +27,11 @@ public static class ShipGenerator
             case "fighter": Fighters.Build(c); break;
             case "citadel": Citadels.Build(c); break;
             case "industrial": Industrials.Build(c); break;
+            case "utility": Utilities.Build(c); break;
             default: throw new ArgumentException($"Unknown family '{c.Plan.Family}'.");
         }
         // Fighters and citadels place their own equipment and undersides.
-        var ownKit = c.Plan.Family is "fighter" or "citadel";
+        var ownKit = c.Plan.Family is "fighter" or "citadel" or "utility";
         if (!ownKit) Signatures.Apply(c);
         if (!ownKit)
         {
@@ -88,9 +89,10 @@ public static class Planner
         p.FactionName = faction.Name;
         p.Size = Choose(rec.Size, Sizes, () => r.Weighted(W(faction.Sizes)), "size");
         // Asking for a big-ship family (barge, spine, ...) rules fighters out of the automatic role pick.
-        var bigFamily = !string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "fighter" or "citadel" or "industrial");
+        string[] own = ["fighter", "citadel", "industrial", "utility"];
+        var bigFamily = !string.IsNullOrEmpty(rec.Family) && rec.Family != "auto" && !own.Contains(rec.Family);
         p.Archetype = Choose(rec.Archetype, ShipGenerator.Archetypes,
-            () => r.Weighted(W(faction.Roles.Where(kv => !bigFamily || kv.Key is not ("fighter" or "citadel" or "industrial")).ToDictionary())), "archetype");
+            () => r.Weighted(W(faction.Roles.Where(kv => !bigFamily || !own.Contains(kv.Key)).ToDictionary())), "archetype");
         p.Manufacturer = string.IsNullOrEmpty(rec.Manufacturer) || rec.Manufacturer == "auto" ? r.Weighted(W(faction.Suppliers)) : rec.Manufacturer;
         var lang = Manufacturers.Get(p.Manufacturer);
         c.Lang = lang;
@@ -98,8 +100,14 @@ public static class Planner
         p.Signature = lang.Signature;
 
         // Asking for the fighter family means a fighter.
-        if (rec.Family is "fighter" or "citadel" or "industrial") p.Archetype = rec.Family;
-        if (p.Archetype == "industrial")
+        if (own.Contains(rec.Family)) p.Archetype = rec.Family;
+        if (p.Archetype == "utility")
+        {
+            if (!string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "utility"))
+                throw new ArgumentException($"Utility craft have their own family; '{rec.Family}' is for other ships.");
+            Utilities.Plan(c);
+        }
+        else if (p.Archetype == "industrial")
         {
             if (!string.IsNullOrEmpty(rec.Family) && rec.Family is not ("auto" or "industrial"))
                 throw new ArgumentException($"Industrial ships have their own family; '{rec.Family}' is for other ships.");
@@ -124,10 +132,10 @@ public static class Planner
         ApplyOverrides(rec.Overrides, p);
 
         // Paint comes from the operator.
-        if ((string.IsNullOrEmpty(rec.Palette) || rec.Palette == "auto") && c.PreferIndustrialPaint)
+        if ((string.IsNullOrEmpty(rec.Palette) || rec.Palette == "auto") && c.PreferredPalette is { } preferred)
         {
-            p.Palette = "industrial";
-            c.Ship.Materials = Palettes.Build("industrial", c.Look, faction.Accent);
+            p.Palette = preferred;
+            c.Ship.Materials = Palettes.Build(preferred, c.Look, faction.Accent);
         }
         else if ((string.IsNullOrEmpty(rec.Palette) || rec.Palette == "auto") && !string.IsNullOrEmpty(faction.HullMain))
         {
@@ -228,6 +236,15 @@ public static class Planner
         if (o is null) return;
         static string Pick(string? v, string current, string[] allowed, string what) =>
             v is null ? current : allowed.Contains(v) ? v : throw new ArgumentException($"Unknown {what} '{v}'. Use one of: {string.Join(", ", allowed)}.");
+        if (p.Family == "utility")
+        {
+            p.Payload = Pick(o.Payload, p.Payload, Utilities.Jobs, "utility job");
+            p.EngineStyle = Pick(o.EngineStyle, p.EngineStyle, ["pod", "block"], "engine style");
+            p.EngineLayout = Pick(o.EngineLayout, p.EngineLayout, ["1x1", "2x1"], "engine layout");
+            if (o.BeamRatio is { } ub) p.Beam = p.Length * (ub is >= 0.25f and <= 0.6f ? ub : throw new ArgumentException("Beam ratio must be 0.25–0.6."));
+            if (o.HeightRatio is { } uh) p.Height = p.Length * (uh is >= 0.15f and <= 0.4f ? uh : throw new ArgumentException("Height ratio must be 0.15–0.4."));
+            return;
+        }
         if (p.Family == "citadel")
         {
             p.HullForm = Pick(o.HullForm, p.HullForm, ["slab", "faceted"], "hull form");

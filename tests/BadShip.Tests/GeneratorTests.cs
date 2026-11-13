@@ -231,10 +231,10 @@ public class GeneratorTests
     public void A_manufacturer_gives_its_ships_a_shared_architecture()
     {
         // Halvorsen builds square: almost never faceted, pods for engines, blunt or stepped prows, its engine collar.
-        var ships = Enumerable.Range(1, 30).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "halvorsen" })).ToList();
+        var ships = Enumerable.Range(1, 60).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "halvorsen" })).ToList();
         Assert.All(ships, s => Assert.Equal("Halvorsen Heavy Works", s.Plan.ManufacturerName));
         // (Fighters have their own engines and forms.)
-        ships = ships.Where(s => s.Plan.Family is not ("fighter" or "citadel" or "industrial")).ToList();
+        ships = ships.Where(s => s.Plan.Family is not ("fighter" or "citadel" or "industrial" or "utility")).ToList();
         Assert.True(ships.Count >= 18);
         Assert.All(ships, s => Assert.Equal("pod", s.Plan.EngineStyle));
         Assert.True(ships.Count(s => s.Plan.HullForm == "slab") >= ships.Count * 0.8);
@@ -567,6 +567,30 @@ public class GeneratorTests
         var auto = Enumerable.Range(1, 20).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Archetype = "industrial" })).ToList();
         Assert.True(auto.Count(s => s.Plan.Palette == "industrial") >= 10);
         Assert.Equal("slate", ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "industrial", Palette = "slate" }).Plan.Palette);
+    }
+
+    [Theory]
+    [InlineData("runabout", "pod")]
+    [InlineData("mule", "block")]
+    [InlineData("shuttle", "block")]
+    [InlineData("pioneer", "pod")]
+    public void Utility_craft_validate_and_keep_their_job_kit(string job, string engines)
+    {
+        foreach (var size in Planner.Sizes)
+            foreach (var condition in new[] { "intact", "damaged", "derelict" })
+                for (ulong seed = 1; seed <= 4; seed++)
+                {
+                    var recipe = new ShipRecipe { Seed = seed, Archetype = "utility", Size = size, Condition = condition, Overrides = new PlanOverrides { Payload = job } };
+                    var ship = ShipGenerator.Generate(recipe);
+                    var report = ShipValidator.Validate(ship);
+                    Assert.False(report.HasErrors, $"{job} {size} {condition} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                    Assert.Equal("utility", ship.Plan.Family);
+                    Assert.Equal(engines, ship.Plan.EngineStyle);
+                    Assert.InRange(ship.Plan.Length, 14, 36);
+                    Assert.Equal(4, ship.Markers.Count(m => m.Kind == "landing_pad"));
+                    Assert.Contains(ship.Markers, m => m.Kind == "bridge");
+                    if (job == "shuttle") Assert.Contains(ship.Markers, m => m.Kind == "docking_port");
+                }
     }
 
     [Fact]

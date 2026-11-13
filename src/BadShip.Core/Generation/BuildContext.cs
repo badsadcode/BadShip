@@ -95,13 +95,14 @@ public sealed class BuildContext
     /// </summary>
     public float DetailScale => Plan.Family switch
     {
+        "utility" => Num.Clamp(Plan.Length / 70f, 0.22f, 0.55f),
         "fighter" => Num.Clamp(Plan.Length / 55f, 0.16f, 0.8f),
         "citadel" => Num.Clamp(Plan.Length / 260f, 1f, 2.6f),
         _ => 1f,
     };
 
-    /// <summary>Industrial ships: wear the industrial colour scheme when no palette is asked for.</summary>
-    public bool PreferIndustrialPaint { get; set; }
+    /// <summary>A colour scheme the ship type prefers when no palette is asked for (industrial for work ships, ...).</summary>
+    public string? PreferredPalette { get; set; }
 
     /// <summary>Fighters: how blocky the cross-section is (0 knife-edged stealth … 1 armoured chamfered block).</summary>
     public float Bulk { get; set; }
