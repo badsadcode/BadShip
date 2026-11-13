@@ -134,7 +134,7 @@ footer b { color: var(--orange); font-weight: 500; }
     <span class="tag"><b>Sage</b> · welder, writes the C#</span>
   </div>
   <div class="board">
-    <div><strong>24</strong><span>launches</span></div>
+    <div><strong>25</strong><span>launches</span></div>
     <div><strong>2</strong><span>days in the yard</span></div>
     <div><strong>11</strong><span>kinds of ship</span></div>
     <div><strong>12</strong><span>paint schemes</span></div>
@@ -299,6 +299,14 @@ footer b { color: var(--orange); font-weight: 500; }
     <p>BadSad spotted a freighter with a bridge block that had windows but nothing inside. The block sat a little off-centre and was a bit short, so the generator skipped it. Now it gets a deck, with a real bridge at the front. Then BadSad asked the big question: the block is not a box, so why are the rooms boxes? Fair. Now a block's deck follows the block's own shape. Floors stay flat so people can walk, but the walls lean in along the slanted edges, and the ceiling comes down where the nose slopes.</p>
     <figure><img src="../images/shaped_decks_v0.24.png" alt="A bridge block deck from above with walls that follow the block's slanted edges, and a cut across it showing the slanted ceiling corners" loading="lazy"><figcaption>Left: walls that lean with the hull. Right: the block cut open, no more shoeboxes.</figcaption></figure>
     <div class="bug"><b>Bug of the day</b>Switching on Markers in the Shipyard broke every single ship. The 3D library quietly removes dots from names, so the page stopped recognising its own markers and tried to paint them with a material that did not exist. One line fixed it. Finding that one line took a while.</div>
+  </article>
+
+  <article class="entry">
+    <span class="ver">v0.25.0</span>
+    <h3>Windows you can actually look through</h3>
+    <p>The bridge block's windows were a fib: glass-coloured plates on solid metal. Now the yard remembers every pane it paints, and when there is a room behind one, it cuts a real hole, puts in see-through glass, and lines the hole up with the room's wall. The sloped windscreen got the best treatment. The bridge now opens forward into a little nook under the slope, so you stand at the helm and look up and out through the glass.</p>
+    <figure><img src="../images/block_windows_v0.25.png" alt="Inside a bridge looking up through a sloped windscreen, a side window from inside, and the same windows from outside showing the rooms behind them" loading="lazy"><figcaption>Seed 1, the freighter that started it all. The view from the helm is finally real.</figcaption></figure>
+    <div class="who"><span class="tag">BadSad: spotted the fake windows</span></div>
   </article>
 </div>
 

@@ -65,6 +65,7 @@ public static class HullWindows
         if (interior is null) return;
         ship.Interior = interior;
         AccessTrunks(c, interior);
+        BlockWindows(c, interior);
         if (placed.Count == 0) return;
 
         // Rebuild the hull: the loft with openings, then everything that had been added to its mesh after the loft.
@@ -123,4 +124,92 @@ public static class HullWindows
     }
 
     private const float Slab = InteriorGenerator.Slab;
+
+    /// <summary>
+    /// Windows in shaped block decks: the block's own glass panes over a room become openings. The block's loft is
+    /// rebuilt with the holes, the pane's glass turns see-through, and a reveal joins the hole to the matching hole in
+    /// the deck's inner skin (the same section, 0.3 m in).
+    /// </summary>
+    private static void BlockWindows(BuildContext c, ShipInterior interior)
+    {
+        var groups = interior.Windows.Where(w => w.Module != null).GroupBy(w => w.Module!).ToList();
+        if (groups.Count == 0) return;
+        c.Ship.Materials[Glass] = new MaterialDef(Glass, Palettes.Linear("#9db4c9"), 0.05f, 0.1f, Vector3.Zero, 1) { Alpha = 0.3f, DoubleSided = true };
+        foreach (var g in groups)
+        {
+            var block = c.Ship.Find(g.Key);
+            if (block is null || block.Lofts.Count == 0) continue;
+            var loft = block.Lofts[0];
+            var holes = new Dictionary<(int s, int f), List<(float u0, float u1, float v0, float v1)>>();
+            foreach (var w in g)
+            {
+                if (!holes.TryGetValue((w.S, w.F), out var list)) holes[(w.S, w.F)] = list = [];
+                list.Add((w.U0, w.U1, w.V0, w.V1));
+            }
+            // Rebuild: the loft with openings, then everything added to the block's mesh after it.
+            var plain = new Mesh();
+            loft.Build(plain, Roles.HullMain);
+            var rebuilt = new Mesh();
+            loft.BuildWithHoles(rebuilt, Roles.HullMain, holes);
+            rebuilt.AppendFrom(block.Mesh, plain.Positions.Count);
+            // The panes over the openings turn see-through.
+            if (rebuilt.Groups.TryGetValue(Roles.Glass, out var glassIdx))
+            {
+                var keep = new List<int>();
+                var clear = rebuilt.Groups.TryGetValue(Glass, out var ci) ? ci : rebuilt.Groups[Glass] = [];
+                for (var t = 0; t + 2 < glassIdx.Count; t += 3)
+                {
+                    var centre = (rebuilt.Positions[glassIdx[t]] + rebuilt.Positions[glassIdx[t + 1]] + rebuilt.Positions[glassIdx[t + 2]]) / 3;
+                    var target = g.Any(w => OnPane(loft, w, centre)) ? clear : keep;
+                    target.Add(glassIdx[t]); target.Add(glassIdx[t + 1]); target.Add(glassIdx[t + 2]);
+                }
+                rebuilt.Groups[Roles.Glass] = keep;
+                if (keep.Count == 0) rebuilt.Groups.Remove(Roles.Glass);
+            }
+            block.Mesh.Clear();
+            block.Mesh.AppendFrom(rebuilt, 0);
+            block.UpdateBounds();
+            // Reveals from the block's opening to the skin's.
+            var reveal = c.Add($"{block.Id}_windows", "windows", ModuleTier.Secondary, block.Id);
+            foreach (var w in g)
+            {
+                float Z(float u) => loft.Zs[w.S] + (loft.Zs[w.S + 1] - loft.Zs[w.S]) * u;
+                Vector3 H(float u, float v) => loft.FacePoint(w.S, w.F, u, v);
+                Vector3 I(float u, float v)
+                {
+                    var sec = Skin.Inset(Skin.SectionAt(loft, Z(u)), 0.3f);
+                    var p = Vector2.Lerp(sec[w.F], sec[(w.F + 1) % sec.Length], v);
+                    return new Vector3(p, Z(u));
+                }
+                var corners = new[] { (w.U0, w.V0), (w.U1, w.V0), (w.U1, w.V1), (w.U0, w.V1) };
+                var mid = (H(w.U0, w.V0) + H(w.U1, w.V1) + I(w.U0, w.V0) + I(w.U1, w.V1)) / 4;
+                for (var i = 0; i < 4; i++)
+                {
+                    var (ua, va) = corners[i];
+                    var (ub, vb) = corners[(i + 1) % 4];
+                    var a = H(ua, va); var b = H(ub, vb); var cc = I(ub, vb); var d = I(ua, va);
+                    reveal.Mesh.AddQuad(Roles.HullSecondary, a, b, cc, d, mid - (a + b + cc + d) / 4);
+                }
+                var n = loft.FaceNormal(w.S, w.F);
+                c.AddMarker("window", reveal, (H(w.U0, w.V0) + H(w.U1, w.V1)) / 2, n, (Z(w.U1) - Z(w.U0)) / 2);
+            }
+            if (reveal.Mesh.IsEmpty) c.Ship.Modules.Remove(reveal);
+        }
+    }
+
+    /// <summary>Whether a point lies on (or in the thin glass slab over) a window's pane.</summary>
+    private static bool OnPane(Loft loft, WindowInfo w, Vector3 p)
+    {
+        var n = loft.FaceNormal(w.S, w.F);
+        var q = new[] { loft.FacePoint(w.S, w.F, w.U0, w.V0), loft.FacePoint(w.S, w.F, w.U1, w.V0), loft.FacePoint(w.S, w.F, w.U1, w.V1), loft.FacePoint(w.S, w.F, w.U0, w.V1) };
+        if (MathF.Abs(Vector3.Dot(p - q[0], n)) > 0.25f) return false;
+        for (var i = 0; i < 4; i++)
+        {
+            var e = q[(i + 1) % 4] - q[i];
+            var sign = Vector3.Dot(Vector3.Cross(e, p - q[i]), n);
+            var sign0 = Vector3.Dot(Vector3.Cross(q[1] - q[0], q[2] - q[0]), n);
+            if (sign * MathF.Sign(sign0) < -1e-4f) return false;
+        }
+        return true;
+    }
 }

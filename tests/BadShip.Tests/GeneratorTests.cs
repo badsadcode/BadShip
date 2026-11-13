@@ -767,6 +767,27 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Block_glass_over_a_shaped_deck_becomes_real_windows()
+    {
+        var ship = ShipGenerator.Generate(ShipCode.Decode("v0p25p0-s1-1y"));
+        var interior = ship.Interior!;
+        var deck = interior.Decks.Single(d => d.Shaped);
+        var windows = interior.Windows.Where(w => w.Module != null && w.Deck == deck.Index).ToList();
+        // The side windows and the sloped windscreen over the bridge and its nook.
+        Assert.True(windows.Count(w => w.Side != 0) >= 2, "side windows");
+        Assert.True(windows.Count(w => w.Side == 0) >= 2, "windscreen");
+        Assert.Contains(windows, w => interior.Rooms.Single(r => r.Id == w.Room).Kind == "bridge");
+        // The block's glass over them is see-through, and each has a reveal and a marker.
+        var block = ship.Find(windows[0].Module!)!;
+        Assert.True(block.Mesh.Groups.ContainsKey(HullWindows.Glass));
+        Assert.NotNull(ship.Find($"{block.Id}_windows"));
+        Assert.True(ship.Markers.Count(m => m.Kind == "window") >= windows.Count);
+        // Same ship, same windows.
+        var again = ShipGenerator.Generate(ShipCode.Decode("v0p25p0-s1-1y")).Interior!;
+        Assert.Equal(windows.Select(w => w.Id + w.Z0), again.Windows.Where(w => w.Module != null).Select(w => w.Id + w.Z0));
+    }
+
+    [Fact]
     public void Gondolas_get_a_deck_and_a_ladder_up_an_access_trunk()
     {
         var decks = 0;
