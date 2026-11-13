@@ -8,65 +8,78 @@
 <meta name="description" content="The BadShip devlog: how a procedural spaceship generator grew, one launch at a time.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@500;700;800&family=Saira+Condensed:wght@700;800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@500&family=Caveat:wght@600&display=swap">
 <style>
-/* Layout: a launch rail down the left; each launch is a slipway entry clamped to it, grouped by shipyard day. */
+/* Layout: Noor's Noorshipyard sheet as the hero; below it, a launch rail down the left with each launch clamped to
+   it, grouped by shipyard day. Dark navy and safety orange, as on her layout. */
 :root {
-  --bg: #e6ecf0;          /* steel plate */
-  --panel: #f5f8fa;
-  --ink: #16212b;
-  --muted: #4f5f6c;
-  --line: #b8c5cf;
-  --hazard: #c98a12;      /* trim amber, as on the interior door frames */
-  --hazard-ink: #1a1405;
-  --signal: #1f7a86;      /* window-glass teal */
-  --bug: #a33a2e;
-  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --bg: #091527;          /* night-shift navy */
+  --panel: #0f2139;
+  --panel-2: #132a47;
+  --ink: #e9eff6;
+  --muted: #9aaec4;
+  --line: #24405f;
+  --orange: #f27a1c;      /* Noor's accent */
+  --orange-ink: #1b0d02;
+  --steel: #6fa8dc;       /* window-glow blue */
+  --bug: #ff8a73;
+  --display: "Saira", "Segoe UI", system-ui, sans-serif;
+  --title: "Saira Condensed", "Arial Narrow", sans-serif;
   --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-  color-scheme: light;
+  --hand: "Caveat", "Comic Sans MS", cursive;
+  color-scheme: dark;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0e141a; --panel: #151e26; --ink: #dfe7ee; --muted: #93a3b1; --line: #2a3742;
-  --hazard: #e3a82b; --hazard-ink: #1a1405; --signal: #4fb7c4; --bug: #e07466; color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #0e141a; --panel: #151e26; --ink: #dfe7ee; --muted: #93a3b1; --line: #2a3742;
-  --hazard: #e3a82b; --hazard-ink: #1a1405; --signal: #4fb7c4; --bug: #e07466; color-scheme: dark }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #eef2f7; --panel: #ffffff; --panel-2: #e3eaf2; --ink: #0d1b2e; --muted: #4d6077; --line: #c5d2e0;
+  --orange: #d9620a; --orange-ink: #ffffff; --steel: #2b6aa6; --bug: #b33a24; color-scheme: light } }
+:root[data-theme="light"] {
+  --bg: #eef2f7; --panel: #ffffff; --panel-2: #e3eaf2; --ink: #0d1b2e; --muted: #4d6077; --line: #c5d2e0;
+  --orange: #d9620a; --orange-ink: #ffffff; --steel: #2b6aa6; --bug: #b33a24; color-scheme: light }
 
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
-.wrap { max-width: 980px; margin: 0 auto; padding-block: 0 64px;
+.wrap { max-width: 1000px; margin: 0 auto; padding-block: 0 64px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-a { color: var(--signal); }
-a:focus-visible { outline: 3px solid var(--hazard); outline-offset: 2px; }
+a { color: var(--steel); }
+a:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
 
-/* Hero: the yard sign. */
-.sign { padding-block: 48px 28px; display: grid; gap: 18px; }
-.stripe { height: 14px; background: repeating-linear-gradient(-45deg, var(--hazard) 0 14px, transparent 14px 28px); border-block: 2px solid var(--hazard); }
-.sign h1 { font: 900 clamp(3rem, 10vw, 6.4rem)/0.86 var(--display); text-transform: uppercase; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
-.sign h1 span { color: var(--hazard); }
+/* Hero: Noor's sheet, then the log's own nameplate. */
+.sign { padding-block: 24px 8px; display: grid; gap: 20px; }
+.banner { margin: 0; border: 1px solid var(--line); background: #091527; }
+.banner img { display: block; width: 100%; height: auto; max-width: 100%; }
+.banner figcaption { font: 500 0.72rem/1.4 var(--mono); color: var(--muted); padding: 8px 10px; border-top: 1px solid var(--line); background: var(--panel); }
+.plate { display: grid; gap: 10px; }
+.eyebrow { font: 700 0.8rem/1 var(--display); letter-spacing: 0.32em; text-transform: uppercase; color: var(--muted); }
+.eyebrow b { color: var(--orange); font-weight: 700; }
+.sign h1 { margin: 0; font: 800 clamp(2.6rem, 8vw, 4.8rem)/0.95 var(--display); text-transform: uppercase; letter-spacing: 0.04em; text-wrap: balance; }
+.sign h1 .br { color: var(--orange); font-weight: 700; }
+.hand { font: 600 1.7rem/1 var(--hand); color: var(--orange); transform: rotate(-3deg); width: fit-content; border-bottom: 3px solid var(--orange); padding-bottom: 2px; }
 .sign p { margin: 0; max-width: 62ch; font-size: 1.08rem; color: var(--muted); }
 .crew { display: flex; flex-wrap: wrap; gap: 10px; }
 .tag { font: 500 0.78rem/1 var(--mono); padding: 6px 9px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--ink); white-space: nowrap; }
-.tag b { color: var(--hazard); font-weight: 500; }
-.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 6px; }
-.board div { background: var(--panel); padding: 12px 14px; }
-.board strong { display: block; font: 800 2.1rem/1 var(--display); font-variant-numeric: tabular-nums; }
-.board span { font: 500 0.72rem/1.3 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.tag b { color: var(--orange); font-weight: 500; }
+/* The stats bar, like the feature strip along the bottom of Noor's sheet: divided cells, orange rule under. */
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); background: var(--panel); border-bottom: 3px solid var(--orange); }
+.board div { padding: 14px 16px; text-align: center; border-left: 1px solid var(--line); }
+.board div:first-child { border-left: 0; }
+.board strong { display: block; font: 800 2.2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.board span { font: 700 0.7rem/1.3 var(--display); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
 
-/* Day bands. */
-.day { margin-top: 44px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; border-bottom: 2px solid var(--ink); padding-bottom: 6px; }
-.day h2 { font: 800 2rem/1 var(--display); text-transform: uppercase; margin: 0; letter-spacing: 0.02em; }
+/* Day bands, framed by Noor's orange brackets. */
+.day { margin-top: 48px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.day h2 { font: 800 1.9rem/1 var(--display); text-transform: uppercase; margin: 0; letter-spacing: 0.1em; }
+.day h2::before { content: "// "; color: var(--orange); }
 .day time { font: 500 0.8rem var(--mono); color: var(--muted); }
 
 /* The rail. */
 .rail { position: relative; padding-left: 132px; }
-.rail::before { content: ""; position: absolute; left: 104px; top: 0; bottom: 0; width: 4px;
+.rail::before { content: ""; position: absolute; left: 104px; top: 0; bottom: 0; width: 3px;
   background: repeating-linear-gradient(var(--line) 0 10px, transparent 10px 16px); }
-.entry { position: relative; padding-block: 26px 4px; display: grid; gap: 12px; }
-.entry::before { content: ""; position: absolute; left: -34px; top: 34px; width: 16px; height: 16px; background: var(--hazard); transform: rotate(45deg); border: 3px solid var(--bg); }
-.ver { position: absolute; left: -132px; top: 30px; width: 84px; text-align: right; font: 500 0.82rem var(--mono); color: var(--hazard); }
-.entry h3 { font: 800 1.85rem/1.02 var(--display); margin: 0; text-transform: uppercase; letter-spacing: 0.015em; text-wrap: balance; }
+.entry { position: relative; padding-block: 28px 4px; display: grid; gap: 12px; }
+.entry::before { content: ""; position: absolute; left: -35px; top: 35px; width: 14px; height: 14px; background: var(--orange); transform: rotate(45deg); box-shadow: 0 0 0 4px var(--bg); }
+.ver { position: absolute; left: -132px; top: 32px; width: 84px; text-align: right; font: 500 0.82rem var(--mono); color: var(--orange); }
+.entry h3 { font: 800 1.9rem/1.02 var(--title); margin: 0; text-transform: uppercase; letter-spacing: 0.03em; text-wrap: balance; }
 .entry p { margin: 0; max-width: 64ch; }
 .who { display: flex; flex-wrap: wrap; gap: 8px; }
 .who .tag { font-size: 0.72rem; }
@@ -76,18 +89,27 @@ figcaption { font: 500 0.75rem/1.4 var(--mono); color: var(--muted); padding: 8p
 .bug { border-left: 4px solid var(--bug); background: var(--panel); padding: 10px 14px; max-width: 64ch; font-size: 0.95rem; }
 .bug b { font: 500 0.72rem var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--bug); display: block; margin-bottom: 2px; }
 .quote { font-style: italic; color: var(--muted); }
-.next { margin-top: 48px; padding: 22px; background: var(--hazard); color: var(--hazard-ink); display: grid; gap: 8px; }
-.next h2 { margin: 0; font: 900 2.2rem/1 var(--display); text-transform: uppercase; }
+.next { margin-top: 52px; padding: 22px; background: var(--panel-2); border: 1px solid var(--line); border-left: 6px solid var(--orange); display: grid; gap: 8px; }
+.next h2 { margin: 0; font: 800 2rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.06em; }
 .next p { margin: 0; max-width: 64ch; }
-footer { margin-top: 36px; font: 500 0.78rem var(--mono); color: var(--muted); }
+.studio { margin-top: 40px; display: grid; grid-template-columns: 220px 1fr; gap: 22px; align-items: center; }
+.studio img { display: block; width: 100%; height: auto; max-width: 100%; background: #000; border: 1px solid var(--line); }
+.studio h2 { margin: 0 0 6px; font: 800 1.5rem/1.1 var(--display); text-transform: uppercase; letter-spacing: 0.08em; }
+.studio p { margin: 0; max-width: 60ch; color: var(--muted); }
+footer { margin-top: 36px; font: 500 0.78rem var(--mono); color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 18px; }
+footer b { color: var(--orange); font-weight: 500; }
 
 @media (max-width: 640px) {
   .rail { padding-left: 26px; }
   .rail::before { left: 4px; }
   .entry::before { left: -29px; }
   .ver { position: static; width: auto; text-align: left; }
-  .entry h3 { font-size: 1.6rem; }
+  .entry h3 { font-size: 1.65rem; }
+  .board div:nth-child(odd) { border-left: 0; }
+  .board div { border-top: 1px solid var(--line); }
   .board div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .studio { grid-template-columns: 1fr; }
+  .studio img { max-width: 260px; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .entry::before { transition: transform .3s; }
@@ -99,8 +121,12 @@ footer { margin-top: 36px; font: 500 0.78rem var(--mono); color: var(--muted); }
 <div class="wrap">
 
 <header class="sign">
-  <div class="stripe" aria-hidden="true"></div>
-  <h1>BadShip <span>Shipyard</span> Log</h1>
+  <figure class="banner"><img src="../images/noorshipyard_banner.webp" width="1672" height="941" alt="Noor's poster: BadShip Noorshipyard, procedural spaceship generator. A big orange and white ship sits in a dock at night with a worker holding a tablet in front. Along the bottom: multiple ship types, detailed interiors, multiple decks, windows and views, equipment and layouts, paint schemes, GLB export for Godot, Unreal and Blender. Bad Ideas Works logo in the corner."><figcaption>Art by Noor.</figcaption></figure>
+  <div class="plate">
+    <span class="eyebrow">BadShip <b>·</b> Noorshipyard <b>·</b> Bad Ideas Works</span>
+    <h1><span class="br">[</span> Shipyard Log <span class="br">]</span></h1>
+    <span class="hand">Design. Generate. Explore.</span>
+  </div>
   <p>Three friends, one spaceship generator, a lot of "what if we also...". This is the story of BadShip, told from the yard floor. Every entry is a launch: a new version of the generator that rolled down the slipway.</p>
   <div class="crew">
     <span class="tag"><b>BadSad</b> · captain, asks for cool stuff</span>
@@ -256,7 +282,15 @@ footer { margin-top: 36px; font: 500 0.78rem var(--mono); color: var(--muted); }
   <p>Maybe furniture. Maybe ships for our game project (title to be decided, the old one was taken). Maybe whatever Noor draws next. The yard is open.</p>
 </section>
 
-<footer>BadShip: a procedural spaceship generator in C#. Built by BadSad, Noor and Sage.</footer>
+<section class="studio">
+  <img src="../images/bad_ideas_works_logo.webp" width="1448" height="1086" alt="The Bad Ideas Works logo: two dogs and six rats, all wearing sunglasses, above the words Bad Ideas Works.">
+  <div>
+    <h2>Bad Ideas Works</h2>
+    <p>The studio behind BadShip, named after how most of our best features start. The crew on the logo are BadSad's animals: two dogs and six rats, all in sunglasses. Some of them are not with us anymore, but they are still here, keeping an eye on the yard.</p>
+  </div>
+</section>
+
+<footer><span>BadShip · Noorshipyard: a procedural spaceship generator in C#.</span><span>A <b>Bad Ideas Works</b> project by BadSad, Noor and Sage.</span></footer>
 </div>
 </body>
 </html>
