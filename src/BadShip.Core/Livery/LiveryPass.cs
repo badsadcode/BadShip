@@ -28,6 +28,7 @@ public static class LiveryPass
         ["freighter"] = ["Stubborn Ox", "Iron Mule", "Long Haul", "Ore Queen", "Packhorse", "Big Margaret", "Steady Hand", "Bulk Venture", "Old Reliable", "Cargo Cult", "Heavy Lifter", "Slow Boat", "Good Fortune", "Deep Pockets", "Brass Monkey", "Second Wind"],
         ["research"] = ["Halcyon", "Perihelion", "Albatross", "Cartographer", "Lantern", "Vesper", "Tern", "Long Sight", "Aurora Deep", "Wayfinder", "Patient Eye", "Far Shore", "Sounding Line", "Kestrel", "Pathfinder", "Quiet Tide"],
         ["patrol"] = ["Vigilant", "Bulwark", "Sentinel", "Picket", "Warden", "Bastion", "Resolute", "Steadfast", "Iron Gate", "Watchful", "Rampart", "Lookout", "Defiant", "Tenacious", "Gatekeeper", "Shield Wall"],
+        ["raider"] = ["Black Gull", "Rust Bucket", "Cutthroat Grin", "Salt and Spite", "Scrap Baron", "Red Tally", "Gutter King", "No Quarter", "Loose Cannon", "Sweet Larceny", "Wreckers' Due", "Crooked Smile", "Bilge Rat", "Rogue's Gallery", "Last Laugh", "Stolen Sky"],
         ["civilian"] = ["Aurora", "Lifeline", "Grand Meridian", "Mercy", "Wayfarer's Rest", "Sea of Stars", "Good Samaritan", "Long Voyage", "Bright Harbour", "Pathfinder", "First Light", "Serenity Line", "Kind Hands", "Far Shore", "Constellation", "Open Sky"],
         ["ring"] = ["Horizon Wheel", "Long Orbit", "Halo", "Merry-Go-Round", "Far Circle", "Compass Rose", "Steady Spin", "Wayfarer", "Second Sun", "Lantern", "Open Hand", "Quiet Turn", "Pilgrim", "Ouroboros", "Daybreak", "Home Away"],
         ["utility"] = ["Kestrel", "Errand Boy", "Mule Train", "Dusty", "Little Wren", "Hopscotch", "Pack Rat", "Commuter", "Odd Job", "Jitney", "Tumbleweed", "Lucky Penny", "Busy Bee", "Short Hop", "Patch", "Courier Nine"],
@@ -38,7 +39,7 @@ public static class LiveryPass
 
     private static readonly Dictionary<string, string> Prefixes = new()
     {
-        ["haulers"] = "FHG", ["survey"] = "OSD", ["patrol"] = "FPC", ["miners"] = "KBM", ["independent"] = "IND",
+        ["haulers"] = "FHG", ["survey"] = "OSD", ["patrol"] = "FPC", ["miners"] = "KBM", ["raiders"] = "RDR", ["independent"] = "IND",
     };
 
     private static List<(string Id, Aabb Bounds)> _obstacles = [];

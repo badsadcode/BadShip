@@ -9,9 +9,9 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.15.0";
+    public const string Version = "0.16.0";
 
-    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility", "ring", "civilian"];
+    public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "raider"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility", "ring", "civilian"];
 
     public static Ship Generate(ShipRecipe recipe)
@@ -40,6 +40,7 @@ public static class ShipGenerator
             Ventral.Build(c);
             Equipment.Place(c);
             Kit.Silhouette(c);
+            if (c.Plan.Archetype == "raider") Raiders.Kitbash(c);
         }
         Livery.LiveryPass.Apply(c);
         c.Plan.Condition = c.Recipe.Condition is "damaged" or "derelict" ? c.Recipe.Condition
@@ -61,6 +62,7 @@ public static class Planner
         ["freighter"] = [("barge", 0.3), ("spine", 0.4), ("twin", 0.3)],
         ["research"] = [("barge", 0.5), ("spine", 0.25), ("twin", 0.25)],
         ["patrol"] = [("block", 0.65), ("barge", 0.25), ("twin", 0.1)],
+        ["raider"] = [("block", 0.4), ("barge", 0.35), ("twin", 0.25)],
     };
 
     private static readonly Dictionary<string, (string, double)[]> ProwWeights = new()
@@ -68,6 +70,7 @@ public static class Planner
         ["freighter"] = [("blunt", 0.3), ("stepped", 0.25), ("faceted", 0.2), ("shovel", 0.15), ("wedge", 0.1)],
         ["research"] = [("faceted", 0.4), ("wedge", 0.25), ("stepped", 0.15), ("shovel", 0.2)],
         ["patrol"] = [("wedge", 0.45), ("faceted", 0.3), ("shovel", 0.25)],
+        ["raider"] = [("wedge", 0.4), ("shovel", 0.3), ("faceted", 0.3)],
     };
 
     public static readonly string[] Sizes = ["small", "medium", "large"];
@@ -185,11 +188,11 @@ public static class Planner
             ("small", _, "block") => (26f, 48f),
             ("small", _, _) => (32f, 62f),
             ("large", _, "block") => (125f, 175f),
-            ("large", "patrol", _) => (160f, 230f),
+            ("large", "patrol" or "raider", _) => (160f, 230f),
             ("large", "research", _) => (190f, 270f),
             ("large", _, _) => (230f, 340f),
             (_, _, "block") => (70f, 115f),
-            (_, "patrol", _) => (90f, 130f),
+            (_, "patrol" or "raider", _) => (90f, 130f),
             (_, "research", _) => (110f, 170f),
             _ => (130f, 210f),
         };
@@ -230,7 +233,7 @@ public static class Planner
             "research" => r.Weighted<string>([("pods", 0.7), ("tanks", 0.3)]),
             _ => "pods",
         };
-        p.Asymmetric = r.Chance(lang.Asymmetry + (p.Archetype == "freighter" ? 0.1 : 0));
+        p.Asymmetric = r.Chance(lang.Asymmetry + (p.Archetype switch { "freighter" => 0.1, "raider" => 0.35, _ => 0 }));
         (string, double)[] ventralBase = p.Family switch
         {
             "barge" => [("keel", 0.4), ("gondola", 0.25), ("pods", p.Archetype == "freighter" ? 0.3 : 0.1), ("none", 0.15)],
@@ -239,6 +242,7 @@ public static class Planner
             _ => [("gondola", 0.4), ("pods", 0.25), ("none", 0.35)],
         };
         p.Ventral = r.Weighted(Mul(ventralBase, lang.Ventral));
+        if (p.Archetype == "raider") c.PreferredPalette = r.Chance(0.8) ? "pirate" : null;
     }
 
     /// <summary>

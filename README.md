@@ -329,7 +329,19 @@ reaching ahead of the bow). New `medical` colour scheme. Markers: `observation_d
 
 ![A hospital ship](docs/images/civilian_medical_v0.15.png)
 
-## Status (v0.15.0: civilian ships)
+### Raiders (v0.16.0)
+
+`--archetype raider`: ordinary hulls (block, barge, twin) that pirates rebuilt. A kitbash pass adds ram spikes
+jutting from the bow, scavenged junk welded on at odd angles (crates, tanks), rusty patch plates bolted over the
+flanks, tattered sails on a mast with a yard, and extra welded-on guns; raiders are more often asymmetric and mostly
+wear the pirate scheme (mismatched plates). A new faction, `raiders` (Free Raiders of the Drift, registrations
+`RDR-…`), fields them with escorting fighters.
+
+![Raiders](docs/images/raiders_v0.16.png)
+
+![A raider](docs/images/raider_closeup_v0.16.png)
+
+## Status (v0.16.0: raiders)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

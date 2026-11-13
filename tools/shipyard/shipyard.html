@@ -164,7 +164,7 @@
       </div>
       <div class="fields">
         <label>Faction
-          <select id="faction"><option value="auto">Auto</option><option value="haulers">Free Haulers Guild</option><option value="survey">Oceanic Survey Directorate</option><option value="patrol">Frontier Patrol Command</option><option value="miners">Kessler Belt Mining Union</option><option value="independent">Independent</option></select>
+          <select id="faction"><option value="auto">Auto</option><option value="haulers">Free Haulers Guild</option><option value="survey">Oceanic Survey Directorate</option><option value="patrol">Frontier Patrol Command</option><option value="miners">Kessler Belt Mining Union</option><option value="raiders">Free Raiders of the Drift</option><option value="independent">Independent</option></select>
         </label>
         <label>Manufacturer
           <select id="manufacturer"><option value="auto">Faction's suppliers</option><option value="halvorsen">Halvorsen Heavy Works</option><option value="meridian">Meridian Survey Yards</option><option value="korsak">Korsak Arsenal</option><option value="tanaka">Tanaka-Orbit Logistics</option><option value="brightwater">Brightwater Cooperative</option></select>
@@ -173,7 +173,7 @@
           <select id="size"><option value="auto">Auto</option><option>small</option><option>medium</option><option>large</option></select>
         </label>
         <label>Archetype
-          <select id="archetype"><option value="auto">Auto</option><option>freighter</option><option>research</option><option>patrol</option><option>fighter</option><option>citadel</option><option>industrial</option><option>utility</option><option>ring</option><option>civilian</option></select>
+          <select id="archetype"><option value="auto">Auto</option><option>freighter</option><option>research</option><option>patrol</option><option>fighter</option><option>citadel</option><option>industrial</option><option>utility</option><option>ring</option><option>civilian</option><option>raider</option></select>
         </label>
         <label>Hull family
           <select id="family"><option value="auto">Auto</option><option>barge</option><option>spine</option><option>twin</option><option>block</option><option>fighter</option><option>citadel</option><option>industrial</option><option>utility</option><option>ring</option><option>civilian</option></select>
@@ -441,7 +441,7 @@ function syncHullForms() {
   fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' || kind === 'utility' ? [] : ['keel', 'gondola', 'pods', 'none']);
   fill(document.getElementById('job'), JOBS[kind] ?? []);
 }
-const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0'];
+const VERSIONS = ['0.4.0', '0.5.0', '0.6.0', '0.7.0', '0.8.0', '0.9.0', '0.10.0', '0.11.0', '0.12.0', '0.13.0', '0.14.0', '0.15.0', '0.16.0'];
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();

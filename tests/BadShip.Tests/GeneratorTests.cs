@@ -643,6 +643,25 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Raiders_are_kitbashed_and_validate()
+    {
+        foreach (var size in Planner.Sizes)
+            foreach (var condition in new[] { "intact", "damaged", "derelict" })
+                for (ulong seed = 1; seed <= 6; seed++)
+                {
+                    var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = "raider", Size = size, Condition = condition });
+                    var report = ShipValidator.Validate(ship);
+                    Assert.False(report.HasErrors, $"{size} {condition} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                    Assert.Contains(ship.Plan.Family, new[] { "barge", "block", "twin" });
+                    if (condition == "intact") Assert.Contains(ship.Modules, m => m.Type == "spike");
+                }
+        var fleet = Enumerable.Range(1, 20).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Faction = "raiders" })).ToList();
+        Assert.True(fleet.Count(s => s.Plan.Archetype == "raider") >= 8);
+        Assert.All(fleet.Where(s => s.Plan.Archetype == "raider"), s => Assert.StartsWith("RDR-", s.Plan.Registration));
+        Assert.True(fleet.Count(s => s.Plan.Palette == "pirate") >= 5);
+    }
+
+    [Fact]
     public void Fighter_family_implies_fighter_and_codes_round_trip()
     {
         var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 7, Family = "fighter" });

@@ -208,6 +208,13 @@ public static class Factions
             Sizes = new() { ["small"] = 1.5, ["medium"] = 2, ["large"] = 1 },
             Suppliers = new() { ["meridian"] = 3, ["brightwater"] = 1.5, ["halvorsen"] = 0.5 },
         },
+        ["raiders"] = new Faction
+        {
+            Name = "Free Raiders of the Drift", HullMain = "#57463a", HullSecondary = "#6d5c4a", Accent = "#8a2a1f",
+            Roles = new() { ["raider"] = 4, ["fighter"] = 1.5, ["freighter"] = 0.4, ["utility"] = 0.6 },
+            Sizes = new() { ["small"] = 2, ["medium"] = 2, ["large"] = 0.5 },
+            Suppliers = new() { ["korsak"] = 1, ["halvorsen"] = 1, ["tanaka"] = 1, ["brightwater"] = 1, ["meridian"] = 0.5 },
+        },
         ["patrol"] = new Faction
         {
             Name = "Frontier Patrol Command", HullMain = "#363c44", HullSecondary = "#555c66", Accent = "#a8291f",
