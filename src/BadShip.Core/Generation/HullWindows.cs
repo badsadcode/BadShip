@@ -107,7 +107,8 @@ public static class HullWindows
             if (block is null || block.Lofts.Count == 0) continue;
             var loft = block.Lofts[0];
             var holes = new Dictionary<(int s, int f), List<(float u0, float u1, float v0, float v1)>>();
-            foreach (var w in g)
+            var capHoles = g.Where(w => w.F == 8).Select(w => (w.U0, w.U1, w.V0, w.V1)).ToList();
+            foreach (var w in g.Where(w => w.F < 8))
             {
                 if (!holes.TryGetValue((w.S, w.F), out var list)) holes[(w.S, w.F)] = list = [];
                 list.Add((w.U0, w.U1, w.V0, w.V1));
@@ -116,7 +117,7 @@ public static class HullWindows
             var plain = new Mesh();
             loft.Build(plain, Roles.HullMain);
             var rebuilt = new Mesh();
-            loft.BuildWithHoles(rebuilt, Roles.HullMain, holes);
+            loft.BuildWithHoles(rebuilt, Roles.HullMain, holes, capHoles);
             rebuilt.AppendFrom(block.Mesh, plain.Positions.Count);
             // The panes over the openings turn see-through.
             if (rebuilt.Groups.TryGetValue(Roles.Glass, out var glassIdx))
@@ -137,7 +138,24 @@ public static class HullWindows
             block.UpdateBounds();
             // Reveals from the block's opening to the skin's.
             var reveal = c.Add(block.Id == "hull_main" ? "hull_windows" : $"{block.Id}_windows", "windows", ModuleTier.Secondary, block.Id);
-            foreach (var w in g)
+            foreach (var w in g.Where(w => w.F == 8))
+            {
+                // A window in the flat front: a short tunnel from the cap to the front wall behind it.
+                var zc = loft.Zs[^1];
+                var zw = w.WallX + 0.1f;
+                Vector3 C(float x, float y, float z) => new(x, y, z);
+                var a = new[] { C(w.U0, w.V0, zc), C(w.U1, w.V0, zc), C(w.U1, w.V1, zc), C(w.U0, w.V1, zc) };
+                var mid = new Vector3((w.U0 + w.U1) / 2, (w.V0 + w.V1) / 2, (zc + zw) / 2);
+                for (var i = 0; i < 4; i++)
+                {
+                    var p = a[i]; var q = a[(i + 1) % 4];
+                    var edge = (p + q) / 2;
+                    edge.Z = mid.Z;
+                    reveal.Mesh.AddQuad(Roles.HullSecondary, p, q, q with { Z = zw }, p with { Z = zw }, mid - edge);
+                }
+                c.AddMarker("window", reveal, new Vector3((w.U0 + w.U1) / 2, (w.V0 + w.V1) / 2, zc), Vector3.UnitZ, (w.U1 - w.U0) / 2);
+            }
+            foreach (var w in g.Where(w => w.F < 8))
             {
                 var shaped = interior.Decks[w.Deck].Shaped;
                 float Z(float u) => loft.Zs[w.S] + (loft.Zs[w.S + 1] - loft.Zs[w.S]) * u;
@@ -174,6 +192,14 @@ public static class HullWindows
     /// <summary>Whether a point lies on (or in the thin glass slab over) a window's pane.</summary>
     private static bool OnPane(Loft loft, WindowInfo w, Vector3 p)
     {
+        if (w.F == 8)
+        {
+            // A front pane: the glass box straddling the end cap, over the window's whole pane.
+            foreach (var cp in loft.CapPanes)
+                if (cp.X0 <= w.U1 && cp.X1 >= w.U0 && cp.Y0 <= w.V1 && cp.Y1 >= w.V0)
+                    if (p.X >= cp.X0 - 1e-3f && p.X <= cp.X1 + 1e-3f && p.Y >= cp.Y0 - 1e-3f && p.Y <= cp.Y1 + 1e-3f && MathF.Abs(p.Z - loft.Zs[^1]) < 0.2f) return true;
+            return false;
+        }
         var n = loft.FaceNormal(w.S, w.F);
         // The whole pane the window was cut from (a window may use only the part of it a deck can see).
         var (u0, u1, v0, v1) = (w.U0, w.U1, w.V0, w.V1);

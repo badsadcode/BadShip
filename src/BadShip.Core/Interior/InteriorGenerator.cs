@@ -223,8 +223,9 @@ public static class InteriorGenerator
                 if (m.Type == "keel")
                 {
                     if (list.Any(a => a.Part == "keel")) break;
-                    // Right under the lowest deck (the keel narrows downward, so as high as it goes).
-                    fy = decks[0].FloorY - 2 * Slab - clear;
+                    // As high as it goes (the keel narrows downward): right under the lowest deck, and with its ceiling
+                    // inside the keel, so the deck can follow the keel's shape (a ladder climbs on into the hull).
+                    fy = MathF.Min(decks[0].FloorY - 2 * Slab - clear, q.Top - 0.35f - clear);
                     if (fy - Slab < q.Bottom + 0.25f) continue;
                 }
                 else
@@ -259,7 +260,7 @@ public static class InteriorGenerator
                 spec = spec with { Z0 = e0, Z1 = e1 };
             }
             list.Add(spec);
-            if (spec.Part is "superstructure" or "gondola") shapes[list.Count - 1] = Shaped(spec, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
+            if (spec.Part is "superstructure" or "gondola" or "keel") shapes[list.Count - 1] = Shaped(spec, blockLoft, q) is { } sh ? sh with { ShellModule = m.Id } : null;
         }
         // A block deck with nothing stacked on it follows the block's shape: only the band people walk in (floor to a
         // little over door height) has to fit, so it is wider and reaches further into the tapered ends.
@@ -1066,6 +1067,9 @@ public static class InteriorGenerator
         /// windscreen over it becomes a window too. A pane counts when it lies over the deck between its floor and the
         /// skin: side panes and chamfer panes beside a room, sloped ones over the bridge and its nook.
         /// </summary>
+        private List<(float, float, float, float)> capCutsOf(DeckInfo d) =>
+            [.. result.Windows.Where(w => w.Deck == d.Index && w.Module != null && w.F == 8).Select(w => (w.U0, w.U1, w.V0, w.V1))];
+
         public void ShapedWindows()
         {
             foreach (var (deckIndex, loft) in _shells)
@@ -1123,6 +1127,21 @@ public static class InteriorGenerator
                     result.Windows.Add(new WindowInfo($"window_{result.Windows.Count}", room.Id, d.Index, side, zMin, zMax, yMin, yMax, centre.X,
                         _shellModules[deckIndex], p.S, p.F, p.U0, p.U1, p.V0, p.V1, Painted: true));
                 }
+                // Glass across a flat front (the end cap), when the deck reaches the front: seen through the front
+                // wall of the room there. (F = 8 marks the cap; U is x and V is y on it.)
+                var capZ = loft.Zs[^1];
+                if (end >= capZ - 1.3f)
+                    foreach (var cp in loft.CapPanes)
+                    {
+                        float y0 = MathF.Max(cp.Y0, d.FloorY + 0.4f), y1 = MathF.Min(cp.Y1, d.CeilingY - 0.1f);
+                        float x0 = MathF.Max(cp.X0, d.Cx - hw + 0.2f), x1 = MathF.Min(cp.X1, d.Cx + hw - 0.2f);
+                        if (y1 - y0 < 0.4f || x1 - x0 < 0.4f) continue;
+                        var front = result.Rooms.Where(q => q.Deck == d.Index && q.Max[2] >= end - 0.01f - (_nook.ContainsKey(d.Index) ? end - d.Z1 : 0)
+                                && (x0 + x1) / 2 >= q.Min[0] - 0.01f && (x0 + x1) / 2 <= q.Max[0] + 0.01f).OrderByDescending(q => q.Max[2]).FirstOrDefault();
+                        if (front is null || Blind.Contains(front.Kind)) continue;
+                        result.Windows.Add(new WindowInfo($"window_{result.Windows.Count}", front.Id, d.Index, 0, capZ, capZ, y0, y1, end,
+                            _shellModules[deckIndex], -1, 8, x0, x1, y0, y1, Painted: true));
+                    }
             }
         }
 
@@ -1359,7 +1378,7 @@ public static class InteriorGenerator
                     // where the block is taller than the deck.
                     var skinWalls = Add(model, $"skin_{d.Index}", "walls", deck.Id);
                     var skinOver = Add(model, $"ceiling_{d.Index}", "ceiling", deck.Id);
-                    var cuts = result.Windows.Where(w => w.Deck == d.Index && w.Module != null)
+                    var cuts = result.Windows.Where(w => w.Deck == d.Index && w.Module != null && w.F < 8)
                         .Select(w => (w.F, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U0, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U1, w.V0, w.V1)).ToList();
                     var skinEnd = _nook.TryGetValue(d.Index, out var nookEnd) ? nookEnd : d.Z1 + Wall;
                     var up = risers.Where(x => x.lo == d.Index).Select(x => (HoleX0(d, x.x0), x.x1, x.z0, x.z1)).ToList();
@@ -1370,8 +1389,9 @@ public static class InteriorGenerator
                     Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, skinEnd, d.FloorY, d.CeilingY, cuts, up, holes,
                         clipTop: above != null ? above.FloorY - Skin.Underside : null, flatCeiling: above == null, floorUnderside: below != null);
                     Shafts(d, deck);
+                    var capCuts = result.Windows.Where(w => w.Deck == d.Index && w.Module != null && w.F == 8).Select(w => (w.U0, w.U1, w.V0, w.V1)).ToList();
                     if (_nook.ContainsKey(d.Index))
-                        Skin.WallAcross(skinWalls.Mesh, WallMat, shell, SkinInset, nookEnd, -1e4f, 1e4f, d.FloorY, d.CeilingY, Wall);
+                        Skin.WallAcross(skinWalls.Mesh, WallMat, shell, SkinInset, nookEnd, -1e4f, 1e4f, d.FloorY, d.CeilingY, Wall, capCuts);
                 }
                 else if (HasRoof(d))
                 {
@@ -1451,7 +1471,9 @@ public static class InteriorGenerator
                             if (axis == 'x' && _nook.ContainsKey(d.Index) && MathF.Abs(at - d.Z1) < 0.05f) continue;
                             if (axis == 'z') WallAlongZ(walls.Mesh, at, a, b, d, doors, (m0, x, za, zb, y0, y1) => Skin.WallAlong(m0, WallMat, shell, SkinInset, x, za, zb, y0, y1, Wall));
                             else WallAlongX(walls.Mesh, at, a, b, d, doors, (m0, z, xa, xb, y0, y1) => Skin.WallAcross(m0, WallMat, shell, SkinInset, z,
-                                MathF.Abs(xa - (d.Cx - hw)) < 0.05f ? -1e4f : xa, MathF.Abs(xb - (d.Cx + hw)) < 0.05f ? 1e4f : xb, y0, y1, Wall));
+                                MathF.Abs(xa - (d.Cx - hw)) < 0.05f ? -1e4f : xa, MathF.Abs(xb - (d.Cx + hw)) < 0.05f ? 1e4f : xb, y0, y1, Wall,
+                                // The front wall, with the front glass ahead: openings to look out through.
+                                !_nook.ContainsKey(d.Index) && MathF.Abs(z - d.Z1) < 0.05f ? capCutsOf(d) : null));
                             continue;
                         }
                         if (axis == 'z') WallAlongZ(walls.Mesh, at, a, b, d, doors);

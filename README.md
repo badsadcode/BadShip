@@ -533,6 +533,16 @@ deck's skin. Liners' window bands, the faceted prow glass and small craft cab wi
 
 ![Shaped hull decks and real hull glass](docs/images/hull_shaped_v0.27.png)
 
+### Shaped keels and flat front glass (v0.28.0)
+
+A keel deck sits wholly inside the keel now (its ceiling under the keel's top; the ladder climbs on into the hull
+through a shaft), so it follows the keel's tapered shape like every other deck. The window band across a flat
+**front face** (the "blunt" and "overhang" bridge blocks) is remembered too (`Loft.CapPanes`): where a deck reaches the
+front, its panes become windows in the block's front cap (rebuilt with openings, `Loft.BuildWithHoles` now takes cap
+holes), with matching openings in the front wall and a short reveal between (`f` 8 in the JSON marks a cap window,
+with `u` as x and `v` as y). With that, every part of a ship follows its shape inside, and every pane of glass a room
+can see through is a real window.
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -540,7 +550,7 @@ deck's skin. Liners' window bands, the faceted prow glass and small craft cab wi
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.27.0: shaped hull decks, one window system)
+## Status (v0.28.0: every part shaped, every visible pane a window)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
