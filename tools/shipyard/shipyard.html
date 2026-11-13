@@ -536,12 +536,26 @@ async function build(addToLog = true) {
     if (addToLog) log(root, r, info);
     $('overlay').hidden = true;
   } catch (err) {
+    const msg = String(err?.message ?? err);
     $('overlay').hidden = false;
-    $('overlay').textContent = `That build failed: ${err?.message ?? err}`;
+    if (loadedVersion !== LATEST && /^Unknown|have their own/.test(msg)) {
+      // An older generator (opened from an older ship code) does not know this choice: move to the newest one,
+      // keeping the settings.
+      $('overlay').textContent = `Generator v${loadedVersion} (from the ship code you opened) does not have that option. Switching to v${LATEST}…`;
+      switchToLatest();
+    } else $('overlay').textContent = `That build failed: ${msg}`;
   } finally {
     setBusy(false);
     for (const b of document.querySelectorAll('[data-stage]')) b.dataset.locked = String(!(b.dataset.stage in stageSeeds));
   }
+}
+
+/** Reloads the page with the newest generator and the current settings. */
+function switchToLatest() {
+  let code = '';
+  try { code = api.Encode(JSON.stringify(recipe())); } catch { code = `v0p0p0-s${$('seed').value}`; }
+  location.hash = code.replace(/^v[0-9p]+/, `v${LATEST.replaceAll('.', 'p')}`);
+  setTimeout(() => location.reload(), 600);
 }
 
 function showCode(code) {
@@ -697,7 +711,9 @@ try {
   const runtime = await dotnet.create();
   const exports = await runtime.getAssemblyExports('BadShip.Web');
   api = exports.BadShip.Web.Api;
-  $('engine').innerHTML = `generator <b>v${api.Version()}</b> · C# in WebAssembly · ready in ${Math.round(performance.now() - t0)} ms`;
+  $('engine').innerHTML = `generator <b>v${api.Version()}</b> · C# in WebAssembly · ready in ${Math.round(performance.now() - t0)} ms`
+    + (loadedVersion !== LATEST ? `<br>an older version, from the ship code you opened · <button id="use-latest" type="button" style="font:inherit;color:var(--accent);background:none;border:1px solid var(--accent);border-radius:4px;padding:2px 6px;cursor:pointer">use v${LATEST}</button>` : '');
+  $('use-latest')?.addEventListener('click', switchToLatest);
   setBusy(false);
   $('open').disabled = false;
   $('overlay').textContent = 'Building your first ship…';
