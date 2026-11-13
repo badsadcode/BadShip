@@ -234,7 +234,7 @@ public class GeneratorTests
         var ships = Enumerable.Range(1, 60).Select(i => ShipGenerator.Generate(new ShipRecipe { Seed = (ulong)i, Manufacturer = "halvorsen" })).ToList();
         Assert.All(ships, s => Assert.Equal("Halvorsen Heavy Works", s.Plan.ManufacturerName));
         // (Fighters have their own engines and forms.)
-        ships = ships.Where(s => s.Plan.Family is not ("fighter" or "citadel" or "industrial" or "utility" or "ring")).ToList();
+        ships = ships.Where(s => s.Plan.Family is "barge" or "spine" or "twin" or "block").ToList();
         Assert.True(ships.Count >= 18);
         Assert.All(ships, s => Assert.Equal("pod", s.Plan.EngineStyle));
         Assert.True(ships.Count(s => s.Plan.HullForm == "slab") >= ships.Count * 0.8);
@@ -621,6 +621,25 @@ public class GeneratorTests
             Assert.False(ShipValidator.Validate(gyre).HasErrors);
             Assert.Equal(2, gyre.Markers.Count(m => m.Kind == "engine_exhaust"));
         }
+    }
+
+    [Theory]
+    [InlineData("liner", "lifeboat")]
+    [InlineData("medical", "ward_block")]
+    [InlineData("explorer", "boom")]
+    public void Civilian_ships_validate_and_carry_their_job(string job, string part)
+    {
+        foreach (var size in Planner.Sizes)
+            foreach (var condition in new[] { "intact", "damaged", "derelict" })
+                for (ulong seed = 1; seed <= 4; seed++)
+                {
+                    var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = "civilian", Size = size, Condition = condition, Overrides = new PlanOverrides { Payload = job } });
+                    var report = ShipValidator.Validate(ship);
+                    Assert.False(report.HasErrors, $"{job} {size} {condition} {seed}: {string.Join("; ", report.Issues.Select(i => i.Message))}");
+                    Assert.Equal(job, ship.Plan.Payload);
+                    if (condition == "intact") Assert.Contains(ship.Modules, m => m.Type == part || m.Id.StartsWith(part));
+                }
+        Assert.Equal("medical", ShipGenerator.Generate(new ShipRecipe { Seed = 2, Archetype = "civilian", Overrides = new PlanOverrides { Payload = "medical" } }).Plan.Palette);
     }
 
     [Fact]

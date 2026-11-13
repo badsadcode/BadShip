@@ -316,7 +316,20 @@ hubs and stator vanes glowing inside the ducts.
 
 ![Ring ships and Gyre fighters](docs/images/ring_ships_v0.14.png)
 
-## Status (v0.14.0: ring ships)
+### Civilian ships (v0.15.0)
+
+`--archetype civilian` (`--set payload=...`): `liner` (long and sleek, three bands of passenger windows down each
+flank, lifeboat pods, a long promenade tier with a glass roof and a glass dome; often in the luxury or civilian
+scheme), `medical` (a white-and-teal hospital ship: a ward block with our own medical symbol, a pulse line in a ring,
+on its sides and roof, a lit triage door, floodlights and a teal band along the hull; the red cross is a protected
+emblem, so it is not used) and `explorer` (an observation dome, a big survey dish on a mast and long sensor booms
+reaching ahead of the bow). New `medical` colour scheme. Markers: `observation_deck`, `hatch`, `floodlight`, `sensor`.
+
+![Civilian ships](docs/images/civilian_v0.15.png)
+
+![A hospital ship](docs/images/civilian_medical_v0.15.png)
+
+## Status (v0.15.0: civilian ships)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

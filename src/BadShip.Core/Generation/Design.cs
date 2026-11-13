@@ -185,7 +185,7 @@ public sealed class Faction
     public string HullMain { get; set; } = "";
     public string HullSecondary { get; set; } = "";
     public string Accent { get; set; } = "";
-    public Dictionary<string, double> Roles { get; set; } = new() { ["freighter"] = 1, ["research"] = 1, ["patrol"] = 1, ["fighter"] = 0.8, ["industrial"] = 0.6, ["utility"] = 1, ["ring"] = 0.5 };
+    public Dictionary<string, double> Roles { get; set; } = new() { ["freighter"] = 1, ["research"] = 1, ["patrol"] = 1, ["fighter"] = 0.8, ["industrial"] = 0.6, ["utility"] = 1, ["ring"] = 0.5, ["civilian"] = 1 };
     public Dictionary<string, double> Sizes { get; set; } = new() { ["small"] = 1, ["medium"] = 2, ["large"] = 1 };
     public Dictionary<string, double> Suppliers { get; set; } = Manufacturers.Presets.Keys.ToDictionary(k => k, _ => 1.0);
 }
@@ -204,7 +204,7 @@ public static class Factions
         ["survey"] = new Faction
         {
             Name = "Oceanic Survey Directorate", HullMain = "#a7a59d", HullSecondary = "#7d7f80", Accent = "#c7902a",
-            Roles = new() { ["research"] = 4, ["freighter"] = 1, ["patrol"] = 0.3, ["utility"] = 1.2, ["ring"] = 2 },
+            Roles = new() { ["research"] = 4, ["freighter"] = 1, ["patrol"] = 0.3, ["utility"] = 1.2, ["ring"] = 2, ["civilian"] = 2 },
             Sizes = new() { ["small"] = 1.5, ["medium"] = 2, ["large"] = 1 },
             Suppliers = new() { ["meridian"] = 3, ["brightwater"] = 1.5, ["halvorsen"] = 0.5 },
         },

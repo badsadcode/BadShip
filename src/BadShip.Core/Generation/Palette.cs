@@ -33,7 +33,7 @@ public static class Roles
 /// <summary>Colour schemes from the style brief: restrained cool greys with ochre / yellow / orange / red utility accents.</summary>
 public static class Palettes
 {
-    public static readonly string[] Names = ["gunmetal", "naval", "offwhite", "slate", "industrial", "military", "civilian", "research", "stealth", "pirate", "luxury"];
+    public static readonly string[] Names = ["gunmetal", "naval", "offwhite", "slate", "industrial", "military", "civilian", "research", "stealth", "pirate", "luxury", "medical"];
 
     /// <summary>
     /// Hull colours per scheme; the later schemes (from the hull concept sheets) also fix their accent and finish:
@@ -53,10 +53,11 @@ public static class Palettes
         ["stealth"] = ("#1c1f23", "#2a2e33", "#3fb8c8", 0.82f, 0.3f),
         ["pirate"] = ("#57463a", "#6d5c4a", "#8a2a1f", 0.85f, 0.45f),
         ["luxury"] = ("#dcd9d2", "#b5b0a6", "#c9a24a", 0.28f, 0.65f),
+        ["medical"] = ("#e4e7ea", "#b8c0c7", "#1fa39a", 0.45f, 0.35f),
     };
 
     /// <summary>Schemes that wear their accent in bold bands (like the concept sheets' diagonal stripes).</summary>
-    public static bool Banded(string palette) => palette is "industrial" or "military" or "civilian" or "research" or "luxury";
+    public static bool Banded(string palette) => palette is "industrial" or "military" or "civilian" or "research" or "luxury" or "medical";
 
     private static readonly string[] Accents = ["#c7902a", "#d9b21c", "#b85a22", "#a8291f"];
 
