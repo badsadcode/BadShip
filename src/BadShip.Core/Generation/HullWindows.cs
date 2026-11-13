@@ -113,6 +113,7 @@ public static class HullWindows
                 if (!holes.TryGetValue((w.S, w.F), out var list)) holes[(w.S, w.F)] = list = [];
                 list.Add((w.U0, w.U1, w.V0, w.V1));
             }
+            var moved = new List<(string id, Vector3[] tri, Vector3 n)>();
             // Rebuild: the loft with openings, then everything added to the block's mesh after it.
             var plain = new Mesh();
             loft.Build(plain, Roles.HullMain);
@@ -122,13 +123,15 @@ public static class HullWindows
             // The panes over the openings turn see-through.
             if (rebuilt.Groups.TryGetValue(Roles.Glass, out var glassIdx))
             {
+                // Each converted pane's glass moves into its window's own node (see below), see-through.
                 var keep = new List<int>();
-                var clear = rebuilt.Groups.TryGetValue(Glass, out var ci) ? ci : rebuilt.Groups[Glass] = [];
                 for (var t = 0; t + 2 < glassIdx.Count; t += 3)
                 {
-                    var centre = (rebuilt.Positions[glassIdx[t]] + rebuilt.Positions[glassIdx[t + 1]] + rebuilt.Positions[glassIdx[t + 2]]) / 3;
-                    var target = g.Any(w => w.Painted && OnPane(loft, w, centre)) ? clear : keep;
-                    target.Add(glassIdx[t]); target.Add(glassIdx[t + 1]); target.Add(glassIdx[t + 2]);
+                    var tri = new[] { rebuilt.Positions[glassIdx[t]], rebuilt.Positions[glassIdx[t + 1]], rebuilt.Positions[glassIdx[t + 2]] };
+                    var centre = (tri[0] + tri[1] + tri[2]) / 3;
+                    var owner = g.FirstOrDefault(w => w.Painted && OnPane(loft, w, centre));
+                    if (owner != null) moved.Add((owner.Id, tri, rebuilt.Normals[glassIdx[t]]));
+                    else { keep.Add(glassIdx[t]); keep.Add(glassIdx[t + 1]); keep.Add(glassIdx[t + 2]); }
                 }
                 rebuilt.Groups[Roles.Glass] = keep;
                 if (keep.Count == 0) rebuilt.Groups.Remove(Roles.Glass);
@@ -136,10 +139,24 @@ public static class HullWindows
             block.Mesh.Clear();
             block.Mesh.AppendFrom(rebuilt, 0);
             block.UpdateBounds();
-            // Reveals from the block's opening to the skin's.
-            var reveal = c.Add(block.Id == "hull_main" ? "hull_windows" : $"{block.Id}_windows", "windows", ModuleTier.Secondary, block.Id);
+            // Every window is a node of its own (type "window"), holding its glass and its reveal, with what a game
+            // needs to put its own window asset there in the extras.
+            Module WindowNode(WindowInfo w, Vector3 centre, Vector3 normal, float width, float height)
+            {
+                var node = c.Add(w.Id, "window", ModuleTier.Tertiary, block.Id);
+                node.Pivot = centre;
+                node.Extras = new()
+                {
+                    ["window"] = w.Id, ["room"] = w.Room, ["deck"] = w.Deck, ["converted"] = w.Painted,
+                    ["width"] = MathF.Round(width, 3), ["height"] = MathF.Round(height, 3),
+                    ["normal"] = new[] { MathF.Round(normal.X, 4), MathF.Round(normal.Y, 4), MathF.Round(normal.Z, 4) },
+                };
+                foreach (var (id, tri, n) in moved.Where(x => x.id == w.Id)) node.Mesh.AddPolygon(Glass, tri, n);
+                return node;
+            }
             foreach (var w in g.Where(w => w.F == 8))
             {
+                var reveal = WindowNode(w, new Vector3((w.U0 + w.U1) / 2, (w.V0 + w.V1) / 2, loft.Zs[^1]), Vector3.UnitZ, w.U1 - w.U0, w.V1 - w.V0);
                 // A window in the flat front: a short tunnel from the cap to the front wall behind it.
                 var zc = loft.Zs[^1];
                 var zw = w.WallX + 0.1f;
@@ -157,6 +174,10 @@ public static class HullWindows
             }
             foreach (var w in g.Where(w => w.F < 8))
             {
+                var nWin = loft.FaceNormal(w.S, w.F);
+                var reveal = WindowNode(w, (loft.FacePoint(w.S, w.F, w.U0, w.V0) + loft.FacePoint(w.S, w.F, w.U1, w.V1)) / 2, nWin,
+                    Vector3.Distance(loft.FacePoint(w.S, w.F, w.U0, w.V0), loft.FacePoint(w.S, w.F, w.U1, w.V0)),
+                    Vector3.Distance(loft.FacePoint(w.S, w.F, w.U0, w.V0), loft.FacePoint(w.S, w.F, w.U0, w.V1)));
                 var shaped = interior.Decks[w.Deck].Shaped;
                 float Z(float u) => loft.Zs[w.S] + (loft.Zs[w.S + 1] - loft.Zs[w.S]) * u;
                 Vector3 H(float u, float v) => loft.FacePoint(w.S, w.F, u, v);
@@ -185,7 +206,6 @@ public static class HullWindows
                 var n = loft.FaceNormal(w.S, w.F);
                 c.AddMarker("window", reveal, (H(w.U0, w.V0) + H(w.U1, w.V1)) / 2, n, (Z(w.U1) - Z(w.U0)) / 2);
             }
-            if (reveal.Mesh.IsEmpty) c.Ship.Modules.Remove(reveal);
         }
     }
 

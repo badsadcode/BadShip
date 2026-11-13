@@ -782,10 +782,15 @@ public class GeneratorTests
         Assert.True(windows.Count(w => w.Side != 0) >= 2, "side windows");
         Assert.True(windows.Count(w => w.Side == 0) >= 2, "windscreen");
         Assert.Contains(windows, w => interior.Rooms.Single(r => r.Id == w.Room).Kind == "bridge");
-        // The block's glass over them is see-through, and each has a reveal and a marker.
-        var block = ship.Find(windows[0].Module!)!;
-        Assert.True(block.Mesh.Groups.ContainsKey(HullWindows.Glass));
-        Assert.NotNull(ship.Find($"{block.Id}_windows"));
+        // Every window is a node of its own, holding its see-through glass and its reveal, with a marker.
+        foreach (var w in windows)
+        {
+            var node = ship.Find(w.Id)!;
+            Assert.Equal("window", node.Type);
+            Assert.Equal(w.Module, node.ParentId);
+            Assert.True(node.Mesh.Groups.ContainsKey(HullWindows.Glass), w.Id);
+            Assert.Equal(w.Room, node.Extras!["room"]);
+        }
         Assert.True(ship.Markers.Count(m => m.Kind == "window") >= windows.Count);
         // Same ship, same windows.
         var again = ShipGenerator.Generate(ShipCode.Decode("v0p25p0-s1-1y")).Interior!;
@@ -826,13 +831,35 @@ public class GeneratorTests
             {
                 fronts++;
                 // A front window: an opening in the block's front cap, with its glass turned see-through.
-                var block = ship.Find(w.Module!)!;
-                Assert.True(block.Mesh.Groups.ContainsKey(HullWindows.Glass));
+                var node = ship.Find(w.Id)!;
+                Assert.Equal(w.Module, node.ParentId);
+                Assert.True(node.Mesh.Groups.ContainsKey(HullWindows.Glass));
                 Assert.True(w.U1 > w.U0 + 0.3f && w.V1 > w.V0 + 0.3f);
             }
         }
         Assert.True(keels >= 5, $"keels {keels}");
         Assert.True(fronts >= 5, $"front windows {fronts}");
+    }
+
+    [Fact]
+    public void Parts_carry_what_a_game_needs_to_swap_in_its_own_assets()
+    {
+        var ship = ShipGenerator.Generate(new ShipRecipe { Seed = 3, Archetype = "warship", Size = "medium" });
+        foreach (var m in ship.Modules.Where(m => !m.Mesh.IsEmpty))
+        {
+            // Every part with geometry: its size, matching its bounds.
+            var size = (float[])m.Extras!["size"];
+            Assert.Equal(m.Bounds.Size.X, size[0], 2);
+        }
+        // Turrets: a mount at their hardpoint, pointing the way the hardpoint does.
+        var turrets = ship.Modules.Where(m => m.Type == "turret").ToList();
+        Assert.NotEmpty(turrets);
+        foreach (var t in turrets)
+        {
+            var mount = (Dictionary<string, object>)t.Extras!["mount"];
+            Assert.Equal("hardpoint", mount["kind"]);
+            Assert.Contains(ship.Markers, k => k.ModuleId == t.Id && k.Kind == "hardpoint");
+        }
     }
 
     [Fact]

@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.28.0";
+    public const string Version = "0.29.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "raider", "warship"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "warship"];
@@ -56,7 +56,36 @@ public static class ShipGenerator
         if (c.DetailLevel > 0) Details.Add(c);
         Damage.AfterDetails(c);
         c.Ship.Finish();
+        AssetExtras(c.Ship);
         return c.Ship;
+    }
+
+    /// <summary>
+    /// What a game needs to find a part and put its own asset in its place, in every part's glTF extras: its size
+    /// (the part's node sits at the centre of its bounds), the markers on it, and for a part with a mount (a turret's
+    /// hardpoint, an engine's exhaust, a light) where and which way that mount points. See docs/REFERENCE.md.
+    /// </summary>
+    private static void AssetExtras(Ship ship)
+    {
+        foreach (var m in ship.Modules)
+        {
+            if (m.Mesh.IsEmpty) continue;
+            var x = m.Extras ??= [];
+            var size = m.Bounds.Size;
+            x["size"] = new[] { MathF.Round(size.X, 3), MathF.Round(size.Y, 3), MathF.Round(size.Z, 3) };
+            var markers = ship.Markers.Where(k => k.ModuleId == m.Id).ToList();
+            if (markers.Count == 0) continue;
+            x["markers"] = markers.Select(k => k.Id).ToArray();
+            var mount = markers.FirstOrDefault(k => k.Kind is "hardpoint" or "engine_exhaust" or "docking_port" or "floodlight" or "nav_light" or "rcs_thruster" or "bridge")
+                ?? markers[0];
+            x["mount"] = new Dictionary<string, object>
+            {
+                ["kind"] = mount.Kind,
+                ["position"] = new[] { MathF.Round(mount.Position.X, 3), MathF.Round(mount.Position.Y, 3), MathF.Round(mount.Position.Z, 3) },
+                ["direction"] = new[] { MathF.Round(mount.Direction.X, 4), MathF.Round(mount.Direction.Y, 4), MathF.Round(mount.Direction.Z, 4) },
+                ["radius"] = MathF.Round(mount.Radius, 3),
+            };
+        }
     }
 }
 

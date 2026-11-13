@@ -543,6 +543,19 @@ holes), with matching openings in the front wall and a short reveal between (`f`
 with `u` as x and `v` as y). With that, every part of a ship follows its shape inside, and every pane of glass a room
 can see through is a real window.
 
+### Asset-ready ships (v0.29.0)
+
+Every part can be found by code and replaced with your own art. Each node's glTF extras now also carry its `size`
+(bounding box, for fitting a replacement), the `markers` that belong to it, and a `mount` (the main attachment point:
+kind, ship-space position, facing direction, radius), and its origin sits at the part's centre. Every window is its own
+node (`type: "window"`) with its glass and frame, the room it lights, its deck, size and facing. `badship vocab` builds
+ships of every archetype and lists every part type, marker kind, material role and interior kind actually in use; its
+output is the vocabulary in [docs/REFERENCE.md](docs/REFERENCE.md), which also covers conventions (meters, +Y up, +Z
+forward), the files, and what code can rely on. `tools/godot-interior/asset_swap.gd` swaps parts by type for your
+scenes and materials by role for your materials in one call (`verify_swap.gd` checks it headless on a real ship).
+
+![Parts found by their type](docs/images/asset_ready_v0.29.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -550,7 +563,7 @@ can see through is a real window.
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.28.0: every part shaped, every visible pane a window)
+## Status (v0.29.0: asset-ready, every part findable by type)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

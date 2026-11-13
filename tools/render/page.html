@@ -45,7 +45,7 @@ const VIEWS = {
   below: new THREE.Vector3(-1, -0.35, 0.6),
 };
 
-window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'beauty', eye = null, target = null, fov = 40, clip = null } = {}) => {
+window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'beauty', eye = null, target = null, fov = 40, clip = null, highlight = null } = {}) => {
   // A cutaway: clip = [nx, ny, nz, d] keeps what lies on the side n·p + d >= 0.
   renderer.clippingPlanes = clip ? [new THREE.Plane(new THREE.Vector3(clip[0], clip[1], clip[2]), clip[3])] : [];
   const gltf = await loader.loadAsync(url);
@@ -61,6 +61,12 @@ window.renderShip = async (url, { w = 640, h = 360, view = 'quarter', mode = 'be
     const k = new THREE.DirectionalLight('#ffffff', 2.4); k.position.set(-1, 1.4, 0.9); scene.add(k);
     const clay = new THREE.MeshStandardMaterial({ color: '#7fa0c4', roughness: 0.8, transparent: true, opacity: 0.85 });
     ship.traverse(o => { if (o.isMesh) o.material = clay; });
+    // highlight = {type: colour}: every part of that type (found by its glTF extras, as a game would) in its colour.
+    if (highlight) {
+      clay.color.set('#59677a'); clay.opacity = 1; clay.transparent = false;
+      const mats = Object.fromEntries(Object.entries(highlight).map(([t, c]) => [t, new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, emissive: c, emissiveIntensity: 0.25 })]));
+      ship.traverse(o => { const m = mats[o.userData?.type]; if (m) o.traverse(c => { if (c.isMesh) c.material = m; }); });
+    }
   } else if (mode === 'silhouette') {
     scene.background = new THREE.Color('#f2f2ee');
     const black = new THREE.MeshBasicMaterial({ color: '#111' });
