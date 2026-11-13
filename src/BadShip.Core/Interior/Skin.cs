@@ -144,8 +144,12 @@ public static class Skin
     public static void Build(Mesh walls, Mesh overhead, string wallMat, string floorMat, Loft loft, float thickness,
         float z0, float z1, float floorY, float ceilY, IReadOnlyList<(int f, float z0, float z1, float v0, float v1)>? holes = null,
         IReadOnlyList<(float x0, float x1, float z0, float z1)>? ceilingHoles = null,
-        IReadOnlyList<(float x0, float x1, float z0, float z1)>? floorHoles = null)
+        IReadOnlyList<(float x0, float x1, float z0, float z1)>? floorHoles = null,
+        float? clipTop = null, bool flatCeiling = true, bool floorUnderside = false)
     {
+        // A deck with another deck right above it in a stack has no ceiling of its own: its skin reaches up to the next
+        // floor (clipTop), whose underside is its ceiling. A deck with one below shows its floor's underside to it.
+        var top = clipTop ?? ceilY;
         holes ??= [];
         ceilingHoles ??= [];
         floorHoles ??= [];
@@ -180,7 +184,7 @@ public static class Skin
                     // A hair inside the band, so a face lying exactly on the floor or ceiling plane (a block's bottom
                     // face, inset, can land right on the floor) drops out: the floor strip and the flat ceiling, which
                     // have the openings for stairs and ladders, cover those.
-                    var poly = ClipY(ClipY(tri.ToList(), floorY + 0.005f, true), ceilY - 0.005f, false);
+                    var poly = ClipY(ClipY(tri.ToList(), floorY + 0.005f, true), top - 0.005f, false);
                     if (poly.Count < 3) continue;
                     var c = poly.Aggregate(Vector3.Zero, (s, v) => s + v) / poly.Count;
                     var inward = centre - c;
@@ -193,7 +197,7 @@ public static class Skin
             }
             // The flat ceiling, where the block is taller than the deck.
             // Open where a ladder or stairs go up through it (stations line up with the openings' ends).
-            if (SpanAt(pa, ceilY) is { } ca && SpanAt(pb, ceilY) is { } cb)
+            if (flatCeiling && SpanAt(pa, ceilY) is { } ca && SpanAt(pb, ceilY) is { } cb)
             {
                 var zm = (za + zb) / 2;
                 var open = ceilingHoles.Where(h => zm > h.z0 && zm < h.z1).OrderBy(h => h.x0).ToList();
@@ -233,10 +237,18 @@ public static class Skin
                     float xa0 = MathF.Max(fa.a, p0), xa1 = MathF.Min(fa.b, p1), xb0 = MathF.Max(fb.a, p0), xb1 = MathF.Min(fb.b, p1);
                     if (xa1 - xa0 < 0.01f || xb1 - xb0 < 0.01f) continue;
                     walls.AddQuad(floorMat, new Vector3(xa0, fy, za), new Vector3(xa1, fy, za), new Vector3(xb1, fy, zb), new Vector3(xb0, fy, zb), Vector3.UnitY);
+                    if (floorUnderside)
+                    {
+                        var uy = floorY - Underside;
+                        overhead.AddQuad(wallMat, new Vector3(xa0, uy, za), new Vector3(xa1, uy, za), new Vector3(xb1, uy, zb), new Vector3(xb0, uy, zb), -Vector3.UnitY);
+                    }
                 }
             }
         }
     }
+
+    /// <summary>How far under a floor its underside (the ceiling of the deck below) sits: just under the slab's bottom.</summary>
+    public const float Underside = 0.32f;
 
     /// <summary>A 3D polygon cut by a horizontal plane: keeps y ≥ h (above) or y ≤ h.</summary>
     private static List<Vector3> ClipY(List<Vector3> poly, float h, bool above)
