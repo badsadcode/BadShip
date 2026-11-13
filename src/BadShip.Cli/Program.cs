@@ -147,6 +147,7 @@ try
             var rooms = new SortedDictionary<string, int>(StringComparer.Ordinal);
             var doors = new SortedDictionary<string, int>(StringComparer.Ordinal);
             var lifts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+            var furniture = new SortedDictionary<string, int>(StringComparer.Ordinal);
             var parts = new SortedDictionary<string, int>(StringComparer.Ordinal);
             void Count(IDictionary<string, int> d, string k) => d[k] = d.TryGetValue(k, out var v) ? v + 1 : 1;
             void Note(IDictionary<string, VocabEntry> d, BadShip.Model.Module m, string archetype)
@@ -171,6 +172,7 @@ try
                     foreach (var m in inner.Model.Modules)
                     {
                         Note(inside, m, archetype);
+                        if (m.Type == "furniture" && m.Extras?["kind"] is string fk) Count(furniture, fk);
                         foreach (var g in m.Mesh.Groups.Keys) Count(insideMaterials, g);
                     }
                     foreach (var k in inner.Model.Markers) Count(insideMarkers, k.Kind);
@@ -214,6 +216,7 @@ try
             Table("Room kinds (`rooms[].kind`; `extras.kind` on room nodes)", rooms, "kind");
             Table("Door kinds (`doors[].kind`)", doors, "kind");
             Table("Lifts (`lifts[].kind`)", lifts, "kind");
+            Table("Furniture kinds (`extras.kind` on furniture nodes; swap one with `furniture/KIND`)", furniture, "kind");
             if (opts.TryGetValue("out", out var outFile)) File.WriteAllText(outFile, md.ToString());
             else Console.Write(md.ToString());
             return 0;

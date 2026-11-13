@@ -373,7 +373,7 @@ freighter's lowest deck is one big cargo hold; a stairwell at the same place on 
 (open above the flight, landings at both ends, a walkway beside it); airlocks open in the hull wall. Rooms come from
 the ship type (crew quarters, mess, medbay, labs, armoury, brig, passenger cabins, lounges, workshops, reactor...)
 with command rooms up top and machinery low, and floors tinted by zone (command, crew, work, cargo, medical).
-Narrow small craft get one deck of rooms in a row. No furniture: rooms, walls, doors, stairs and lights.
+Narrow small craft get one deck of rooms in a row. No furniture yet: rooms, walls, doors, stairs and lights (furniture came in v0.30.0).
 
 The interior validator checks that every room is reachable from the airlock through doors and stairs, that rooms sit
 inside the hull, that doors join real rooms and that rooms do not overlap; `stress --interior` runs it (0 errors over
@@ -384,7 +384,7 @@ and `run.sh`, which loads an interior headless, opens and closes a door, bakes a
 spawn point to every room (see v0.20.0 for what made that reliable). The Shipyard has an **Exterior / Interior**
 switch with deck buttons.
 
-Not yet: furniture and a BadLevel export.
+Not yet: a BadLevel export (furniture arrived in v0.30.0).
 
 ![Deck plans](docs/images/interior_plans_v0.18.png)
 
@@ -556,6 +556,21 @@ scenes and materials by role for your materials in one call (`verify_swap.gd` ch
 
 ![Parts found by their type](docs/images/asset_ready_v0.29.png)
 
+### Furniture (v0.30.0)
+
+Rooms are furnished for what they are: bunks and lockers in crew quarters, beds and desks in cabins, a row of consoles
+facing the bridge's front glass, mess tables with benches, galley counters, med beds in the medbay and wards,
+workbenches in labs and workshops, machines in engineering and the reactor room, gun racks in the armoury, shelves and
+crates in the holds, sofas in lounges and observation rooms. Every piece stands against a wall and stays out of the way:
+not in front of a door, not on the path from a door to the room's middle, not on a stair, ladder or elevator landing,
+and not over a hole in the floor; on a shaped deck it has to fit inside the skin, and tall pieces keep clear of windows.
+Each piece is its own node (`type: "furniture"`, with `kind`, `room`, `deck`, `width`, `depth`, `height` and
+`facing`), so a game can use it, collide with it or swap it: `AssetSwap` takes `"furniture/bunk"` (type/kind) keys.
+The Godot setup gives furniture collision and the walk test bakes it into the navigation mesh: every room of every test
+ship is still reachable on foot.
+
+![Furnished rooms](docs/images/furniture_v0.30.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -563,7 +578,7 @@ scenes and materials by role for your materials in one call (`verify_swap.gd` ch
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.29.0: asset-ready, every part findable by type)
+## Status (v0.30.0: furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

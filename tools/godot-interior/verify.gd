@@ -37,7 +37,7 @@ func _run(scene: Node, counts: Dictionary) -> void:
 	await create_timer(0.6).timeout
 	var back: float = door.position.distance_to(start)
 	print("door slides %.2f m open and returns to %.2f m" % [moved, back])
-	# Navigation: bake from walls, floors and stairs (not door leaves).
+	# Navigation: bake from walls, floors, stairs and furniture (not door leaves).
 	var nav := NavigationMesh.new()
 	nav.agent_radius = 0.35
 	nav.agent_height = 1.8
@@ -50,7 +50,7 @@ func _run(scene: Node, counts: Dictionary) -> void:
 	for n in all:
 		if n is MeshInstance3D:
 			var t := str(n.get_meta("extras", {}).get("type", ""))
-			if t in ["walls", "deck", "ceiling", "stairs"]:
+			if t in ["walls", "deck", "ceiling", "stairs", "furniture"]:
 				src.add_mesh((n as MeshInstance3D).mesh, (n as MeshInstance3D).global_transform)
 	NavigationServer3D.bake_from_source_geometry_data(nav, src)
 	var map := get_root().get_world_3d().navigation_map

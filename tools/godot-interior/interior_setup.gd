@@ -1,5 +1,5 @@
 ## Turns a loaded BadShip interior into something you can walk around in: every node whose extras say type "door"
-## gets door.gd, every elevator car elevator.gd; walls, floors, ceilings, stairs and railings get trimesh collision;
+## gets door.gd, every elevator car elevator.gd; walls, floors, ceilings, stairs, railings and furniture get trimesh collision;
 ## every ladder and elevator gets NavigationLink3D nodes (ladder: foot to top; elevator: stop to stop) so navigation
 ## agents path across them (your game decides how a character actually climbs or rides). Use it at runtime
 ## (InteriorSetup.apply(root)) or from an import script (see post_import.gd).
@@ -26,7 +26,7 @@ static func apply(root: Node) -> Dictionary:
 			links.append(extras)
 		elif type == "room":
 			counts.rooms += 1
-		elif type in ["walls", "deck", "ceiling", "stairs", "railing"] and node is MeshInstance3D:
+		elif type in ["walls", "deck", "ceiling", "stairs", "railing", "furniture"] and node is MeshInstance3D:
 			(node as MeshInstance3D).create_trimesh_collision()
 			counts.colliders += 1
 	for x in links:

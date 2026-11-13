@@ -863,6 +863,40 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Rooms_are_furnished_without_blocking_doors_stairs_or_lifts()
+    {
+        var pieces = 0;
+        var kinds = new HashSet<string>();
+        foreach (var (archetype, seed) in new[] { ("civilian", 1UL), ("freighter", 2UL), ("warship", 3UL), ("research", 2UL) })
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "large", Interior = true });
+            var interior = ship.Interior!;
+            foreach (var f in interior.Model.Modules.Where(m => m.Type == "furniture"))
+            {
+                pieces++;
+                kinds.Add((string)f.Extras!["kind"]);
+                var room = interior.Rooms.Single(r => r.Id == (string)f.Extras["room"]);
+                var b = f.Bounds;
+                // Inside its room, on its floor.
+                Assert.True(b.Min.X >= room.Min[0] - 0.01f && b.Max.X <= room.Max[0] + 0.01f && b.Min.Z >= room.Min[2] - 0.01f && b.Max.Z <= room.Max[2] + 0.01f, f.Id);
+                Assert.Equal(interior.Decks[room.Deck].FloorY, b.Min.Y, 2);
+                // Not in front of a door, nor on a stair, a lift shaft or a ladder's landing.
+                foreach (var d in interior.Doors.Where(d => d.Deck == room.Deck))
+                    Assert.False(MathF.Abs(d.Center[0] - (b.Min.X + b.Max.X) / 2) < (b.Max.X - b.Min.X) / 2 + 1.0f
+                        && MathF.Abs(d.Center[2] - (b.Min.Z + b.Max.Z) / 2) < (b.Max.Z - b.Min.Z) / 2 + 1.0f, $"{f.Id} at {d.Id}");
+                foreach (var st in interior.Stairs.Where(s => s.FromDeck == room.Deck || s.ToDeck == room.Deck))
+                    Assert.False(b.Min.X < st.Max[0] && st.Min[0] < b.Max.X && b.Min.Z < st.Max[2] && st.Min[2] < b.Max.Z, $"{f.Id} on {st.Id}");
+                foreach (var l in interior.Lifts.Where(l => l.Decks.Contains(room.Deck)))
+                    Assert.False(b.Min.X < l.Shaft[1] && l.Shaft[0] < b.Max.X && b.Min.Z < l.Shaft[3] && l.Shaft[2] < b.Max.Z, $"{f.Id} in {l.Id}");
+            }
+            // The bridge has its consoles.
+            Assert.Contains(interior.Model.Modules, m => m.Type == "furniture" && (string)m.Extras!["kind"] == "console");
+        }
+        Assert.True(pieces > 500, $"{pieces} pieces");
+        Assert.Superset(new HashSet<string> { "bunk", "console", "locker", "mess_table", "machine", "crates", "shelf" }, kinds);
+    }
+
+    [Fact]
     public void Gondolas_get_a_deck_and_a_ladder_up_an_access_trunk()
     {
         var decks = 0;
