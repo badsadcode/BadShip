@@ -20,7 +20,7 @@ public sealed record StairInfo(string Id, int FromDeck, int ToDeck, string Room,
 /// Windows in a shaped deck are cut where the block already had glass: <c>Module</c> names the block, and S, F, U0..V1 the
 /// pane on its loft (segment, face and rectangle), which may be on a chamfer or a sloped front (Side 0: overhead).
 public sealed record WindowInfo(string Id, string Room, int Deck, int Side, float Z0, float Z1, float Y0, float Y1, float WallX,
-    string? Module = null, int S = -1, int F = -1, float U0 = 0, float U1 = 0, float V0 = 0, float V1 = 0);
+    string? Module = null, int S = -1, int F = -1, float U0 = 0, float U1 = 0, float V0 = 0, float V1 = 0, bool Painted = false);
 
 /// <summary>
 /// A ladder or an elevator: the decks it stops at (bottom up), the room it opens into at each stop, its shaft footprint
@@ -82,7 +82,7 @@ public static class InteriorGenerator
     /// candidate is offered to the callback (which checks the hull can take an opening there, and reserves it) and
     /// only accepted ones are cut into the interior's outer walls.
     /// </summary>
-    public static ShipInterior? Build(Ship ship, Func<WindowInfo, bool>? acceptWindow = null)
+    public static ShipInterior? Build(Ship ship, Func<WindowInfo, WindowInfo?>? acceptWindow = null)
     {
         var p = ship.Plan;
         if (p.Family == "fighter") return null; // a cockpit, not an interior
@@ -121,7 +121,10 @@ public static class InteriorGenerator
         for (var d = 0; d < n; d++)
         {
             var fy = floor0 + d * DeckPitch;
-            var hw = MathF.Min(P.HalfWidthAt(fy - Slab), P.HalfWidthAt(fy + Clear)) - 0.6f;
+            // Hull decks follow the hull's shape (see Skin): only the band people walk in has to fit.
+            var walkHw = float.MaxValue;
+            for (var y = fy - Slab; y <= fy + Walk + 0.01f; y += 0.25f) walkHw = MathF.Min(walkHw, P.HalfWidthAt(y));
+            var hw = walkHw - 0.6f;
             hw = MathF.Floor(hw * 2) / 2;
             if (hw < 1.5f) continue;
             var narrow = hw < 3.5f;
@@ -147,7 +150,18 @@ public static class InteriorGenerator
             for (var i = 0; i < best2.Count; i++) result.Decks.Add(best2[i] with { Index = i });
         }
         if (result.Decks.Count == 0) return null;
+        // Each deck reaches on into the hull's nose and tail as far as its walking band still fits.
+        for (var i = 0; i < result.Decks.Count; i++)
+        {
+            var d = result.Decks[i];
+            bool Fits(float z) => BoxInsideLoft(loft, z, -d.HalfWidth - 0.6f, d.HalfWidth + 0.6f, d.FloorY - Slab, d.FloorY + Walk);
+            var (e0, e1) = (d.Z0, d.Z1);
+            while (e1 + 0.5f <= loft.Zs[^1] - 0.5f && Fits(e1 + 0.5f)) e1 += 0.5f;
+            while (e0 - 0.5f >= loft.Zs[0] + 0.5f && Fits(e0 - 0.5f)) e0 -= 0.5f;
+            result.Decks[i] = d with { Z0 = MathF.Floor(e0), Z1 = MathF.Floor(e1), Shaped = true };
+        }
         var plan = new Layout(ship, result, r, Annexes(ship, result));
+        plan.HullShell(loft, hull.Id);
         plan.Rooms();
         plan.AddAnnexes();
         if (acceptWindow != null) plan.Windows(acceptWindow);
@@ -398,8 +412,9 @@ public static class InteriorGenerator
             var decks = result.Decks;
             var top = decks.Count - 1;
             var mid = decks.Count / 2;
-            var dz0 = decks[0].Z0;
-            var dz1 = decks[0].Z1;
+            // The stretch every deck has (decks reach into the nose and tail by different amounts).
+            var dz0 = decks.Max(d => d.Z0);
+            var dz1 = decks.Min(d => d.Z1);
             var len = dz1 - dz0;
             if (decks[0].Narrow)
             {
@@ -428,7 +443,7 @@ public static class InteriorGenerator
             // The free stretch of every deck (between engineering and the bridge), then the airlock's deck: the longest
             // stretch that is not the cargo hold, the middle deck on a tie.
             foreach (var d in decks)
-                _span[d.Index] = (d.Z0 + (d.Index == 0 ? engLen : 0), d.Z1 - (d.Index == top ? bridgeLen : 0));
+                _span[d.Index] = (d.Z0 + (d.Index == 0 ? engLen : 0), d.Z1 - (d.Index == top ? bridgeLen : ObservationLen(d)));
             _airlockDeck = decks.Where(d => !(hold && d.Index == 0))
                 .OrderByDescending(d => _span[d.Index].b - _span[d.Index].a).ThenBy(d => Math.Abs(d.Index - mid)).First().Index;
             // Cross-corridors every 24–32 m, at the same places on every deck, clear of the stairwell and the airlock.
@@ -449,6 +464,13 @@ public static class InteriorGenerator
                 var hw = d.HalfWidth;
                 var za = d.Z0;
                 var zb = d.Z1;
+                // Below the bridge, a deck with glass in the nose ahead of it ends in an observation room looking out.
+                var obsLen = d.Index == top ? 0 : ObservationLen(d);
+                if (obsLen > 0)
+                {
+                    Room($"observation_{d.Index}", "observation", d.Index, -hw, hw, zb - obsLen, zb);
+                    zb -= obsLen;
+                }
                 if (d.Index == top)
                 {
                     Room($"bridge", "bridge", d.Index, -hw, hw, zb - bridgeLen, zb);
@@ -505,6 +527,7 @@ public static class InteriorGenerator
                 if (_liftZ is { } ez) LiftRooms(d, ez, hubId);
                 // Full-width rooms open onto the hub through their end walls.
                 if (d.Index == top) Door("interior", "bridge", HubAt(d.Index, zb - 0.01f), d.Index, new Vector3(0, d.FloorY, zb), -Vector3.UnitZ);
+                if (obsLen > 0) Door("interior", $"observation_{d.Index}", HubAt(d.Index, zb - 0.01f), d.Index, new Vector3(0, d.FloorY, zb), -Vector3.UnitZ);
                 if (d.Index == 0) Door("interior", "engineering", HubAt(d.Index, za + 0.01f), d.Index, new Vector3(0, d.FloorY, za), Vector3.UnitZ);
             }
             // Stairs between consecutive decks, from each stairwell up into the next.
@@ -932,6 +955,34 @@ public static class InteriorGenerator
         /// corridor with rooms on both sides (wide decks) or rooms in a row opening into each other (narrow ones).
         /// Superstructure decks hold command and crew rooms; keel decks stores and workshops.
         /// </summary>
+        /// <summary>
+        /// How long an observation room at the front of a hull deck is: 5 m when the hull has glass ahead of the deck
+        /// at its height (prow glass, a forward window band), 0 otherwise.
+        /// </summary>
+        private float ObservationLen(DeckInfo d)
+        {
+            if (!_shells.TryGetValue(d.Index, out var loft) || d.Narrow) return 0;
+            foreach (var p in loft.Panes)
+            {
+                var a = loft.FacePoint(p.S, p.F, p.U0, p.V0);
+                var b = loft.FacePoint(p.S, p.F, p.U1, p.V1);
+                if (MathF.Min(a.Z, b.Z) < d.Z1 - 0.5f) continue;
+                if (MathF.Max(a.Y, b.Y) < d.FloorY + 0.4f || MathF.Min(a.Y, b.Y) > d.CeilingY + 0.5f) continue;
+                return d.Z1 - d.Z0 > 30 ? 5f : 0;
+            }
+            return 0;
+        }
+
+        /// <summary>Every hull deck follows the hull's own shape.</summary>
+        public void HullShell(Loft loft, string module)
+        {
+            foreach (var d in result.Decks)
+            {
+                _shells[d.Index] = loft;
+                _shellModules[d.Index] = module;
+            }
+        }
+
         /// <summary>A bridge block's deck ends in the bridge, across the deck at the front, when there is room for it.</summary>
         private static float BridgeLen(AnnexSpec a) => a.Z1 - a.Z0 >= 9 ? Num.Clamp(MathF.Round((a.Z1 - a.Z0) * 0.3f), 3.5f, 6f) : 0;
 
@@ -1022,7 +1073,7 @@ public static class InteriorGenerator
                 var d = result.Decks[deckIndex];
                 result.DeckShells[deckIndex] = (loft, _shellModules[deckIndex]);
                 var hw = d.HalfWidth;
-                var bridge = result.Rooms.FirstOrDefault(q => q.Deck == d.Index && q.Kind == "bridge" && MathF.Abs(q.Max[2] - d.Z1) < 0.01f);
+                var bridge = result.Rooms.FirstOrDefault(q => q.Deck == d.Index && q.Kind is "bridge" or "observation" && MathF.Abs(q.Max[2] - d.Z1) < 0.01f && q.Max[0] - q.Min[0] > 2 * d.HalfWidth - 0.1f);
                 var end = d.Z1;
                 if (bridge != null)
                 {
@@ -1031,13 +1082,34 @@ public static class InteriorGenerator
                     while (z + 0.5f <= loft.Zs[^1] - 0.3f && BoxInsideLoft(loft, z + 0.5f, d.Cx - hw * 0.5f, d.Cx + hw * 0.5f, d.FloorY + 0.02f, d.FloorY + 1f)) z += 0.5f;
                     if (z > d.Z1 + 0.6f) { _nook[d.Index] = z; end = z; }
                 }
-                foreach (var p in loft.Panes)
+                foreach (var p0 in loft.Panes)
                 {
+                    // The part of the pane the deck can see: between its floor (plus a sill) and just over its
+                    // ceiling, and along its length. Glass partly below the floor or past the deck's end is cut to that.
+                    var (zs0, zs1) = (loft.Zs[p0.S], loft.Zs[p0.S + 1]);
+                    if (zs1 - zs0 < 1e-3f) continue;
+                    float UOf(float z) => (z - zs0) / (zs1 - zs0);
+                    var u0 = MathF.Max(p0.U0, UOf(d.Z0 + 0.15f));
+                    var u1 = MathF.Min(p0.U1, UOf(end - 0.15f));
+                    if (u1 - u0 < 1e-3f) continue;
+                    var um = (u0 + u1) / 2;
+                    float ya = loft.FacePoint(p0.S, p0.F, um, 0).Y, yb = loft.FacePoint(p0.S, p0.F, um, 1).Y;
+                    float v0 = p0.V0, v1 = p0.V1;
+                    if (MathF.Abs(yb - ya) > 1e-3f)
+                    {
+                        float VOf(float y) => (y - ya) / (yb - ya);
+                        var (vLo, vHi) = (VOf(d.FloorY + 0.4f), VOf(d.CeilingY + SkinInset + 0.25f));
+                        if (vLo > vHi) (vLo, vHi) = (vHi, vLo);
+                        v0 = MathF.Max(v0, vLo);
+                        v1 = MathF.Min(v1, vHi);
+                    }
+                    else if (ya < d.FloorY + 0.4f || ya > d.CeilingY + SkinInset + 0.25f) continue;
+                    if (v1 - v0 < 1e-3f) continue;
+                    var p = (p0.S, p0.F, U0: u0, U1: u1, V0: v0, V1: v1);
                     var corners = new[] { loft.FacePoint(p.S, p.F, p.U0, p.V0), loft.FacePoint(p.S, p.F, p.U1, p.V0), loft.FacePoint(p.S, p.F, p.U1, p.V1), loft.FacePoint(p.S, p.F, p.U0, p.V1) };
+                    // Big enough to be a window.
+                    if (Vector3.Distance(corners[0], corners[1]) < 0.5f || Vector3.Distance(corners[0], corners[3]) < 0.4f) continue;
                     float zMin = corners.Min(c => c.Z), zMax = corners.Max(c => c.Z), yMin = corners.Min(c => c.Y), yMax = corners.Max(c => c.Y);
-                    if (zMin < d.Z0 + 0.15f || zMax > end - 0.15f) continue;
-                    // Between the floor and what the skin lets you see: sill height up to just over the flat ceiling.
-                    if (yMin < d.FloorY + 0.5f || yMax > d.CeilingY + SkinInset + 0.25f) continue;
                     var n = loft.FaceNormal(p.S, p.F);
                     var centre = corners.Aggregate(Vector3.Zero, (a, c) => a + c) / 4;
                     var side = MathF.Abs(n.Y) > 0.6f ? 0 : MathF.Sign(n.X);
@@ -1046,8 +1118,10 @@ public static class InteriorGenerator
                         ?? bridge;
                     // Glass over a store or machinery stays painted, as on the hull.
                     if (room is null || Blind.Contains(room.Kind)) continue;
+                    // One deck per pane: a pane already cut for the deck below stays with it.
+                    if (result.Windows.Any(w => w.Module == _shellModules[deckIndex] && w.S == p.S && w.F == p.F && w.U0 < p.U1 && w.U1 > p.U0 && w.V0 < p.V1 && w.V1 > p.V0)) continue;
                     result.Windows.Add(new WindowInfo($"window_{result.Windows.Count}", room.Id, d.Index, side, zMin, zMax, yMin, yMax, centre.X,
-                        _shellModules[deckIndex], p.S, p.F, p.U0, p.U1, p.V0, p.V1));
+                        _shellModules[deckIndex], p.S, p.F, p.U0, p.U1, p.V0, p.V1, Painted: true));
                 }
             }
         }
@@ -1205,7 +1279,7 @@ public static class InteriorGenerator
         private static readonly string[] Blind = ["storage", "reactor", "life_support", "cargo_hold", "engineering", "engine_room", "stairwell", "airlock", "armoury", "brig", "elevator", "workshop"];
 
         /// <summary>Window candidates along the hull walls of rooms where people are (not stores, machinery or stairs).</summary>
-        public void Windows(Func<WindowInfo, bool> accept)
+        public void Windows(Func<WindowInfo, WindowInfo?> accept)
         {
             var blind = Blind;
             var n = 0;
@@ -1226,7 +1300,7 @@ public static class InteriorGenerator
                         // Keep clear of doors in the same wall (the outer airlock door).
                         if (result.Doors.Any(o => o.Deck == room.Deck && MathF.Abs(o.Center[0] - wallX) < 0.05f && MathF.Abs(o.Center[2] - zc) < (o.Width + WindowW) / 2 + 0.3f)) continue;
                         var w = new WindowInfo($"window_{n}", room.Id, room.Deck, side, zc - WindowW / 2, zc + WindowW / 2, d.FloorY + Sill, d.FloorY + Sill + WindowH, wallX + side * Wall / 2);
-                        if (accept(w)) { result.Windows.Add(w); n++; }
+                        if (accept(w) is { } got) { result.Windows.Add(got); n++; }
                     }
                 }
             }
@@ -1289,7 +1363,12 @@ public static class InteriorGenerator
                         .Select(w => (w.F, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U0, shell.Zs[w.S] + (shell.Zs[w.S + 1] - shell.Zs[w.S]) * w.U1, w.V0, w.V1)).ToList();
                     var skinEnd = _nook.TryGetValue(d.Index, out var nookEnd) ? nookEnd : d.Z1 + Wall;
                     var up = risers.Where(x => x.lo == d.Index).Select(x => (HoleX0(d, x.x0), x.x1, x.z0, x.z1)).ToList();
-                    Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, skinEnd, d.FloorY, d.CeilingY, cuts, up, holes);
+                    // In a stack of hull decks, the skin of a deck reaches up to the floor of the deck above, which
+                    // then shows its underside as this deck's ceiling.
+                    var above = result.Decks.FirstOrDefault(x => x.Part == "hull" && d.Part == "hull" && MathF.Abs(x.FloorY - d.CeilingY - Slab) < 0.05f);
+                    var below = result.Decks.FirstOrDefault(x => x.Part == "hull" && d.Part == "hull" && MathF.Abs(d.FloorY - x.CeilingY - Slab) < 0.05f);
+                    Skin.Build(skinWalls.Mesh, skinOver.Mesh, SkinMat, Floor, shell, SkinInset, d.Z0 - Wall, skinEnd, d.FloorY, d.CeilingY, cuts, up, holes,
+                        clipTop: above != null ? above.FloorY - Skin.Underside : null, flatCeiling: above == null, floorUnderside: below != null);
                     Shafts(d, deck);
                     if (_nook.ContainsKey(d.Index))
                         Skin.WallAcross(skinWalls.Mesh, WallMat, shell, SkinInset, nookEnd, -1e4f, 1e4f, d.FloorY, d.CeilingY, Wall);
@@ -1361,7 +1440,13 @@ public static class InteriorGenerator
                         if (shell != null)
                         {
                             // Outer walls are the skin; the rest follow it at their tops and ends.
-                            if (axis == 'z' && MathF.Abs(MathF.Abs(at - d.Cx) - hw) < 0.05f) continue;
+                            if (axis == 'z' && MathF.Abs(MathF.Abs(at - d.Cx) - hw) < 0.05f)
+                            {
+                                // The outer wall is the skin, except round an outer airlock door: a framed wall section there.
+                                foreach (var o in doors.Where(o => o.Kind == "airlock_outer" && MathF.Abs(o.Center[0] - at) < 0.05f && o.Center[2] > a && o.Center[2] < b))
+                                    WallAlongZ(walls.Mesh, at, MathF.Max(a, o.Center[2] - 1.5f), MathF.Min(b, o.Center[2] + 1.5f), d, doors);
+                                continue;
+                            }
                             // The bridge's front stays open to the nook and its windscreen.
                             if (axis == 'x' && _nook.ContainsKey(d.Index) && MathF.Abs(at - d.Z1) < 0.05f) continue;
                             if (axis == 'z') WallAlongZ(walls.Mesh, at, a, b, d, doors, (m0, x, za, zb, y0, y1) => Skin.WallAlong(m0, WallMat, shell, SkinInset, x, za, zb, y0, y1, Wall));

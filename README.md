@@ -517,6 +517,22 @@ or stairs go up, with a shaft through any gap to the deck above. A **gondola** d
 its glass becomes real windows; on interior ships a research gondola's observation band runs round its sides at eye
 level (instead of its lower facets), so the lounge inside looks out through it.
 
+### Shaped hull decks and one window system (v0.27.0)
+
+The main hull's decks follow the hull too. Each is as wide as its walking band allows and reaches into the nose and
+tail as far as that band fits; in a stack, a deck's skin reaches up to the next floor, whose underside is its ceiling
+(the top deck has a flat ceiling), with openings for the stairs, the hall voids and the elevator. An outer airlock
+door keeps a framed wall section in the skin. Below the bridge, a deck with glass in the nose ahead of it ends in an
+**observation** room that opens into a low nook under that glass.
+
+All real windows now go through one system, for every part (hull, blocks, gondola): a window is a rectangle on a
+face of the part's loft, either **cut in** (the hull's window placement) or **converted** from glass the part already
+had (`painted` in the JSON; only the part of a pane a deck can see is opened). Each part's loft is rebuilt once with
+all its openings, converted glass turns see-through, new openings get a pane, and every window gets a reveal to the
+deck's skin. Liners' window bands, the faceted prow glass and small craft cab windows all became real this way.
+
+![Shaped hull decks and real hull glass](docs/images/hull_shaped_v0.27.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -524,7 +540,7 @@ level (instead of its lower facets), so the lounge inside looks out through it.
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.26.0: shaped stacked blocks and gondolas)
+## Status (v0.27.0: shaped hull decks, one window system)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

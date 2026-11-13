@@ -775,7 +775,8 @@ public class GeneratorTests
     {
         var ship = ShipGenerator.Generate(ShipCode.Decode("v0p25p0-s1-1y"));
         var interior = ship.Interior!;
-        var deck = interior.Decks.Single(d => d.Shaped);
+        var deck = interior.Decks.Single(d => d.Part == "superstructure");
+        Assert.True(deck.Shaped);
         var windows = interior.Windows.Where(w => w.Module != null && w.Deck == deck.Index).ToList();
         // The side windows and the sloped windscreen over the bridge and its nook.
         Assert.True(windows.Count(w => w.Side != 0) >= 2, "side windows");
@@ -788,7 +789,22 @@ public class GeneratorTests
         Assert.True(ship.Markers.Count(m => m.Kind == "window") >= windows.Count);
         // Same ship, same windows.
         var again = ShipGenerator.Generate(ShipCode.Decode("v0p25p0-s1-1y")).Interior!;
-        Assert.Equal(windows.Select(w => w.Id + w.Z0), again.Windows.Where(w => w.Module != null).Select(w => w.Id + w.Z0));
+        Assert.Equal(windows.Select(w => w.Id + w.Z0), again.Windows.Where(w => w.Module != null && w.Deck == deck.Index).Select(w => w.Id + w.Z0));
+    }
+
+    [Fact]
+    public void Hull_decks_follow_the_hull_and_its_glass_becomes_windows()
+    {
+        // A liner: every hull deck shaped, and the window bands painted on its hull are real windows now.
+        var liner = ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "civilian", Size = "large", Interior = true }).Interior!;
+        Assert.False(BadShip.Interior.InteriorValidator.Validate(liner).HasErrors);
+        Assert.All(liner.Decks.Where(d => d.Part == "hull"), d => Assert.True(d.Shaped));
+        Assert.True(liner.Windows.Count(w => w.Painted && w.Module == "hull_main") > 100);
+        // A faceted research ship: its prow glass is seen from observation rooms at the front of the decks under the bridge.
+        var research = ShipGenerator.Generate(new ShipRecipe { Seed = 1, Archetype = "research", Size = "medium", Interior = true,
+            Overrides = new PlanOverrides { HullForm = "faceted" } }).Interior!;
+        Assert.Contains(research.Rooms, r => r.Id.StartsWith("observation_") && r.Max[2] == research.Decks[r.Deck].Z1);
+        Assert.Contains(research.Windows, w => w.Painted && w.Module == "hull_main" && research.Rooms.Single(r => r.Id == w.Room).Kind == "observation");
     }
 
     [Fact]
