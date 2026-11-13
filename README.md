@@ -505,6 +505,9 @@ Side windows, chamfer panes and **sloped windscreens** all work: a bridge at the
 into a low **nose nook** under the block's sloped front (too low to walk in, room to look out), so the windscreen over
 it is a window you can see the stars through.
 
+v0.25.1: a face that is not quite flat is split into two triangles along whichever diagonal keeps it bulging
+outward (it used to be the same diagonal every time, so mirrored faces dented in on one side of the ship).
+
 ![Real windows in a bridge block](docs/images/block_windows_v0.25.png)
 
 ## Devlog
@@ -514,7 +517,7 @@ it is a window you can see the stars through.
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.25.0: real windows in block decks)
+## Status (v0.25.1: real windows in block decks; no more dented faces)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

@@ -139,6 +139,19 @@ public sealed class Mesh
         var size = MathF.Max(Vector3.Distance(a, c), Vector3.Distance(b, d));
         if (nl > 1e-7f && MathF.Abs(Vector3.Dot(d - a, n / nl)) > 0.002f * MathF.Max(size, 1f))
         {
+            // Split along the diagonal that keeps the face bulging outward: with the a–c split, d must lie behind the
+            // plane of a, b, c (seen from outside); otherwise the face would fold in, so split along b–d instead.
+            // (Always splitting along a–c made mirrored faces fold opposite ways: one side convex, the other concave.)
+            if (outward is { } o)
+            {
+                var nOut = Vector3.Dot(n, o) >= 0 ? n : -n;
+                if (Vector3.Dot(d - a, nOut) > 0)
+                {
+                    AddPolygon(material, [a, b, d], outward);
+                    AddPolygon(material, [b, c, d], outward);
+                    return;
+                }
+            }
             AddPolygon(material, [a, b, c], outward);
             AddPolygon(material, [a, c, d], outward);
             return;
