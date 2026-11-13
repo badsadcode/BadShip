@@ -65,6 +65,15 @@ public static class Furniture
         ["hangar"] = ["crates", "crates", "rack", "crates"],
     };
 
+    /// <summary>At most this many of a kind in one room (the rest of a room's list repeats until the walls are full).</summary>
+    private static readonly Dictionary<string, int> Caps = new()
+    {
+        ["locker"] = 4, ["desk"] = 2, ["bed"] = 2, ["counter"] = 4, ["bench"] = 2, ["sofa"] = 6, ["console"] = 12, ["shelf"] = 6,
+    };
+
+    /// <summary>Rooms furnished once through their list, not filled up: cabins and offices.</summary>
+    private static readonly HashSet<string> Cabins = ["passenger_cabin", "captain_cabin", "captain_office", "brig"];
+
     public static IEnumerable<string> Kinds => Pieces.Keys;
 
     private readonly record struct Rect(float X0, float X1, float Z0, float Z1)
@@ -88,6 +97,8 @@ public static class Furniture
             model.Materials[Top] = new MaterialDef(Top, Palettes.Linear("#b9bcb8"), 0.5f, 0.1f, Vector3.Zero, 1);
         }
         var r = Rng.Stream(model.Recipe.Seed, "furniture");
+        var ids = model.Modules.Select(m => m.Id).ToHashSet();
+        var sections = new Dictionary<(int, int), Vector2[]>();
         foreach (var room in interior.Rooms)
         {
             if (!Programs.TryGetValue(room.Kind, out var program)) continue;
@@ -124,33 +135,48 @@ public static class Furniture
 
             var parent = $"room_{room.Id}";
             var placed = 0;
-            // The list goes round again while pieces still fit, up to about one piece per 7 m² of floor.
-            var maxPieces = Math.Max(1, (int)((area.X1 - area.X0) * (area.Z1 - area.Z0) / 7f));
+            // The list goes round again while pieces still fit, up to about one piece per 9 m² of floor.
+            var maxPieces = Math.Max(1, (int)((area.X1 - area.X0) * (area.Z1 - area.Z0) / 9f));
             var front = room.Kind is "bridge" or "cockpit" or "observation";
-            for (var pass = 0; placed < maxPieces && pass < 6; pass++)
+            // The free floor only shrinks, so a kind that found no place once never will.
+            var full = new HashSet<string>();
+            var count = new Dictionary<string, int>();
+            var passes = Cabins.Contains(room.Kind) ? 1 : 6;
+            for (var pass = 0; placed < maxPieces && pass < passes; pass++)
             {
                 var before = placed;
                 foreach (var kind in program)
                 {
                     if (placed >= maxPieces) break;
+                    if (full.Contains(kind)) continue;
                     var p = Pieces[kind];
-                    if (pass > 0 && p.Kind is "desk" or "bed" or "sofa" && room.Kind is "passenger_cabin" or "captain_cabin" or "captain_office") continue;
-                    if (TryPlace(p, area, keep, windows, shell, inset, d, r, front && p.Kind is "console" or "sofa", out var spot))
+                    if (count.GetValueOrDefault(kind) >= (Caps.TryGetValue(kind, out var cap) ? cap : int.MaxValue)) continue;
+                    if (TryPlace(p, area, keep, windows, shell is null ? null : z => Section(sections, shell, inset, room.Deck, z), d, r, front && p.Kind is "console" or "sofa", out var spot))
                     {
                         keep.Add(spot.rect.Grow(0.15f));
-                        Build(model, parent, room, p, spot.rect, spot.facing, d.FloorY, placed);
+                        Build(model, ids, parent, room, p, spot.rect, spot.facing, d.FloorY, placed);
                         placed++;
+                        count[kind] = count.GetValueOrDefault(kind) + 1;
                     }
+                    else full.Add(kind);
                 }
                 if (placed == before) break;
             }
         }
     }
 
+    /// <summary>The deck's skin section at z (cached on a 5 cm grid), inset a little further than the skin itself.</summary>
+    private static Vector2[] Section(Dictionary<(int, int), Vector2[]> cache, Loft shell, float inset, int deck, float z)
+    {
+        var key = (deck, (int)MathF.Round(z * 20));
+        if (!cache.TryGetValue(key, out var sec)) cache[key] = sec = Skin.Inset(Skin.SectionAt(shell, key.Item2 / 20f), inset + 0.05f);
+        return sec;
+    }
+
     private const float DoorClear = 1.4f, Aisle = 0.65f;
 
     /// <summary>Finds a place against a wall: tries the four walls in a random order, sliding along each.</summary>
-    private static bool TryPlace(Piece p, Rect area, List<Rect> keep, List<WindowInfo> windows, Loft? shell, float inset,
+    private static bool TryPlace(Piece p, Rect area, List<Rect> keep, List<WindowInfo> windows, Func<float, Vector2[]>? section,
         DeckInfo d, Rng r, bool lookForward, out (Rect rect, Vector3 facing) spot)
     {
         // Facing: the direction from the wall into the room. The long walls first (in a random order), or, for a
@@ -184,7 +210,7 @@ public static class Furniture
                 if (rect.X0 < area.X0 - 1e-4f || rect.X1 > area.X1 + 1e-4f || rect.Z0 < area.Z0 - 1e-4f || rect.Z1 > area.Z1 + 1e-4f) continue;
                 if (keep.Any(x => x.Overlaps(rect))) continue;
                 if (p.Kind != "console" && p.H > InteriorGenerator.Sill + 0.1f && windows.Any(w => BlocksWindow(w, rect))) continue;
-                if (!Fits(rect, p.H, shell, inset, d)) continue;
+                if (!Fits(rect, p.H, section, d)) continue;
                 spot = (rect, f);
                 return true;
             }
@@ -203,14 +229,14 @@ public static class Furniture
     }
 
     /// <summary>Inside the deck's skin at both ends and at the top (and under a sloped ceiling).</summary>
-    private static bool Fits(Rect rect, float h, Loft? shell, float inset, DeckInfo d)
+    private static bool Fits(Rect rect, float h, Func<float, Vector2[]>? section, DeckInfo d)
     {
         var top = d.FloorY + h + 0.05f;
         if (top > d.CeilingY - 0.05f) return false;
-        if (shell is null) return true;
+        if (section is null) return true;
         foreach (var z in new[] { rect.Z0, rect.Z1, (rect.Z0 + rect.Z1) / 2 })
         {
-            var sec = Skin.Inset(Skin.SectionAt(shell, z), inset + 0.05f);
+            var sec = section(z);
             foreach (var y in new[] { d.FloorY + 0.05f, top })
             {
                 if (Skin.SpanAt(sec, y) is not { } span || rect.X0 < span.a || rect.X1 > span.b) return false;
@@ -222,9 +248,12 @@ public static class Furniture
     }
 
     /// <summary>One piece of furniture as its own node, built in the frame of the wall it stands against.</summary>
-    private static void Build(Ship model, string parent, RoomInfo room, Piece p, Rect rect, Vector3 facing, float fy, int n)
+    private static void Build(Ship model, HashSet<string> ids, string parent, RoomInfo room, Piece p, Rect rect, Vector3 facing, float fy, int n)
     {
-        var m = InteriorGenerator.Add(model, $"{room.Id}_{p.Kind}_{n}", "furniture", parent);
+        var id = $"{room.Id}_{p.Kind}_{n}";
+        for (var i = 2; !ids.Add(id); i++) id = $"{room.Id}_{p.Kind}_{n}_{i}";
+        var m = new Module { Id = id, Type = "furniture", Tier = ModuleTier.Tertiary, ParentId = parent };
+        model.Modules.Add(m);
         var c = new Vector3((rect.X0 + rect.X1) / 2, fy, (rect.Z0 + rect.Z1) / 2);
         m.Pivot = c;
         m.Extras = new()

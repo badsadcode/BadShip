@@ -42,8 +42,19 @@ func _ready() -> void:
 		sshape.shape = sbox
 		sensor.add_child(sshape)
 		add_child(sensor)
-		sensor.body_entered.connect(func(_b): _sensor_count += 1; open())
-		sensor.body_exited.connect(func(_b): _sensor_count = max(0, _sensor_count - 1); if _sensor_count == 0: close())
+		# Only things that move open a door: walls and furniture (static bodies) next to it never hold it open.
+		sensor.body_entered.connect(_on_enter)
+		sensor.body_exited.connect(_on_exit)
+
+func _on_enter(b: Node3D) -> void:
+	if b is StaticBody3D: return
+	_sensor_count += 1
+	open()
+
+func _on_exit(b: Node3D) -> void:
+	if b is StaticBody3D: return
+	_sensor_count = max(0, _sensor_count - 1)
+	if _sensor_count == 0: close()
 
 func open() -> void:
 	if is_open: return
