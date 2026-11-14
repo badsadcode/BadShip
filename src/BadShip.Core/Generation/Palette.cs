@@ -8,6 +8,8 @@ public static class Roles
 {
     public const string HullMain = "hull_main";
     public const string HullSecondary = "hull_secondary";
+    /// <summary>A third hull tone, between the two, for flush panels.</summary>
+    public const string HullPanel = "hull_panel";
     public const string DarkMechanics = "dark_mechanics";
     public const string Glass = "glass";
     public const string Light = "emissive_light";
@@ -24,7 +26,7 @@ public static class Roles
     public const string Glow = "accent_glow";
 
     public static readonly string[] All =
-        [HullMain, HullSecondary, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery, Glow,
+        [HullMain, HullSecondary, HullPanel, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery, Glow,
          Damage.Heat, Damage.Scorch, Damage.Breach, Damage.Embers, Damage.GlassDark, Damage.LightOff, Damage.EngineCold];
 
     public static readonly string[] Cargo = [CargoA, CargoB, CargoC];
@@ -96,6 +98,10 @@ public static class Palettes
             d[role] = new MaterialDef(role, Linear(hex), rough, metal, emissive == null ? Vector3.Zero : Linear(emissive), strength);
         Add(Roles.HullMain, main, 0.62f, 0.55f);
         Add(Roles.HullSecondary, secondary, 0.55f, 0.6f);
+        // Darker than the hull on a light hull, lighter on a dark one, so the panels read either way.
+        var mid = Vector3.Lerp(Linear(main), Linear(secondary), 0.5f);
+        var lum = 0.2126f * mid.X + 0.7152f * mid.Y + 0.0722f * mid.Z;
+        d[Roles.HullPanel] = new MaterialDef(Roles.HullPanel, mid * (lum < 0.06f ? 1.6f : 0.8f), 0.72f, 0.5f, Vector3.Zero, 1);
         Add(Roles.DarkMechanics, "#22262b", 0.7f, 0.5f);
         Add(Roles.Glass, "#1c1a17", 0.2f, 0.1f, "#e8913a", 1.25f);
         Add(Roles.Light, "#f0e6d0", 0.4f, 0f, "#ffe2b0", 4f);
@@ -123,6 +129,7 @@ public static class Palettes
         }
         Darken(Roles.HullMain, 0.42f, 0.78f, 0.35f);
         Darken(Roles.HullSecondary, 0.38f, 0.7f, 0.45f);
+        Darken(Roles.HullPanel, 0.4f, 0.75f, 0.4f);
         Darken(Roles.DarkMechanics, 0.6f, 0.8f, 0.4f);
         if (mats.TryGetValue(Roles.Glass, out var g)) mats[Roles.Glass] = g with { Color = Linear("#0d0f12"), EmissiveStrength = 0.7f, Roughness = 0.12f };
     }

@@ -849,7 +849,7 @@ public class GeneratorTests
         {
             // Every part with geometry: its size, matching its bounds.
             var size = (float[])m.Extras!["size"];
-            Assert.Equal(m.Bounds.Size.X, size[0], 2);
+            Assert.True(MathF.Abs(m.Bounds.Size.X - size[0]) < 0.01f, $"{m.Id}: {size[0]} vs {m.Bounds.Size.X}");
         }
         // Turrets: a mount at their hardpoint, pointing the way the hardpoint does.
         var turrets = ship.Modules.Where(m => m.Type == "turret").ToList();
