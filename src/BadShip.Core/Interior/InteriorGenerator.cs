@@ -1250,7 +1250,9 @@ public static class InteriorGenerator
                 var hw = d.HalfWidth;
                 var bridge = result.Rooms.FirstOrDefault(q => q.Deck == d.Index && q.Kind is "bridge" or "observation" && MathF.Abs(q.Max[2] - d.Z1) < 0.01f && q.Max[0] - q.Min[0] > 2 * d.HalfWidth - 0.1f);
                 var end = d.Z1;
-                if (bridge != null)
+                // No nook where the deck's front end opens into a command section instead.
+                var joined = d.Part == "hull" && annexSpecs.Any(a => a.Entry && MathF.Abs(a.FloorY - d.FloorY) < 0.01f);
+                if (bridge != null && !joined)
                 {
                     // As far as a floor with a metre of headroom over its middle still fits.
                     var z = d.Z1;
