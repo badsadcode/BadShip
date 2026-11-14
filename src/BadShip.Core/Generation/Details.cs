@@ -19,6 +19,7 @@ public static class Details
         var fighter = c.Plan.Family == "fighter";
         var k = c.DetailScale;
         if (Palettes.Banded(c.Plan.Palette)) SchemeBands(c);
+        Surface.Before(c);
         var plateDepth = (c.Plan.Archetype is "patrol" or "fighter" ? 0.38f : 0.18f) * k;
         foreach (var part in c.Lofts)
         {
@@ -45,6 +46,7 @@ public static class Details
         if (full || c.Lang.Signature == "accent_bands") AccentStripes(c, r);
         if (c.Plan.Family is not ("fighter" or "utility")) Thrusters(c, r);
         if (c.Plan.Family is not ("fighter" or "citadel" or "utility")) Kit.Surface(c);
+        Surface.After(c);
     }
 
     /// <summary>Raised panels on a grid with random gaps: the layered armour look, kept off anything already placed.</summary>

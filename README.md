@@ -602,6 +602,21 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 
 ![A command section cut open](docs/images/command_decks_v0.32.png)
 
+### Surface detail (v0.33.0)
+
+A new detail pass (`Surface`) for the big faces of hulls, blocks, pods and spines. Before the armour plates (it needs
+room): strakes, thin raised bands along the flanks and the belly that break a tall side into upper and lower parts and
+stop where something is already there; service hatches with hazard-striped frames, a dark plate and a handle, on
+tops, sides and bellies; machinery recesses, a dark sunken-looking patch packed with small blocks of different heights,
+sometimes a pipe along it and a light; and groups of small blocks along the upper edges of the top chamfers. After the
+plates: flush panels in a new third hull tone, `hull_panel` (between the two hull colours, darker on a light hull and
+lighter on a dark one), filling what is left. Everything keeps off the surface registry (windows, bays, markings,
+plates) and off other parts, goes into the parts' `.details` children (so LOD1 and LOD2 drop it), uses its own random
+stream from the details stage, and draws flush pieces as single quads. Full detail ships grow by about a third in
+triangles (medium about 7.3k, large about 13.4k); `detail=medium` gets strakes, hatches and panels only.
+
+![Before and after](docs/images/surface_detail_v0.33.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -609,7 +624,7 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.32.0: decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
+## Status (v0.33.0: surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
