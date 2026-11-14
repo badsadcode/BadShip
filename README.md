@@ -586,6 +586,22 @@ reaches (still to do).
 
 ![A bridge at its glass](docs/images/bridge_glass_v0.31.png)
 
+### Command sections and the way up to every bridge (v0.32.0)
+
+Spine ships (the long-haul freighters and research ships) have their decks in the spine, and two big blocks at its ends:
+the command section at the front, which carries the bridge, and the engineering block at the back. The command section
+was an empty box up to 35 m tall: now it gets decks at the spine's deck heights, from the deck under the spine's top one
+upwards, one deck apart, joined by stairs. The first meets its spine deck end to end, with a doorway on the level; the
+spine's end is open inside the command section, and the command section's back face has a spine-shaped hole where the
+spine runs in (`Loft.CapStart`/`CapEnd`, `StartHole`/`EndHole`; the same at the engineering block), so the insides join
+and the outside looks as before. Superstructure and bridge blocks on top climb on from its highest deck. Short blocks
+stacked on each other used to fail to link when the only stretch they shared was the landing the lower one's own stairs
+or ladder arrive in: the next ladder now stands beside them in that landing (a tower), or as a last resort a compact
+ladder landing (3 m) goes wherever they still overlap. In the sample of 138 bridge blocks, bridges looking out through
+real front windows went from 60 to 83 (2 before v0.31). The rest are mostly blocks too short for a deck.
+
+![A command section cut open](docs/images/command_decks_v0.32.png)
+
 ## Devlog
 
 [The BadShip Shipyard Log](docs/devlog/index.html) tells the story of each launch, the fun way. The
@@ -593,7 +609,7 @@ reaches (still to do).
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.31.0: bridges at their glass, furnished rooms, asset-ready parts)
+## Status (v0.32.0: decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
