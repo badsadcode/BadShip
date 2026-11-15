@@ -602,6 +602,18 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 
 ![A command section cut open](docs/images/command_decks_v0.32.png)
 
+### Engines with depth (v0.34.0)
+
+Nozzles were a cone with a flat glowing disc for a mouth. Now they are open bells (`Nozzles`): an outer and an inner
+wall, a thick lip, the glowing core set back inside, stator vanes across it, and usually a central plug glowing at
+its tip. Each ship has a style, by archetype from its own random stream: "bell" (cooling ribs; haulers and industry),
+"iris" (overlapping petals round the mouth; warships, patrols, citadels) or "ring" (a glowing ring inside the lip;
+liners and research ships). Big nozzles get gimbal actuators. The main engines, the small craft and utility engine
+blocks and the citadels' nozzle grids all use it; the exhaust markers are where they were. About 650 more triangles
+per ship.
+
+![Engines before and after](docs/images/engines_v0.34.png)
+
 ### Saving ships from the Shipyard
 
 The Shipyard has a **Download .glb files (.zip)** button: a zip with the ship as shown (`CODE.glb`, with real
@@ -632,7 +644,7 @@ triangles (medium about 7.3k, large about 13.4k); `detail=medium` gets strakes, 
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.33.0: surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
+## Status (v0.34.0: engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

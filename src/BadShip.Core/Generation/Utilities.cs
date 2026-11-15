@@ -155,7 +155,7 @@ public static class Utilities
             m.Mesh.AddPolygon(Roles.DarkMechanics, front.Select(q => ctr + (q - ctr) * 0.75f + new Vector3(0, 0, 0.02f)).ToArray(), Vector3.UnitZ);
             var a = new Vector3(s * x, y, zR + 0.1f);
             var nr = pw * 0.36f;
-            Shapes.Prism(m.Mesh, Roles.DarkMechanics, a, a - new Vector3(0, 0, nr * 0.9f), nr * 0.85f, nr, 10, 0, capA: false, capB: true, capBMat: Roles.EngineGlow);
+            Nozzles.Build(c, m.Mesh, a, a - new Vector3(0, 0, nr * 0.9f), nr * 0.85f, nr);
             c.AddMarker("engine_exhaust", m, a - new Vector3(0, 0, nr * 0.9f + 0.1f), -Vector3.UnitZ, nr, L * 0.6f);
             Shapes.Box(m.Mesh, s > 0 ? Roles.NavRed : Roles.Light, new Vector3(s * (x + pw * 0.47f), y, zR + len * 0.6f), new Vector3(0.15f, pw * 0.15f, pw * 0.3f));
         }
@@ -174,7 +174,7 @@ public static class Utilities
         {
             var x = n == 1 ? 0 : (i - 0.5f) * housing.WBottom * 0.48f;
             var a = new Vector3(x, housing.Cy, zR + 0.1f);
-            Shapes.Prism(m.Mesh, Roles.DarkMechanics, a, a - new Vector3(0, 0, nr * 0.8f), nr * 0.85f, nr, 12, 0, capA: false, capB: true, capBMat: Roles.EngineGlow);
+            Nozzles.Build(c, m.Mesh, a, a - new Vector3(0, 0, nr * 0.8f), nr * 0.85f, nr);
             c.AddMarker("engine_exhaust", m, a - new Vector3(0, 0, nr * 0.8f + 0.1f), -Vector3.UnitZ, nr, L * 0.6f);
         }
     }
