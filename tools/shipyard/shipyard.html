@@ -219,6 +219,11 @@
         <button class="btn" id="next" type="button" disabled>Next seed</button>
       </div>
       <div class="block">
+        <div class="label">Save for your game</div>
+        <button class="btn" id="save" type="button" disabled title="A .zip with the ship and its interior as .glb files, plus the recipe and metadata">Download .glb files (.zip)</button>
+        <div class="stat" id="save-note" hidden></div>
+      </div>
+      <div class="block">
         <div class="label">Reroll one part, keep the rest</div>
         <div class="rerolls">
           <button class="btn" data-stage="equipment" data-locked="true" type="button" disabled>Equipment</button>
@@ -457,6 +462,8 @@ const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); retur
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
 let loadedVersion = LATEST;
 let currentCode = '';
+/** The last ship generated, for the save buttons. */
+const saved = { ship: null, recipe: null, info: null };
 let extras = {}; // settings from an opened code that have no control on this page (length, other overrides)
 let api = null;
 const stageSeeds = {};
@@ -538,6 +545,7 @@ function readout(info, r) {
 
 function setBusy(busy) {
   for (const b of document.querySelectorAll('#generate, #next, #reset, [data-stage]')) b.disabled = busy || !api;
+  $('save').disabled = busy || !api || !saved.ship;
 }
 
 async function build(addToLog = true) {
@@ -549,6 +557,9 @@ async function build(addToLog = true) {
     const t0 = performance.now();
     let glb = api.Generate(JSON.stringify(r));
     const info = JSON.parse(api.LastInfo());
+    saved.ship = glb;
+    saved.recipe = r;
+    saved.info = info;
     if (state.view === 'interior') {
       // The interior of the same ship, one deck at a time (all decks with "all"), roof off.
       const ib = api.Interior ? api.Interior(JSON.stringify(r), state.deck) : new Uint8Array(0);
@@ -590,6 +601,72 @@ function switchToLatest() {
   try { code = api.Encode(JSON.stringify(recipe())); } catch { code = `v0p0p0-s${$('seed').value}`; }
   location.hash = code.replace(/^v[0-9p]+/, `v${LATEST.replaceAll('.', 'p')}`);
   setTimeout(() => location.reload(), 600);
+}
+
+/**
+ * A zip file (stored, no compression) from [name, bytes] pairs: the format the viewer lets a page save, holding the
+ * .glb files a game needs.
+ */
+function zip(entries) {
+  const crcTable = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc32 = d => { let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++) c = crcTable[(c ^ d[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  for (const [name, raw] of entries) {
+    const data = typeof raw === 'string' ? enc.encode(raw) : new Uint8Array(raw);
+    const nm = enc.encode(name);
+    const crc = crc32(data);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint32(14, crc, true);
+    local.setUint32(18, data.length, true); local.setUint32(22, data.length, true); local.setUint16(26, nm.length, true);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint32(16, crc, true);
+    cen.setUint32(20, data.length, true); cen.setUint32(24, data.length, true); cen.setUint16(28, nm.length, true); cen.setUint32(42, offset, true);
+    parts.push(new Uint8Array(local.buffer), nm, data);
+    central.push(new Uint8Array(cen.buffer), nm);
+    offset += 30 + nm.length + data.length;
+  }
+  const size = central.reduce((n, c) => n + c.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+  end.setUint32(12, size, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
+}
+
+// In claude.ai the page saves files through the viewer (who confirms each one); elsewhere, a plain download.
+let downloadsApi = null;
+if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { downloadsApi = d; }, () => {});
+
+async function saveFiles() {
+  if (!saved.ship) return;
+  const note = $('save-note');
+  const code = (currentCode || 'ship').replace(/[^A-Za-z0-9_-]+/g, '_');
+  const entries = [[`${code}.glb`, saved.ship]];
+  const inner = api.Interior ? api.Interior(JSON.stringify(saved.recipe), -2) : new Uint8Array(0);
+  if (inner.length > 0) entries.push([`${code}.interior.glb`, inner]);
+  if (saved.info) {
+    entries.push([`${code}.recipe.json`, JSON.stringify(saved.info.recipe, null, 2)]);
+    entries.push([`${code}.metadata.json`, JSON.stringify(saved.info.metadata, null, 2)]);
+  }
+  const blob = zip(entries);
+  const filename = `badship-${code}.zip`;
+  note.hidden = false;
+  if (downloadsApi) {
+    try {
+      await downloadsApi.save({ filename, data: blob });
+      note.textContent = `Saved ${filename}` + (inner.length > 0 ? ' (ship and interior)' : ' (this ship has no interior)');
+    } catch (e) {
+      note.textContent = e && e.code === 'declined' ? 'Not saved.' : e && e.code === 'rate_limited' ? 'A save is already waiting for you to confirm.' : 'Saving is not available here.';
+    }
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  note.textContent = `Downloaded ${filename}`;
 }
 
 function showCode(code) {
@@ -703,6 +780,7 @@ document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click'
 }));
 function setWindows(on) { state.windows = on; $('t-windows').setAttribute('aria-pressed', String(on)); }
 $('t-windows').addEventListener('click', () => { setWindows(!state.windows); build(); });
+$('save').addEventListener('click', saveFiles);
 $('deck-up').addEventListener('click', () => { state.deck = state.deck < 0 ? 0 : Math.min(state.deck + 1, Math.max(0, state.decks - 1)); build(false); });
 $('deck-down').addEventListener('click', () => { state.deck = Math.max(-1, state.deck - 1); build(false); });
 $('deck-label').addEventListener('click', () => { state.deck = state.deck < 0 ? 0 : -1; build(false); });

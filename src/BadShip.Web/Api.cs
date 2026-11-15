@@ -26,7 +26,8 @@ public static partial class Api
 
     /// <summary>
     /// The interior of the ship a recipe makes: one deck (or all of them with <paramref name="deck"/> = -1) as GLB
-    /// bytes, without the roof so it can be seen from above; empty when the ship has no interior. Interior info
+    /// bytes, without the roof so it can be seen from above; with <paramref name="deck"/> = -2, the whole interior as a
+    /// game would use it (ceilings and markers too, the file the page saves); empty when the ship has no interior. Interior info
     /// (decks, rooms by kind, validation) is in <see cref="InteriorInfo"/>.
     /// </summary>
     [JSExport]
@@ -38,9 +39,11 @@ public static partial class Api
         if (interior is null) { _interiorInfo = """{"decks":0}"""; return []; }
         var report = BadShip.Interior.InteriorValidator.Validate(interior);
         var model = interior.Model;
+        var whole = deck == -2;
         var d = Math.Clamp(deck, -1, interior.Decks.Count - 1);
         bool Keep(BadShip.Model.Module m)
         {
+            if (whole) return true;
             if (m.Type == "ceiling") return false;
             if (d < 0) return true;
             for (var cur = m; cur != null; cur = cur.ParentId == null ? null : model.Find(cur.ParentId))
@@ -54,7 +57,7 @@ public static partial class Api
         _interiorInfo = $"{{\"decks\":{interior.Decks.Count},\"deck\":{d},\"rooms\":{interior.Rooms.Count}," +
             $"\"doors\":{interior.Doors.Count(x => x.Kind != "opening")},\"deck_rooms\":{{{string.Join(",", kinds)}}},\"status\":\"{report.Status}\"," +
             $"\"parts\":[{parts}],\"ladders\":{interior.Lifts.Count(l => l.Kind == "ladder")},\"elevators\":{interior.Lifts.Count(l => l.Kind == "elevator")}}}";
-        return GlbWriter.Write(model, Keep, markers: false);
+        return GlbWriter.Write(model, Keep, markers: whole);
     }
 
     private static string _interiorInfo = "{}";

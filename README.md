@@ -602,6 +602,14 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 
 ![A command section cut open](docs/images/command_decks_v0.32.png)
 
+### Saving ships from the Shipyard
+
+The Shipyard has a **Download .glb files (.zip)** button: a zip with the ship as shown (`CODE.glb`, with real
+windows when Windows is on), its whole interior (`CODE.interior.glb`, every deck with ceilings and markers, as a game
+uses it; left out when the ship has none) and its recipe and metadata. In claude.ai the page saves through the viewer
+(`downloads` capability, a zip because that is a format the viewer accepts; you confirm each save); opened elsewhere it
+downloads directly. `Api.Interior(recipe, -2)` is the whole-interior call behind it.
+
 ### Surface detail (v0.33.0)
 
 A new detail pass (`Surface`) for the big faces of hulls, blocks, pods and spines. Before the armour plates (it needs
