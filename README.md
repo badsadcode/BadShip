@@ -602,6 +602,19 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 
 ![A command section cut open](docs/images/command_decks_v0.32.png)
 
+### Fleets with a family look (v0.36.0)
+
+Every faction now has a fleet doctrine (`Doctrine`), drawn from the faction itself: a hull form, a bridge style, pod or
+nacelle engines, a nozzle style, a window style, a sensor kind and a signature element (dorsal ridge, accent bands or
+engine collar), and a naming theme (the Mining Union names its ships after minerals, the Survey Directorate after
+seabirds, the Patrol after virtues, procedural factions after rivers, stars or mountains). Each ship follows each point
+with a high chance (85%, on its own stream), so a faction's ships read as one fleet without being clones. A yard's
+strong habits still win (a Halvorsen ship is square and has pods whoever ordered it), twin hulls keep their engine
+layout, liners their nacelles, and the recipe's overrides win over everything. Independents have no doctrine.
+`tools/render/familyview.mjs` renders ships side by side, row per folder.
+
+![A Patrol fleet before and after](docs/images/fleets_v0.36.png)
+
 ### Worn ships (v0.35.0)
 
 A new condition between intact and damaged: `--condition worn` (the Shipyard's "Worn"), the same ship with years on
@@ -657,7 +670,7 @@ triangles (medium about 7.3k, large about 13.4k); `detail=medium` gets strakes, 
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.35.0: worn ships, engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
+## Status (v0.36.0: fleet doctrines, worn ships, engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

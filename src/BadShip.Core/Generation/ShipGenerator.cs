@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.35.0";
+    public const string Version = "0.36.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "raider", "warship"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "warship"];
@@ -188,6 +188,8 @@ public static class Planner
         {
             ResolveShip(c, r, lang);
         }
+        // The faction's fleet doctrine, then the recipe's own choices over it.
+        Doctrine.Apply(c);
         ApplyOverrides(rec.Overrides, p);
 
         // Paint comes from the operator.
