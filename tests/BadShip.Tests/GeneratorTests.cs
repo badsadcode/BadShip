@@ -892,6 +892,26 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void A_factions_ships_share_its_doctrine()
+    {
+        // Ships of one faction, whatever their role or yard, mostly share the faction's design choices and names.
+        foreach (var faction in new[] { "patrol", "miners", "faction-7" })
+        {
+            var d = Doctrine.Of(faction)!;
+            var ships = Enumerable.Range(1, 24).Select(i => ShipGenerator.Generate(new ShipRecipe
+                { Seed = (ulong)(100 + i), Faction = faction, Archetype = i % 3 == 0 ? "freighter" : i % 3 == 1 ? "research" : "patrol", Size = "medium" })).ToList();
+            // Where the building yard has no strong habit of its own, the doctrine decides (most of the time).
+            var openBridge = ships.Where(s => Manufacturers.Get(s.Plan.Manufacturer).Bridges is var b && b.Values.Max() / b.Values.Sum() < 0.6).ToList();
+            var openForm = ships.Where(s => Manufacturers.Get(s.Plan.Manufacturer).Faceted is > 0.2 and < 0.8).ToList();
+            Assert.True(openBridge.Count < 5 || openBridge.Count(s => s.Plan.BridgeStyle == d.BridgeStyle) >= openBridge.Count * 0.6, $"{faction}: bridges");
+            Assert.True(openForm.Count < 5 || openForm.Count(s => s.Plan.HullForm == d.HullForm) >= openForm.Count * 0.6, $"{faction}: hull forms");
+            Assert.True(openBridge.Count + openForm.Count >= 8, $"{faction}: too few ships where the doctrine decides");
+            Assert.True(ships.Count(s => d.Names.Any(n => n.Equals(s.Plan.ShipName, StringComparison.OrdinalIgnoreCase))) >= 12, $"{faction}: names");
+        }
+        Assert.Null(Doctrine.Of("independent"));
+    }
+
+    [Fact]
     public void Worn_ships_keep_their_identity_and_wear_it_on_the_surface()
     {
         foreach (var (archetype, seed) in new[] { ("civilian", 4UL), ("warship", 3UL), ("industrial", 2UL) })

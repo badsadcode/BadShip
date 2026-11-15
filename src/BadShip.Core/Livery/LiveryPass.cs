@@ -49,7 +49,9 @@ public static class LiveryPass
     {
         var p = c.Plan;
         var r = Rng.Stream(c.Recipe.StageSeeds?.GetValueOrDefault("livery") is { } liverySeed and > 0 ? liverySeed : c.Recipe.Seed, "livery");
-        p.ShipName = !string.IsNullOrWhiteSpace(c.Recipe.Name) ? Clean(c.Recipe.Name) : r.Pick(Names[p.Archetype]).ToUpperInvariant();
+        // A faction names most of its ships to its theme (minerals, seabirds, virtues...).
+        var names = c.Doctrine is { Names.Length: > 0 } d && r.Chance(0.75) ? d.Names : Names[p.Archetype];
+        p.ShipName = !string.IsNullOrWhiteSpace(c.Recipe.Name) ? Clean(c.Recipe.Name) : r.Pick(names).ToUpperInvariant();
         var prefix = Prefixes.GetValueOrDefault(p.Faction) ?? Initials(p.FactionName);
         p.Registration = $"{prefix}-{r.Int(100, 9999)}";
         p.Livery = c.Recipe.Livery is "none" ? "none" : "standard";

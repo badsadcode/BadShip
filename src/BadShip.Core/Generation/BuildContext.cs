@@ -178,6 +178,12 @@ public sealed class BuildContext
     /// <summary>The ship's nozzle style (see <see cref="Nozzles"/>), picked once.</summary>
     public string NozzleStyle => _nozzleStyle ??= Nozzles.Pick(this);
 
+    /// <summary>Sets the nozzle style (a faction's doctrine).</summary>
+    public void SetNozzleStyle(string style) => _nozzleStyle = style;
+
+    /// <summary>The operating faction's doctrine, when it has one (see <see cref="Generation.Doctrine"/>).</summary>
+    public Doctrine? Doctrine { get; set; }
+
     public Module DetailsOf(Module m)
     {
         var id = m.Id + ".details";
