@@ -1015,6 +1015,43 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Corridors_wander_and_rooms_come_in_more_shapes()
+    {
+        int jogs = 0, lobbies = 0, ells = 0, alcoves = 0;
+        foreach (var (archetype, seed) in new[] { ("civilian", 4UL), ("freighter", 2UL), ("warship", 3UL), ("research", 2UL) })
+        {
+            var interior = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "large", Interior = true }).Interior!;
+            var byId = interior.Rooms.ToDictionary(r => r.Id);
+            foreach (var r in interior.Rooms)
+            {
+                var doors = interior.Doors.Where(d => d.A == r.Id || d.B == r.Id).ToList();
+                if (r.Kind == "corridor" && r.Id.Contains("_s"))
+                {
+                    // A corridor segment joins the run on at least one end by an open doorway.
+                    Assert.Contains(doors, d => d.Kind == "opening");
+                    var w = r.Max[0] - r.Min[0];
+                    if (MathF.Abs((r.Min[0] + r.Max[0]) / 2) > 0.3f) jogs++;
+                    else if (w > 3.2f) lobbies++;
+                }
+                if (r.Kind == "alcove")
+                {
+                    alcoves++;
+                    // Open along its length to the corridor (or atrium, or gallery) it was set back from, and a door at the back.
+                    Assert.Contains(doors, d => d.Kind == "opening");
+                    Assert.True(doors.Count >= 2, r.Id);
+                }
+                if (r.Id.EndsWith("_b") && byId.TryGetValue(r.Id[..^2], out var main))
+                {
+                    ells++;
+                    // The leg of an L is open to its room.
+                    Assert.Contains(doors, d => d.A == main.Id || d.B == main.Id);
+                }
+            }
+        }
+        Assert.True(jogs > 5 && lobbies > 3 && ells > 10 && alcoves > 10, $"{jogs} jogs, {lobbies} lobbies, {ells} L rooms, {alcoves} alcoves");
+    }
+
+    [Fact]
     public void Gondolas_get_a_deck_and_a_ladder_up_an_access_trunk()
     {
         var decks = 0;
