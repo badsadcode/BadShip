@@ -892,6 +892,28 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Hangars_and_flight_decks_have_craft_parked_in_them()
+    {
+        var parked = 0;
+        foreach (var (archetype, seed) in new[] { ("warship", 5UL), ("freighter", 11UL), ("civilian", 3UL), ("research", 4UL) })
+        {
+            var ship = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "large" });
+            foreach (var craft in ship.Modules.Where(m => m.Type == "shuttle"))
+            {
+                parked++;
+                Assert.Contains((string)craft.Extras!["kind"], Craft.Kinds);
+                // Standing on the floor of what it is parked in, within it, and in nothing else.
+                var parent = ship.Find(craft.ParentId!)!;
+                Assert.True(parent.Type is "hangar_bay" or "flight_deck", craft.Id);
+                Assert.Equal(craft.Pivot!.Value.Y, craft.Bounds.Min.Y, 1);
+                foreach (var other in ship.Modules.Where(m => m.Tier != ModuleTier.Tertiary && m != craft && m != parent && m.Id != parent.ParentId && !m.Mesh.IsEmpty))
+                    Assert.True(other.Bounds.Penetration(craft.Bounds) < 0.3f, $"{archetype} {seed}: {craft.Id} runs into {other.Id}");
+            }
+        }
+        Assert.True(parked >= 6, $"{parked} craft");
+    }
+
+    [Fact]
     public void A_factions_ships_share_its_doctrine()
     {
         // Ships of one faction, whatever their role or yard, mostly share the faction's design choices and names.
