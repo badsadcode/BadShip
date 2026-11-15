@@ -892,6 +892,27 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Worn_ships_keep_their_identity_and_wear_it_on_the_surface()
+    {
+        foreach (var (archetype, seed) in new[] { ("civilian", 4UL), ("warship", 3UL), ("industrial", 2UL) })
+        {
+            var intact = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "medium" });
+            var worn = ShipGenerator.Generate(new ShipRecipe { Seed = seed, Archetype = archetype, Size = "medium", Condition = "worn" });
+            // The same parts, with the same shapes: only the details carry the wear.
+            var parts = intact.Modules.Where(m => m.Type != "details").ToDictionary(m => m.Id);
+            foreach (var m in worn.Modules.Where(m => m.Type != "details"))
+            {
+                Assert.True(parts.TryGetValue(m.Id, out var o), $"{archetype}: {m.Id} is new");
+                Assert.Equal(o!.Mesh.TriangleCount, m.Mesh.TriangleCount);
+            }
+            Assert.Equal(parts.Count, worn.Modules.Count(m => m.Type != "details"));
+            var used = worn.Modules.SelectMany(m => m.Mesh.Groups.Keys).ToHashSet();
+            Assert.Contains(Weathering.Grime, used);
+            Assert.DoesNotContain(Weathering.Grime, intact.Modules.SelectMany(m => m.Mesh.Groups.Keys));
+        }
+    }
+
+    [Fact]
     public void Bridges_in_tall_blocks_sit_at_their_front_glass()
     {
         // Overhanging and blunt bridge blocks can be many decks tall, with their glass far above the block's floor. The

@@ -9,7 +9,7 @@ namespace BadShip.Generation;
 public static class ShipGenerator
 {
     /// <summary>Bumped whenever a change makes the same recipe give a different ship.</summary>
-    public const string Version = "0.34.0";
+    public const string Version = "0.35.0";
 
     public static readonly string[] Archetypes = ["freighter", "research", "patrol", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "raider", "warship"];
     public static readonly string[] Families = ["barge", "spine", "twin", "block", "fighter", "citadel", "industrial", "utility", "ring", "civilian", "warship"];
@@ -49,12 +49,13 @@ public static class ShipGenerator
             if (c.Plan.Archetype == "raider") Raiders.Kitbash(c);
         }
         Livery.LiveryPass.Apply(c);
-        c.Plan.Condition = c.Recipe.Condition is "damaged" or "derelict" ? c.Recipe.Condition
+        c.Plan.Condition = c.Recipe.Condition is "worn" or "damaged" or "derelict" ? c.Recipe.Condition
             : string.IsNullOrEmpty(c.Recipe.Condition) || c.Recipe.Condition == "intact" ? "intact"
-            : throw new ArgumentException($"Unknown condition '{c.Recipe.Condition}'. Use intact, damaged or derelict.");
+            : throw new ArgumentException($"Unknown condition '{c.Recipe.Condition}'. Use intact, worn, damaged or derelict.");
         Damage.Apply(c);
         if (c.DetailLevel > 0) Details.Add(c);
         Damage.AfterDetails(c);
+        Weathering.Apply(c);
         c.Ship.Finish();
         AssetExtras(c.Ship);
         return c.Ship;

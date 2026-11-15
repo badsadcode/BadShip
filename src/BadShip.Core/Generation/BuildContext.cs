@@ -238,6 +238,19 @@ public sealed class BuildContext
         return true;
     }
 
+    private readonly Dictionary<string, List<(float u0, float u1, float v0, float v1)>> _protected = [];
+
+    /// <summary>Marks part of a face as something later passes must not paint over (a ship's name, a window).</summary>
+    public void Protect(string key, float u0, float u1, float v0, float v1)
+    {
+        if (!_protected.TryGetValue(key, out var list)) _protected[key] = list = [];
+        list.Add((u0, u1, v0, v1));
+    }
+
+    /// <summary>Whether a rectangle on a face overlaps anything protected there.</summary>
+    public bool IsProtected(string key, float u0, float u1, float v0, float v1) =>
+        _protected.TryGetValue(key, out var list) && list.Any(r => u1 > r.u0 && u0 < r.u1 && v1 > r.v0 && v0 < r.v1);
+
     public void UseSurface(string key, float u0, float u1, float v0, float v1)
     {
         if (!_surfaceUse.TryGetValue(key, out var list)) _surfaceUse[key] = list = [];

@@ -602,6 +602,19 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 
 ![A command section cut open](docs/images/command_decks_v0.32.png)
 
+### Worn ships (v0.35.0)
+
+A new condition between intact and damaged: `--condition worn` (the Shipyard's "Worn"), the same ship with years on
+it. A `Weathering` pass after all the details, on its own random stream (from the condition stage), gives worn,
+damaged and derelict ships (more the older they are) grime running down from windows and fittings, rust runs, soot
+blown forward over the engine housings and the stern, replacement panels that never got painted (primer, bare metal,
+the wrong hull tone) and scraped top edges. All flat decals just off the hull, in new material roles (`grime`, `rust`,
+`primer`, `bare_metal`; grime turns to pale dust on a dark hull so it shows), in the parts' `.details`. The ship's
+name, markings and windows are protected (`BuildContext.Protect`): replacement panels keep off them. A worn ship has
+exactly the parts and shapes of the intact one (tested).
+
+![Intact and worn](docs/images/weathering_v0.35.png)
+
 ### Engines with depth (v0.34.0)
 
 Nozzles were a cone with a flat glowing disc for a mouth. Now they are open bells (`Nozzles`): an outer and an inner
@@ -644,7 +657,7 @@ triangles (medium about 7.3k, large about 13.4k); `detail=medium` gets strakes, 
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.34.0: engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
+## Status (v0.35.0: worn ships, engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

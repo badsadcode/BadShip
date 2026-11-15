@@ -55,6 +55,7 @@ public static class HullWindows
                 }
                 if (!c.Clear(box, hull.Id)) return null;
                 c.UseSurface(key, u0 - 0.006f, u1 + 0.006f, v0 - 0.03f, v1 + 0.03f);
+                c.Protect(key, u0 - 0.006f, u1 + 0.006f, v0 - 0.03f, v1 + 0.03f);
                 // The window, with the patch of hull it takes.
                 return w with { Module = hull.Id, S = s, F = f, U0 = u0, U1 = u1, V0 = v0, V1 = v1 };
             }

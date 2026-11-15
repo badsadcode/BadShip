@@ -27,7 +27,8 @@ public static class Roles
 
     public static readonly string[] All =
         [HullMain, HullSecondary, HullPanel, DarkMechanics, Glass, Light, NavRed, EngineGlow, Hazard, Accent, Radome, CargoA, CargoB, CargoC, Livery, Glow,
-         Damage.Heat, Damage.Scorch, Damage.Breach, Damage.Embers, Damage.GlassDark, Damage.LightOff, Damage.EngineCold];
+         Damage.Heat, Damage.Scorch, Damage.Breach, Damage.Embers, Damage.GlassDark, Damage.LightOff, Damage.EngineCold,
+         Weathering.Grime, Weathering.Rust, Weathering.Primer, Weathering.BareMetal];
 
     public static readonly string[] Cargo = [CargoA, CargoB, CargoC];
 }

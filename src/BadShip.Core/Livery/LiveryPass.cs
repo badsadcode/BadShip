@@ -152,6 +152,7 @@ public static class LiveryPass
                     .Include(center + right * (w / 2) - upDir * (h / 2)).Include(center - right * (w / 2) + upDir * (h / 2));
                 if (_obstacles.Any(o => o.Id != part.Module.Id && o.Bounds.Penetration(front) > 0.05f)) continue;
                 c.UseSurface(key, u0 - 0.01f, u0 + du + 0.01f, v0 - 0.02f, v1 + 0.02f);
+                c.Protect(key, u0 - 0.01f, u0 + du + 0.01f, v0 - 0.02f, v1 + 0.02f);
                 // Upright on the face, reading left to right for someone looking at it.
                 Quad(mesh, center, right, upDir, n, w, h, rect);
                 return true;
