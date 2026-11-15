@@ -270,7 +270,7 @@ try
                   badship variants --seed N --stage plan|silhouette|ventral|equipment|details|look [--count N] [--out DIR]
                   badship fleet    --faction haulers|survey|patrol|miners|independent|faction-N [--count N] [--seed S] [--out DIR]
 
-                  --condition intact|damaged|derelict   --livery standard|none      --size small|medium|large   --faction ...   --manufacturer halvorsen|meridian|korsak|tanaka|brightwater|yard-N
+                  --condition intact|worn|damaged|derelict   --livery standard|none      --size small|medium|large   --faction ...   --manufacturer halvorsen|meridian|korsak|tanaka|brightwater|yard-N
 
                   --set key=value,...      pin plan choices: hull_form=faceted, prow=wedge, bridge=overhang, tiers=3,
                                            engines=2x2, engine_style=pod, payload=tanks, asymmetric=true, ventral=keel,

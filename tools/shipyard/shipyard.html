@@ -208,7 +208,7 @@
           <select id="detail"><option>high</option><option>medium</option><option>low</option></select>
         </label>
         <label>Condition
-          <select id="condition"><option value="intact">Intact</option><option value="damaged">Damaged</option><option value="derelict">Derelict</option></select>
+          <select id="condition"><option value="intact">Intact</option><option value="worn">Worn</option><option value="damaged">Damaged</option><option value="derelict">Derelict</option></select>
         </label>
         <label>Livery
           <select id="livery"><option value="standard">Name and markings</option><option value="none">Clean, unmarked</option></select>
@@ -456,7 +456,7 @@ function syncHullForms() {
   fill(document.getElementById('ventral'), kind === 'citadel' ? ['keel', 'blades', 'undercroft'] : kind === 'fighter' || kind === 'utility' ? [] : ['keel', 'gondola', 'pods', 'none']);
   fill(document.getElementById('job'), JOBS[kind] ?? []);
 }
-const VERSIONS = ['0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0', '0.22.0', '0.23.0', '0.24.0', '0.25.1', '0.26.0', '0.27.0', '0.28.0', '0.29.0', '0.30.0', '0.31.0', '0.32.0', '0.33.0', '0.34.0']; // 0.21.0 was never published; 0.4–0.12 and 0.25.0 were retired from the page (at most 512 files): their links open in the latest
+const VERSIONS = ['0.13.0', '0.14.0', '0.15.0', '0.16.0', '0.17.0', '0.18.0', '0.19.0', '0.20.0', '0.22.0', '0.23.0', '0.24.0', '0.25.1', '0.26.0', '0.27.0', '0.28.0', '0.29.0', '0.30.0', '0.31.0', '0.32.0', '0.33.0', '0.34.0', '0.35.0']; // 0.21.0 was never published; 0.4–0.12 and 0.25.0 were retired from the page (at most 512 files): their links open in the latest
 const LATEST = VERSIONS[VERSIONS.length - 1];
 const codeVersion = code => { const m = /^v(\d+p\d+p\d+)(-|$)/.exec(code); return m ? m[1].replaceAll('p', '.') : null; };
 const hashCode = () => decodeURIComponent(location.hash.slice(1)).trim().toLowerCase();
@@ -681,7 +681,7 @@ function applyRecipe(rec) {
   for (const id of ['faction', 'manufacturer', 'size', 'archetype', 'family', 'palette']) $(id).value = rec[id] ?? 'auto';
   $('detail').value = rec.detail ?? 'high';
   $('livery').value = rec.livery === 'none' ? 'none' : 'standard';
-  $('condition').value = ['damaged', 'derelict'].includes(rec.condition) ? rec.condition : 'intact';
+  $('condition').value = ['worn', 'damaged', 'derelict'].includes(rec.condition) ? rec.condition : 'intact';
   setWindows(!!rec.interior);
   syncHullForms(); $('hull_form').value = rec.overrides?.hull_form ?? '';
   $('wing_style').value = rec.overrides?.wing_style ?? '';
