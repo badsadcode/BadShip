@@ -213,6 +213,19 @@ public static class Warships
         Shapes.Box(mk.Mesh, Roles.Light, new Vector3(-fw * 0.08f, y0 + fh * 0.8f, fz1 + 0.1f), new Vector3(hw, fh * 0.08f, 0.3f));
         c.AddMarker("hangar", fd, new Vector3(-fw * 0.08f, y0 + fh * 0.45f, fz1 + 0.3f), Vector3.UnitZ, hw / 2);
         c.AddMarker("launch_lane", fd, new Vector3(-fw * 0.12f, top + 0.2f, fz1 - L * 0.05f), Vector3.UnitZ, fw * 0.1f);
+        // Parked craft in a row along the port edge, ahead of the landing lane, noses angled in towards the centre.
+        var pr = Rng.Stream(c.Recipe.Seed, "parked");
+        var slot = MathF.Min(fw * 0.2f, 16f);
+        var zp = fz0 + (fz1 - fz0) * 0.66f;
+        var kind = pr.Pick(Craft.Kinds);
+        for (var k = 0; k < 5 && zp + slot < fz1 - L * 0.04f; k++, zp += slot * 1.1f)
+        {
+            if (!pr.Chance(0.8)) continue;
+            var spot = new Vector3(-fw * 0.31f, top, zp + slot / 2);
+            var nose = Vector3.Normalize(new Vector3(0.6f, 0, 1));
+            if (Craft.Park(c, pr, fd.Id, spot, nose, slot * 0.85f, slot * 0.8f, slot * 0.45f, kind) is { } craft)
+                Craft.Pad(mk.Mesh, spot, nose, craft.Bounds.Size.Z * 0.8f + 1f, slot * 0.75f);
+        }
 
         // The island: the bridge tiers on the starboard edge, with a mast and radars.
         var iw = fw * r.Range(0.16f, 0.22f);

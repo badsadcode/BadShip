@@ -602,6 +602,17 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 
 ![A command section cut open](docs/images/command_decks_v0.32.png)
 
+### Hangar life (v0.37.0)
+
+Side hangar bays used to hold a coloured box "vehicle". Now they usually hold a parked craft (`Craft`) sized to the bay
+and standing on a painted landing pad, and carriers park a row of them along the port edge of the flight deck, ahead of
+the landing lane, noses angled in. Three kinds: a boxy shuttle, a winged dropship and a slim striker, with tapered
+noses and sloped windscreens, the ship's colours and accent stripe, cold engines, landing legs and navigation lights.
+Each is its own part (`type: "shuttle"`, with `kind`, `length`, `width` and `height` in the extras), its origin on the
+floor under its middle, facing along its nose: swap it for a model, or for something that flies.
+
+![Parked craft](docs/images/hangars_v0.37.png)
+
 ### Fleets with a family look (v0.36.0)
 
 Every faction now has a fleet doctrine (`Doctrine`), drawn from the faction itself: a hull form, a bridge style, pod or
@@ -670,7 +681,7 @@ triangles (medium about 7.3k, large about 13.4k); `detail=medium` gets strakes, 
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.36.0: fleet doctrines, worn ships, engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
+## Status (v0.37.0: parked craft, fleet doctrines, worn ships, engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds

@@ -461,13 +461,11 @@ public static partial class Equipment
             var stripes = Math.Max(6, (int)(bayLen / 1.1f));
             for (var i = 0; i < stripes; i += 2)
                 Box(Roles.Hazard, xFront - sx * 0.6f, xFront, ya, ya + 0.05f, z0 + bayLen * i / stripes, z0 + bayLen * (i + 1) / stripes);
-            if (r.Chance(0.6))
-            {
-                var vh = MathF.Min(2.4f, (yb - ya) * 0.4f);
-                var vz = r.Range(z0 + 1, z1 - 1 - bayLen * 0.3f);
-                Box(r.Pick(Roles.Cargo), xBack + sx * depth * 0.25f, xBack + sx * depth * 0.7f, ya, ya + vh, vz, vz + bayLen * 0.3f);
-                Box(Roles.Glass, xBack + sx * depth * 0.3f, xBack + sx * depth * 0.68f, ya + vh * 0.55f, ya + vh * 0.85f, vz + bayLen * 0.3f - 0.02f, vz + bayLen * 0.3f + 0.08f);
-            }
+            // Something parked inside: usually a small craft on a painted pad, or else crates.
+            var parked = r.Chance(0.75) ? Craft.Park(c, r, m.Id, new Vector3(xBack + sx * depth * 0.5f, ya, (z0 + z1) / 2), r.Chance(0.5) ? Vector3.UnitZ : -Vector3.UnitZ,
+                bayLen * 0.72f, depth * 0.82f, (yb - ya) * 0.8f) : null;
+            if (parked != null)
+                Craft.Pad(mesh, new Vector3(xBack + sx * depth * 0.5f, ya, (z0 + z1) / 2), Vector3.UnitZ, parked.Bounds.Size.Z + 1f, MathF.Min(depth * 0.95f, parked.Bounds.Size.X + 0.8f));
             else
             {
                 for (var i = 0; i < r.Int(2, 5); i++)
