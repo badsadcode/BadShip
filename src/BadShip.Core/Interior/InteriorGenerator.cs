@@ -615,13 +615,30 @@ public static class InteriorGenerator
                     }
                     runs.Add((cursor, zb, runs.Count == 0 ? hubId : $"{hubId}_{runs.Count}"));
                     _hub[d.Index] = hubId;
+                    // Each run in segments: the standard corridor where stairs, airlocks, lifts and cross-corridors
+                    // join it and at its ends; between those, stretches that jog sideways and widen, or open out into
+                    // a lobby. Segments meet through a wide opening; the side rooms follow the corridor's edge.
+                    var segments = new List<(float a, float b, string id)>();
                     foreach (var (a, b, id) in runs)
                     {
-                        Room(id, "corridor", d.Index, -HalfCorridor, HalfCorridor, a, b);
-                        var run = id;
-                        foreach (var s in new[] { 1f, -1f })
-                            SideRooms(d, s, a, b, program, HalfCorridor, _ => run);
+                        var segs = Segments(d, a, b, id);
+                        for (var i = 0; i < segs.Count; i++)
+                        {
+                            var (sa, sb, o, w, sid) = segs[i];
+                            Room(sid, "corridor", d.Index, o - w, o + w, sa, sb);
+                            segments.Add((sa, sb, sid));
+                            if (i > 0)
+                            {
+                                var (_, _, po, pw, pid) = segs[i - 1];
+                                var ol = MathF.Max(po - pw, o - w);
+                                var oh = MathF.Min(po + pw, o + w);
+                                Door("opening", pid, sid, d.Index, new Vector3((ol + oh) / 2, d.FloorY, sa), Vector3.UnitZ, oh - ol - 0.1f);
+                            }
+                            foreach (var side in new[] { 1f, -1f })
+                                SideRooms(d, side, sa, sb, program, side > 0 ? o + w : w - o, _ => sid);
+                        }
                     }
+                    _runs[d.Index] = segments;
                     foreach (var sec in sections) BuildSection(d, sec, program);
                 }
                 if (_liftZ is { } ez) LiftRooms(d, ez, hubId);
@@ -649,6 +666,53 @@ public static class InteriorGenerator
             }
             // Airlocks in the hull wall of the middle deck.
             Airlock(decks[_airlockDeck]);
+        }
+
+        /// <summary>
+        /// Splits a corridor run into segments (a, b, offset across the deck, half-width, id). The standard corridor
+        /// (centred, 2 m) stays where stairs, the airlock, the lift and cross-corridors join it and near the run's ends;
+        /// the free stretches between may jog sideways and widen (overlapping the standard one by 1.6 m or more, so the
+        /// opening between them is wide), or open out into a lobby. Rooms keep at least 2.5 m on both sides.
+        /// </summary>
+        private List<(float a, float b, float o, float w, string id)> Segments(DeckInfo d, float a, float b, string id)
+        {
+            var keep = new List<(float a, float b)> { (a, a + 3), (b - 3, b) };
+            if (result.Decks.Count(x => x.Part == "hull") > 1) keep.Add((_stairZ0 - 1.5f, _stairZ0 + StairLen + 1.5f));
+            if (d.Index == _airlockDeck) keep.Add((AirlockZ(d) - 1.5f, AirlockZ(d) + 4.5f));
+            if (_liftZ is { } lz) keep.Add((lz - 1.5f, lz + LiftLen + 1.5f));
+            foreach (var cz in _cross) keep.Add((cz - 1.5f, cz + 3.5f));
+            // The free stretches, in whole metres.
+            var free = new List<(float a, float b)>();
+            var cursor = a;
+            foreach (var (ka, kb) in keep.Where(k => k.b > a && k.a < b).OrderBy(k => k.a))
+            {
+                if (ka > cursor) free.Add((cursor, ka));
+                cursor = MathF.Max(cursor, kb);
+            }
+            if (b > cursor) free.Add((cursor, b));
+            var segs = new List<(float a, float b, float o, float w, string id)>();
+            var z = a;
+            void Standard(float to) { if (to - z > 0.01f) { segs.Add((z, to, 0, HalfCorridor, segs.Count == 0 ? id : $"{id}_s{segs.Count}")); z = to; } }
+            foreach (var (fa, fb) in free)
+            {
+                var s0 = MathF.Ceiling(fa);
+                while (fb - s0 >= 6)
+                {
+                    var len = MathF.Min(MathF.Round(r.Range(6f, 14f)), MathF.Floor(fb - s0));
+                    if (!r.Chance(0.55)) { s0 += len; continue; }
+                    // A jog (sideways and wider) or a lobby (wider in place), as far as the rooms either side allow.
+                    var jog = r.Chance(0.55);
+                    var o = jog ? r.Sign() * r.Pick([0.75f, 1f]) : 0f;
+                    var w = jog ? 1.75f : r.Pick([1.5f, 1.75f, 2.25f]);
+                    if (MathF.Abs(o) + w > d.HalfWidth - 2.6f) { s0 += len; continue; }
+                    Standard(s0);
+                    segs.Add((s0, s0 + len, o, w, $"{id}_s{segs.Count}"));
+                    z = s0 + len;
+                    s0 += len + MathF.Round(r.Range(2f, 6f));
+                }
+            }
+            Standard(b);
+            return segs;
         }
 
         /// <summary>Rooms along one side strip of a deck, between z0 and z1, skipping the stairwell and the airlock.</summary>
@@ -708,9 +772,43 @@ public static class InteriorGenerator
                     }
                     else
                     {
+                        // The corridor-side and hull-side edges of this strip.
+                        var cEdge = side > 0 ? x0 : x1;
+                        var hEdge = side > 0 ? x1 : x0;
+                        var depth = x1 - x0;
                         var id = $"{kind}_{_rooms.Count}";
-                        Room(id, kind, d.Index, x0, x1, z, z + l);
-                        Door("interior", id, hub(zc), d.Index, new Vector3(side * inner, d.FloorY, zc), new Vector3(side, 0, 0));
+                        var shape = depth >= 6 && l >= 5.5f && r.Chance(0.2) ? "l" : depth >= 5 && l >= 3.5f && r.Chance(0.15) ? "alcove" : "box";
+                        if (shape == "l")
+                        {
+                            // An L: the room's far corner on the hull side is a closet, opening off the room.
+                            var lc = MathF.Min(3f, MathF.Round(l * 0.4f * 2) / 2);
+                            var xm = cEdge + side * MathF.Round(depth * 0.5f * 2) / 2;
+                            var zl = z + l - lc;
+                            Room(id, kind, d.Index, x0, x1, z, zl);
+                            var leg = $"{id}_b";
+                            Room(leg, kind, d.Index, MathF.Min(cEdge, xm), MathF.Max(cEdge, xm), zl, z + l);
+                            Door("opening", id, leg, d.Index, new Vector3((cEdge + xm) / 2, d.FloorY, zl), Vector3.UnitZ, MathF.Abs(xm - cEdge) - 0.3f);
+                            var closet = $"storage_{_rooms.Count}";
+                            Room(closet, "storage", d.Index, MathF.Min(xm, hEdge), MathF.Max(xm, hEdge), zl, z + l);
+                            Door("interior", closet, id, d.Index, new Vector3((xm + hEdge) / 2, d.FloorY, zl), Vector3.UnitZ);
+                            Door("interior", id, hub((z + zl) / 2), d.Index, new Vector3(side * inner, d.FloorY, (z + zl) / 2), new Vector3(side, 0, 0));
+                        }
+                        else if (shape == "alcove")
+                        {
+                            // The room steps back from the corridor, leaving an alcove off it that the room opens onto.
+                            const float ad = 1.25f;
+                            var xa = cEdge + side * ad;
+                            var nook = $"alcove_{_rooms.Count}";
+                            Room(nook, "alcove", d.Index, MathF.Min(cEdge, xa), MathF.Max(cEdge, xa), z, z + l);
+                            Door("opening", nook, hub(zc), d.Index, new Vector3(side * inner, d.FloorY, zc), new Vector3(side, 0, 0), l - 0.3f);
+                            Room(id, kind, d.Index, MathF.Min(xa, hEdge), MathF.Max(xa, hEdge), z, z + l);
+                            Door("interior", id, nook, d.Index, new Vector3(xa, d.FloorY, zc), new Vector3(side, 0, 0));
+                        }
+                        else
+                        {
+                            Room(id, kind, d.Index, x0, x1, z, z + l);
+                            Door("interior", id, hub(zc), d.Index, new Vector3(side * inner, d.FloorY, zc), new Vector3(side, 0, 0));
+                        }
                     }
                     z += l;
                 }
@@ -1679,9 +1777,13 @@ public static class InteriorGenerator
                     else Lights(m.Mesh, box, room.Kind);
                     if (room.Kind != "gallery" && Zone(room.Kind) is { } zone && box.Size.X > 1.2f && box.Size.Z > 1.2f)
                         Shapes.BoxMinMax(m.Mesh, "zone_" + zone, new Vector3(box.Min.X + 0.35f, d.FloorY, box.Min.Z + 0.35f), new Vector3(box.Max.X - 0.35f, d.FloorY + 0.012f, box.Max.Z - 0.35f));
-                    if (room.Kind == "corridor")
+                    // Guide lines along a corridor, a little in from its walls (down its length, or across for a cross-corridor).
+                    if (room.Kind == "corridor" && box.Size.Z >= box.Size.X)
                         foreach (var s in new[] { -1f, 1f })
-                            Shapes.BoxMinMax(m.Mesh, Trim, new Vector3(s * 0.75f - 0.04f, d.FloorY, box.Min.Z + 0.2f), new Vector3(s * 0.75f + 0.04f, d.FloorY + 0.01f, box.Max.Z - 0.2f));
+                        {
+                            var x = box.Center.X + s * (box.Size.X / 2 - 0.25f);
+                            Shapes.BoxMinMax(m.Mesh, Trim, new Vector3(x - 0.04f, d.FloorY, box.Min.Z + 0.2f), new Vector3(x + 0.04f, d.FloorY + 0.01f, box.Max.Z - 0.2f));
+                        }
                     model.Markers.Add(new Marker($"room_{room.Id}", "room", m.Id, m.Pivot.Value, Vector3.UnitZ, MathF.Min(box.Size.X, box.Size.Z) / 2, 0));
                 }
                 // Door leaves: one node per door, centred in its opening.

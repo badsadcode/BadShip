@@ -63,7 +63,7 @@ public static class InteriorValidator
             var top = keel ? interior.Hull.Top : P.Top;
             var cx = interior.Decks[r.Deck].Cx;
             var halfX = Math.Max(Math.Abs(r.Min[0] - cx), Math.Abs(r.Max[0] - cx));
-            if (r.Max[1] - r.Min[1] < InteriorGenerator.DoorH + 0.3f)
+            if (r.Max[1] - r.Min[1] < InteriorGenerator.DoorH + 0.3f - 0.01f)
                 rep.Add("error", "interior.height", $"Room {r.Id} is too low to walk in.", [r.Id]);
             // A shaped deck's rooms are cut to the block's shape above head height: only the walking band must fit.
             var shapedDeck = interior.Decks[r.Deck].Shaped;

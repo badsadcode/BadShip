@@ -602,6 +602,20 @@ real front windows went from 60 to 83 (2 before v0.31). The rest are mostly bloc
 
 ![A command section cut open](docs/images/command_decks_v0.32.png)
 
+### Corridors that wander (v0.38.0)
+
+Interiors were a grid: one straight corridor down the middle of every deck, and a row of boxes either side. Now a deck's
+main corridor is a run of segments. Between the places that must stay put (the ends, the stairwell, the airlock, the
+lift and the cross-corridors), a stretch 6 to 14 m long may jog a metre to one side or widen into a lobby 3 to 4.5 m
+across; segments meet through open doorways where they overlap, and the rooms either side follow the corridor's edge.
+Rooms come in more shapes too: an L (a main room with a leg round the back, and a closet in the corner the leg leaves),
+or set back behind an alcove off the corridor (room kind `alcove`, open along its length) that the room's door opens
+onto. Corridor segments are rooms of kind `corridor` with ids ending in `_s1`, `_s2`…; an L's leg is `<room id>_b`,
+joined to its room by an opening. Every room on the 42 walk-test ships is still reachable on foot in Godot.
+`tools/render/layoutview.mjs` draws a stretch of deck from above, the corridor at eye height and a look into an alcove.
+
+![A deck with a jogging corridor, a lobby, L rooms and alcoves](docs/images/layouts_v0.38.png)
+
 ### Hangar life (v0.37.0)
 
 Side hangar bays used to hold a coloured box "vehicle". Now they usually hold a parked craft (`Craft`) sized to the bay
@@ -681,7 +695,7 @@ triangles (medium about 7.3k, large about 13.4k); `detail=medium` gets strakes, 
 (or by hand from the Actions tab): set the repository's Settings → Pages → Source to "GitHub Actions" once. Only the
 devlog, the images it uses and a front-page redirect go online.
 
-## Status (v0.37.0: parked craft, fleet doctrines, worn ships, engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
+## Status (v0.38.0: corridors that wander, parked craft, fleet doctrines, worn ships, engines with depth, surface detail, decked command sections, bridges at their glass, furnished rooms, asset-ready parts)
 
 - Citadels (flying fortresses, 3 prows × 2 keep positions × 3 undersides × keep tiers × nozzle grids).
 - Fighters and gunships (7 forms × 3 noses × a bulk dial × 8 wing styles × a span dial × 3 sizes) in a stealth "badlook" language; 0 validation errors over 3000+ seeds
