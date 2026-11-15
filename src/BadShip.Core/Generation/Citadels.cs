@@ -158,9 +158,9 @@ public static class Citadels
                 var y = housing.Cy + (j - (rows - 1) / 2f) * h / rows;
                 var a = new Vector3(x, y, zR + 0.2f);
                 var b = new Vector3(x, y, zR - nozLen);
-                Shapes.Prism(m.Mesh, Roles.DarkMechanics, a, b, rad * 0.8f, rad, 12, 0, capA: false, capB: true, capBMat: Roles.EngineGlow);
+                Nozzles.Build(c, m.Mesh, a, b, rad * 0.8f, rad);
                 // An armoured collar round each nozzle.
-                Shapes.Prism(m.Mesh, Roles.HullSecondary, a + new Vector3(0, 0, 0.5f), a - new Vector3(0, 0, nozLen * 0.35f), rad * 1.08f, rad * 1.08f, 8, MathF.PI / 8);
+                Shapes.Prism(m.Mesh, Roles.HullSecondary, a + new Vector3(0, 0, 0.5f), a - new Vector3(0, 0, nozLen * 0.35f), rad * 1.08f, rad * 1.08f, 8, MathF.PI / 8, capA: false, capB: false);
                 c.AddMarker("engine_exhaust", m, b - new Vector3(0, 0, 0.2f), -Vector3.UnitZ, rad, p.Length * 0.25f);
             }
     }

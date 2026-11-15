@@ -169,8 +169,7 @@ public static class Parts
                 }
                 // Nozzle bell with the glowing core as its end cap.
                 var zn = ze - rad * 0.55f;
-                Shapes.Prism(eng.Mesh, Roles.DarkMechanics, new Vector3(x, y, ze + 0.2f), new Vector3(x, y, zn), rad * 0.7f, rad * 0.84f, 12, 0,
-                    capA: false, capBMat: Roles.EngineGlow);
+                Nozzles.Build(c, eng.Mesh, new Vector3(x, y, ze + 0.2f), new Vector3(x, y, zn), rad * 0.7f, rad * 0.84f);
                 c.AddMarker("engine_exhaust", eng, new Vector3(x, y, zn), -Vector3.UnitZ, rad * 0.84f, rad * 8f);
             }
 

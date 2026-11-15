@@ -173,6 +173,11 @@ public sealed class BuildContext
         return Ship.Find(id) ?? Add(id, "livery", ModuleTier.Tertiary, m.Id);
     }
 
+    private string? _nozzleStyle;
+
+    /// <summary>The ship's nozzle style (see <see cref="Nozzles"/>), picked once.</summary>
+    public string NozzleStyle => _nozzleStyle ??= Nozzles.Pick(this);
+
     public Module DetailsOf(Module m)
     {
         var id = m.Id + ".details";
